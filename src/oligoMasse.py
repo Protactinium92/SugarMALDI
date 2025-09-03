@@ -25,7 +25,7 @@ from pathlib import Path
 # Constant
 
 MONOISOTOPIC_MASS = {'C': 12.000000, 'H': 1.007825, 'O': 15.994915, 'N': 14.003074}
-ADDUC_MASS = {'H+': 1.007276, 'Na+': 22.989769, 'K+': 38.963707}
+ADDUCT_MASS = {'H+': 1.007276, 'Na+': 22.989769, 'K+': 38.963707}
 WATER = {'H': 2, 'O': 1}
 LABEL_3AQ = {'C': 9, 'H': 8, 'N': 2}
 
@@ -120,43 +120,6 @@ def calc_oligo_mass(monomer_combination: List[int], monomer_masses: Dict[str, fl
     return mass
 
 
-# def generate_oligo_combinations(df: pl.DataFrame, max_mass: float) -> List[Tuple[int, int, float]]:
-#     """
-#     Generate all possible combinations of pentose and hexose residues whose molecular mass
-#     is below a given maximum mass (max_mass). Each combination is represented as a tuple
-#     (number_pentose, number_hexose, molecular_mass).
-
-#     Args:
-#         max_mass: Maximum allowed molecular mass (in atomic mass units, u).
-
-#     Returns:
-#         A list of tuples, where each tuple contains:
-#         - number of pentose residues (int)
-#         - number of hexose residues (int)
-#         - molecular mass of the combination (float)
-#     """
-#     combinations = []  # List to store valid combinations
-#     number_pentose = 0
-#     follow = True  # Flag statement to avoid infinit loop
-
-#     while follow:
-#         oligo_mass = 0
-#         number_hexose = 0 if number_pentose > 0 else 1  # Skip (0, 0) combination
-#         while oligo_mass < max_mass:
-#             oligo_mass = calc_oligo_mass(number_pentose, number_hexose)
-            
-#             #  If only pentose is used and the mass is already bigger than the limit
-#             if number_hexose == 0 and oligo_mass > max_mass:
-#                 follow = False
-#                 break
-            
-#             # Add valid combination to the list
-#             combinations.append((number_pentose, number_hexose, round(oligo_mass, 6)))
-#             number_hexose += 1
-#         number_pentose += 1
-
-#     return combinations
-
 def generate_oligo_combinations(
     monomers_df: pl.DataFrame,
     monomers_list: List[str],
@@ -223,12 +186,38 @@ def generate_oligo_combinations(
                 count += 1
 
     # Create Polars DataFrame and filter by mass threshold
-    columns = monomers_list + ["masse"]
+    columns = monomers_list + ["Oligo_mass"]
     df = pl.DataFrame(results, schema=columns,  orient="row")
     df = df.filter(
-        (pl.col("masse") >= min_mass) &
-        (pl.col("masse") <= max_mass)
+        (pl.col("Oligo_mass") >= min_mass) &
+        (pl.col("Oligo_mass") <= max_mass)
     )
+    return df
+
+
+def add_adduct_columns(
+    df: pl.DataFrame,
+    adduct_masses: Dict[str, float],
+    mass_column_name: str = "Oligo_mass"
+) -> pl.DataFrame:
+    """
+    Add columns for each adduct's total mass to a Polars DataFrame of oligomer combinations.
+
+    Args:
+        df: Polars DataFrame containing oligomer combinations and their base mass.
+            Must include a column with the base mass (default: "masse").
+        adduct_masses: Dictionary mapping adduct names to their masses (e.g., {"[M+H]+": 1.007, "[M+Na]+": 22.99}).
+        mass_column: Name of the column containing the base mass (default: "Oligo_mass").
+
+    Returns:
+        pl.DataFrame: Input DataFrame with additional columns for each adduct's total mass.
+                      New columns are named "Oligo_[adduct]".
+    """
+    label_mass = calc_mass_mol(LABEL_3AQ)
+    for adduct, adduct_mass in adduct_masses.items():
+        df = df.with_columns(
+            (pl.col(mass_column_name) + label_mass + adduct_mass).alias(f"Oligo_{adduct}")
+        )
     return df
 
 
@@ -274,8 +263,10 @@ if __name__ == "__main__":
     monomers_df = calculate_molecular_mass(monomers_df)
     print(monomers_df)
     monomers_list = list(monomers_df["Notation"])
-    combinations = generate_oligo_combinations(monomers_df, monomers_list, spectrum_threshold)
-    write_oligo_combinations_to_csv(combinations, Path("data/oligo_combinations.csv"))
+    combinations_df = generate_oligo_combinations(monomers_df, monomers_list, spectrum_threshold)
+    combinations_df = add_adduct_columns(combinations_df, ADDUCT_MASS)
+    
+    write_oligo_combinations_to_csv(combinations_df, Path("data/oligo_combinations.csv"))
 
 
 
