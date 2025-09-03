@@ -1,0 +1,10 @@
+﻿Notation;Description;C;H;O;N
+dHex;Deoxyhexose;6;12;5;0
+Hex;Hexose;6;12;6;0
+HexA;Hexuronic acid;6;10;7;0
+HexN;Hexosamine;6;13;5;1
+HexNac;N-acetyl Hexosamine;8;15;6;1
+Pent;Pentose;5;10;5;0
+Neu;Neuraminic acid;9;17;8;1
+NeuAc;N-Acetylneuraminic acid;11;19;9;1
+NeuGc;N-Glycolylneuraminic acid;11;19;10;1
