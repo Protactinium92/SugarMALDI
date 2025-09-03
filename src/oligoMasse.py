@@ -26,8 +26,6 @@ from pathlib import Path
 
 MONOISOTOPIC_MASS = {'C': 12.000000, 'H': 1.007825, 'O': 15.994915, 'N': 14.003074}
 ADDUC_MASS = {'H+': 1.007276, 'Na+': 22.989769, 'K+': 38.963707}
-# HEXOSE = {'C': 6, 'H': 12, 'O': 6}
-# PENTOSE = {'C': 5, 'H': 10, 'O': 5}
 WATER = {'H': 2, 'O': 1}
 LABEL_3AQ = {'C': 9, 'H': 8, 'N': 2}
 
@@ -100,205 +98,184 @@ def calculate_molecular_mass(
     return df.with_columns(mass_expr.alias("mass"))
 
 
-# def calc_mass_oligo(number_pentose: int = 0, number_hexose: int = 0) -> float:
-#     """
-#     Calculate the molecular mass of an oligosaccharide, accounting for pentoses,
-#     hexoses, and water loss during glycosidic bond formation.
-
-#     Args:
-#         number_pentose: Number of pentose residues in the oligosaccharide.
-#         number_hexose: Number of hexose residues in the oligosaccharide.
-
-#     Returns:
-#         Total molecular mass of the oligosaccharide, in atomic mass units (u).
-    
-#     Raises:
-#         ValueError: If neither pentose nor hexose residues are provided.
-#     """
-#     try:
-#         if number_pentose < 0 or number_hexose < 0:
-#             raise ValueError("Residue counts must be non-negative.")
-#         if number_pentose == 0 and number_hexose == 0:
-#             raise ValueError("At least one pentose or hexose residue must be provided.")
-#     except ValueError as e:
-#         raise ValueError(f"Invalid input: {e}")
-    
-#     mass_pentose = number_pentose * calc_mass_mol(PENTOSE)
-#     mass_hexose = number_hexose * calc_mass_mol(HEXOSE)
-#     return mass_pentose + mass_hexose - (number_hexose + number_pentose - 1) * calc_mass_mol(WATER)
-
-
-def generate_oligo_combinations(df: pl.DataFrame, max_mass: float) -> List[Tuple[int, int, float]]:
+def calc_oligo_mass(monomer_combination: List[int], monomer_masses: Dict[str, float]) -> float:
     """
-    Generate all possible combinations of pentose and hexose residues whose molecular mass
-    is below a given maximum mass (max_mass). Each combination is represented as a tuple
-    (number_pentose, number_hexose, molecular_mass).
+    Calculate the total mass of an oligomer from a given combination of monomers,
+    accounting for water loss during polymerization (one water molecule lost per bond).
 
     Args:
-        max_mass: Maximum allowed molecular mass (in atomic mass units, u).
+        monomer_combination: List of monomer counts (e.g., [2, 1, 0] for 2 of monomer 1, 1 of monomer 2, etc.).
+        monomer_masses: Dictionary mapping each monomer notation to its mass.
 
     Returns:
-        A list of tuples, where each tuple contains:
-        - number of pentose residues (int)
-        - number of hexose residues (int)
-        - molecular mass of the combination (float)
+        float: Total mass of the oligomer, after subtracting water loss.
     """
-    combinations = []  # List to store valid combinations
-    number_pentose = 0
-    follow = True  # Flag statement to avoid infinit loop
+    mass = sum(
+        nb_monomer_i * monomer_masses[monomer_i]
+        for nb_monomer_i, monomer_i in zip(monomer_combination, monomers_list)
+    )
+    total_monomers = sum(monomer_combination)
+    if total_monomers > 0:
+        mass -= (total_monomers - 1) * calc_mass_mol(WATER)
+    return mass
 
-    while follow:
-        oligo_mass = 0
-        number_hexose = 0 if number_pentose > 0 else 1  # Skip (0, 0) combination
-        while oligo_mass < max_mass:
-            oligo_mass = calc_mass_oligo(number_pentose, number_hexose)
+
+# def generate_oligo_combinations(df: pl.DataFrame, max_mass: float) -> List[Tuple[int, int, float]]:
+#     """
+#     Generate all possible combinations of pentose and hexose residues whose molecular mass
+#     is below a given maximum mass (max_mass). Each combination is represented as a tuple
+#     (number_pentose, number_hexose, molecular_mass).
+
+#     Args:
+#         max_mass: Maximum allowed molecular mass (in atomic mass units, u).
+
+#     Returns:
+#         A list of tuples, where each tuple contains:
+#         - number of pentose residues (int)
+#         - number of hexose residues (int)
+#         - molecular mass of the combination (float)
+#     """
+#     combinations = []  # List to store valid combinations
+#     number_pentose = 0
+#     follow = True  # Flag statement to avoid infinit loop
+
+#     while follow:
+#         oligo_mass = 0
+#         number_hexose = 0 if number_pentose > 0 else 1  # Skip (0, 0) combination
+#         while oligo_mass < max_mass:
+#             oligo_mass = calc_oligo_mass(number_pentose, number_hexose)
             
-            #  If only pentose is used and the mass is already bigger than the limit
-            if number_hexose == 0 and oligo_mass > max_mass:
-                follow = False
-                break
+#             #  If only pentose is used and the mass is already bigger than the limit
+#             if number_hexose == 0 and oligo_mass > max_mass:
+#                 follow = False
+#                 break
             
-            # Add valid combination to the list
-            combinations.append((number_pentose, number_hexose, round(oligo_mass, 6)))
-            number_hexose += 1
-        number_pentose += 1
+#             # Add valid combination to the list
+#             combinations.append((number_pentose, number_hexose, round(oligo_mass, 6)))
+#             number_hexose += 1
+#         number_pentose += 1
 
-    return combinations
+#     return combinations
 
-
-def write_oligo_combinations_to_csv(
-    combinations: List[Tuple[int, int, float]],
-    filename: str = "oligo_combinations.csv"
-) -> None:
+def generate_oligo_combinations(
+    monomers_df: pl.DataFrame,
+    monomers_list: List[str],
+    spectrum_threshold: List[int],
+) -> pd.DataFrame:
     """
-    Writes oligosaccharide combinations to a CSV file.
+    Generate all possible oligomer combinations (with monomer counts) whose total mass does not exceed a threshold.
+    Uses a stack-based approach to iteratively explore combinations and prune invalid branches early.
 
     Args:
-        combinations: List of tuples (number_pentose, number_hexose, mass_oligo) to write.
-        filename: Name of the output CSV file. Defaults to "oligo_combinations.csv".
+        monomers_df: DataFrame containing monomer data, with columns "Notation" and "mass".
+        monomers_list: List of monomer notations (e.g., ["A", "B", "C"]).
+        spectrum_threshold: Minimum and Maximum allowed mass for an oligomer combination.
 
-    Example:
-        >>> combinations = [(0, 1, 162.053), (0, 2, 322.119), (1, 0, 132.042)]
-        >>> write_oligo_combinations_to_csv(combinations)
+    Returns:
+        pd.DataFrame: A DataFrame where each row is a combination of monomer counts + its total mass.
+                      Columns: monomer notations + "masse" (total mass).
+                      Only includes combinations with mass <= spectrum_threshold.
+
+    Note:
+        The generation of all combinaison is perfomred with the backtracking algorythm
     """
-    with open(filename, 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile)
-        # Write header
-        writer.writerow(["number_pentose", "number_hexose", "mass_oligo"])
-        # Write data rows
-        writer.writerows(combinations)
+    # Check that spectrum_threshold has exactly two elements
+    if len(spectrum_threshold) != 2:
+        raise ValueError("spectrum_threshold must be a list of two floats: [min_mass, max_mass]")
+    min_mass, max_mass = spectrum_threshold
 
-
-if __name__ == "__main__":
-    monomers_df = csv_to_df(Path("data/monomers.csv"), sep =";")
-    monomers_df = calculate_molecular_mass(monomers_df)
-    spectrum_threshold = 2500  # Maximum limit of the MS
-    #combinations = generate_oligo_combinations(spectrum_threshold)
-    #write_oligo_combinations_to_csv(combinations)
-    print(monomers_df)
-    monomers_list = list(monomers_df["Notation"])
-    number_monomers = len(monomers_list)
-    # df = pd.DataFrame(columns=monomers_list)
-    
-    # mass_list = []
-    # mass = 0
-    # i = 0
-    # while mass < spectrum_threshold:
-    #     new_row = [i+1] + [0] * (len(monomers_list))
-    #     df.loc[i] = new_row
-        
-    
-    
-    # print(df)
-
-    # Crée un DataFrame vide avec les colonnes (y compris "masse")
-    df = pd.DataFrame(columns=monomers_list + ["mass_oligo"])
-
-
-    # def calc_mass_oligo(list_nb_mono, monomers_df):
-    #     mass = 0
-    #     for j, monomer in enumerate(monomers_list):
-    #         # Récupère la masse du monomère depuis monomers_df
-    #         monomer_mass =  monomers_df.filter(pl.col("Notation") == monomer)["mass"].item()
-    #         # Ajoute la contribution de ce monomère à la masse totale
-    #         mass += list_nb_mono[j] * monomer_mass
-
-    #     # Soustrait (nombre de monomères - 1) * mH2O
-    #     mass -= (sum(list_nb_mono) - 1) * calc_mass_mol(WATER)
-    #     return mass
-
-    # for mono in range(number_monomers):
-        
-    #     mass = 0
-    #     i = 0
-    #     while mass < spectrum_threshold:
-    #         # Crée la nouvelle ligne : [i+1, 0, 0, ...]
-    #         new_row_values = [0] * (number_monomers)
-    #         new_row_values[mono] = i+1
-    #         # Calcule la masse de la ligne
-    #         mass = calc_mass_oligo(new_row_values, monomers_df)
-
-    #         # Ajoute la masse calculée à la ligne
-    #         new_row_values.append(mass)
-
-    #         # Ajoute la ligne au DataFrame
-    #         df.loc[len(df)] = new_row_values
-
-    #         # Passe à l'itération suivante
-    #         i += 1
-
-    # print(df)
-
-
-    def calc_mass_oligo(counts):
-        mass = sum(count * monomer_masses[monomer] for count, monomer in zip(counts, monomers_list))
-        total_monomers = sum(counts)
-        if total_monomers > 0:
-            mass -= (total_monomers - 1) * calc_mass_mol(WATER)
-        return mass
-
-    # Liste pour stocker les résultats
-    results = []
-
-    # Utilise une pile pour générer les combinaisons
-    stack = []
-    # Chaque élément de la pile est une tuple (combinaison, index du monomère à incrémenter)
+    # List to store valid combinations and their masses
+    results: List[List] = []
+    # Stack for iterative backtracking: each element is (current_combination, next_monomer_index)
+    stack: List[tuple] = []
+    # Initialize stack with all-zero combination and starting index
     stack.append(([0] * len(monomers_list), 0))
-    monomer_masses = {
+
+    # Map monomer notation to its mass
+    monomer_masses: Dict[str, float] = {
         row["Notation"]: row["mass"]
         for row in monomers_df.iter_rows(named=True)
-        }
+    }
+
     while stack:
         current_combination, index = stack.pop()
 
         if index == len(monomers_list):
-            # Calcule la masse de la combinaison actuelle
-            mass = calc_mass_oligo(current_combination)
-            # Ajoute la combinaison et la masse aux résultats
-            results.append(current_combination + [mass])
+            # Full combination: calculate mass and store
+            mass = calc_oligo_mass(current_combination, monomer_masses)
+            results.append(current_combination + [round(mass, 6)])
         else:
-            # Essaye toutes les valeurs possibles pour ce monomère (0, 1, 2, ...)
-            # On s'arrête si la masse dépasse le seuil pour éviter les combinaisons inutiles
+            # Try all possible counts for the current monomer (0, 1, 2, ...)
             count = 0
             while True:
                 new_combination = current_combination.copy()
                 new_combination[index] = count
-                # Estime la masse minimale possible pour cette combinaison partielle
-                partial_mass = sum(new_combination[j] * monomer_masses[monomers_list[j]] for j in range(index + 1))
-                if partial_mass >= spectrum_threshold:
-                    break  # Pas besoin d'aller plus loin
+
+                # Calculate partial mass (automatically accounts for water loss)
+                partial_mass = calc_oligo_mass(new_combination, monomer_masses)
+
+                # Prune if partial mass exceeds threshold
+                if partial_mass >= max_mass:
+                    break
+
+                # Explore next monomer
                 stack.append((new_combination, index + 1))
                 count += 1
 
-    # Crée un DataFrame Pandas avec les résultats
+    # Create Polars DataFrame and filter by mass threshold
     columns = monomers_list + ["masse"]
-    df = pd.DataFrame(results, columns=columns)
+    df = pl.DataFrame(results, schema=columns,  orient="row")
+    df = df.filter(
+        (pl.col("masse") >= min_mass) &
+        (pl.col("masse") <= max_mass)
+    )
+    return df
 
-    # Filtre les lignes où la masse ne dépasse pas le seuil
-    df = df[df["masse"] <= spectrum_threshold]
 
-    print(df)
+def write_oligo_combinations_to_csv(
+    df: pl.DataFrame,
+    output_path: str,
+    separator: str = ",",
+    include_header: bool = True,
+) -> None:
+    """
+    Write a Polars DataFrame of oligomer combinations to a CSV file.
 
+    Args:
+        df: Polars DataFrame containing oligomer combinations and their masses.
+            Expected columns: monomer notations + "masse".
+        output_path: Path to the output CSV file (e.g., "output/combinations.csv").
+        separator: CSV field separator (default: ",").
+        include_header: Whether to write the column names as the first row (default: True).
+
+    Returns:
+        None
+
+    Raises:
+        ValueError: If the output directory does not exist and cannot be created.
+    """
+    # Ensure the output directory exists
+    output_dir = Path(output_path).parent
+    if output_dir and not output_dir.exists():
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Write the DataFrame to CSV
+    df.write_csv(
+        output_path,
+        separator=separator,
+        include_header=include_header
+    )
+
+
+if __name__ == "__main__":
+    spectrum_threshold = [500, 2500]  # Min / Maximum limit of the MS
+    
+    monomers_df = csv_to_df(Path("data/monomers.csv"), sep =";")
+    monomers_df = calculate_molecular_mass(monomers_df)
+    print(monomers_df)
+    monomers_list = list(monomers_df["Notation"])
+    combinations = generate_oligo_combinations(monomers_df, monomers_list, spectrum_threshold)
+    write_oligo_combinations_to_csv(combinations, Path("data/oligo_combinations.csv"))
 
 
 
