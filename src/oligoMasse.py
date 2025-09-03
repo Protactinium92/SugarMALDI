@@ -145,7 +145,7 @@ def generate_oligo_combinations(
     # Check that spectrum_threshold has exactly two elements
     if len(spectrum_threshold) != 2:
         raise ValueError("spectrum_threshold must be a list of two floats: [min_mass, max_mass]")
-    min_mass, max_mass = spectrum_threshold
+    _, max_mass = spectrum_threshold
 
     # List to store valid combinations and their masses
     results: List[List] = []
@@ -188,10 +188,8 @@ def generate_oligo_combinations(
     # Create Polars DataFrame and filter by mass threshold
     columns = monomers_list + ["Oligo_mass"]
     df = pl.DataFrame(results, schema=columns,  orient="row")
-    df = df.filter(
-        (pl.col("Oligo_mass") >= min_mass) &
-        (pl.col("Oligo_mass") <= max_mass)
-    )
+    df = df.filter((pl.col("Oligo_mass") <= max_mass))
+
     return df
 
 
