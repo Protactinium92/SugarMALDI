@@ -15,7 +15,18 @@ from pathlib import Path
 
 
 def read_spectrum(file: str, spectre_name: str, sep: str = ','):
-     return (
+    """
+    Lazy reading of the spectrum file....
+
+    Args:
+        file (str): _description_
+        spectre_name (str): _description_
+        sep (str, optional): _description_. Defaults to ','.
+
+    Returns:
+        _type_: _description_
+    """
+    return (
         pl.scan_csv(file, separator=sep)
         .select([
             pl.col("m/z"),          # Colonne des masses (clé de jointure)

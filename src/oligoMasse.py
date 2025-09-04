@@ -16,10 +16,8 @@ __date__    = "2025-09-02"
 __version__ = "1.0"
 
 # import
-import csv
-import pandas as pd
 import polars as pl
-from typing import Dict, List, Tuple
+from typing import Dict, List, Set, Union
 from pathlib import Path
 
 # Constant
@@ -117,14 +115,27 @@ def calc_oligo_mass(monomer_combination: List[int], monomer_masses: Dict[str, fl
     total_monomers = sum(monomer_combination)
     if total_monomers > 0:
         mass -= (total_monomers - 1) * calc_mass_mol(WATER)
-    return mass
+    return round(mass, 6)
+
+
+def ensure_lazy(df: Union[pl.DataFrame, pl.LazyFrame]) -> pl.LazyFrame:
+    """
+    Convert input to a Polars LazyFrame if it is not already lazy.
+
+    Args:
+        df: Polars DataFrame or LazyFrame.
+
+    Returns:
+        LazyFrame version of the input.
+    """
+    return df if isinstance(df, pl.LazyFrame) else df.lazy()
 
 
 def generate_oligo_combinations(
     monomers_df: pl.DataFrame,
     monomers_list: List[str],
     spectrum_threshold: List[int],
-) -> pd.DataFrame:
+) -> pl.LazyFrame:
     """
     Generate all possible oligomer combinations (with monomer counts) whose total mass does not exceed a threshold.
     Uses a stack-based approach to iteratively explore combinations and prune invalid branches early.
@@ -135,7 +146,7 @@ def generate_oligo_combinations(
         spectrum_threshold: Minimum and Maximum allowed mass for an oligomer combination.
 
     Returns:
-        pd.DataFrame: A DataFrame where each row is a combination of monomer counts + its total mass.
+        pl.LazyFrame: A DataFrame where each row is a combination of monomer counts + its total mass.
                       Columns: monomer notations + "masse" (total mass).
                       Only includes combinations with mass <= spectrum_threshold.
 
@@ -150,9 +161,9 @@ def generate_oligo_combinations(
     # List to store valid combinations and their masses
     results: List[List] = []
     # Stack for iterative backtracking: each element is (current_combination, next_monomer_index)
-    stack: List[tuple] = []
-    # Initialize stack with all-zero combination and starting index
-    stack.append(([0] * len(monomers_list), 0))
+    # Initialize stack with all-zero combination, starting index and partial masss
+    stack: List[tuple] = [([0] * len(monomers_list), 0, 0.0)]
+     
 
     # Map monomer notation to its mass
     monomer_masses: Dict[str, float] = {
@@ -161,12 +172,11 @@ def generate_oligo_combinations(
     }
 
     while stack:
-        current_combination, index = stack.pop()
+        current_combination, index, partial_mass = stack.pop()
 
         if index == len(monomers_list):
             # Full combination: calculate mass and store
-            mass = calc_oligo_mass(current_combination, monomer_masses)
-            results.append(current_combination + [round(mass, 6)])
+            results.append(current_combination + [partial_mass])
         else:
             # Try all possible counts for the current monomer (0, 1, 2, ...)
             count = 0
@@ -182,22 +192,22 @@ def generate_oligo_combinations(
                     break
 
                 # Explore next monomer
-                stack.append((new_combination, index + 1))
+                stack.append((new_combination, index + 1, round(partial_mass, 6)))
                 count += 1
 
     # Create Polars DataFrame and filter by mass threshold
     columns = monomers_list + ["Oligo_mass"]
-    df = pl.DataFrame(results, schema=columns,  orient="row")
+    df = pl.DataFrame(results, schema=columns,  orient="row").lazy()
     df = df.filter((pl.col("Oligo_mass") <= max_mass))
 
     return df
 
 
 def add_adduct_columns(
-    df: pl.DataFrame,
+    df: Union[pl.DataFrame, pl.LazyFrame],
     adduct_masses: Dict[str, float],
     mass_column_name: str = "Oligo_mass"
-) -> pl.DataFrame:
+) -> pl.LazyFrame:
     """
     Add columns for each adduct's total mass to a Polars DataFrame of oligomer combinations.
 
@@ -208,19 +218,99 @@ def add_adduct_columns(
         mass_column: Name of the column containing the base mass (default: "Oligo_mass").
 
     Returns:
-        pl.DataFrame: Input DataFrame with additional columns for each adduct's total mass.
+        pl.LazyFrame: Input LazyFrame with additional columns for each adduct's total mass.
                       New columns are named "Oligo_[adduct]".
     """
+    df_lazy = ensure_lazy(df)
+
     label_mass = calc_mass_mol(LABEL_3AQ)
-    for adduct, adduct_mass in adduct_masses.items():
-        df = df.with_columns(
-            (pl.col(mass_column_name) + label_mass + adduct_mass).alias(f"Oligo_{adduct}")
+    # Build all adduct columns in one call using list comprehension
+    adduct_columns = [
+        (pl.col(mass_column_name) + label_mass + adduct_mass).alias(f"Oligo_{adduct}")
+        for adduct, adduct_mass in adduct_masses.items()
+    ]
+
+    # Add all columns lazily
+    return df_lazy.with_columns(adduct_columns)
+
+
+def add_column_id(df: pl.LazyFrame, monomers: List[str]) -> pl.LazyFrame:
+    """
+    Adds a 'column_id' column to the LazyFrame by concatenating the specified columns with "-".
+    The 'column_id' column is moved to the first position.
+
+    Args:
+        df: Input Polars LazyFrame.
+        monomers: List of column names to concatenate.
+
+    Returns:
+        Polars LazyFrame with 'column_id' as the first column.
+    """
+    
+    df_lazy = ensure_lazy(df)
+    column_names = df.collect_schema().names()
+    df_lazy = (df_lazy
+               .with_columns(pl.concat_str(monomers, separator="-").alias("column_id"))
+               .select(["column_id"] + column_names)
+    )
+    return df_lazy
+
+
+def get_duplicate(
+    df: Union[pl.DataFrame, pl.LazyFrame],
+    id_col: str = "column_id",
+    columns_to_check: List[str] | None = None) -> List[str]:
+    """
+    Returns a set of `id_col` values corresponding to rows that contain 
+    at least one value that appears more than once in any of the specified columns.
+    
+    Fully lazy and vectorized horizontal version:
+
+    Args:
+        df (pl.DataFrame): The Polars DataFrame to analyze.
+        id_col (str, optional): The name of the unique identifier column. Defaults to "column_id".
+        columns_to_check (List[str] | None, optional): List of columns to check for duplicated values.
+            If None, use the key of ADDUCT_MASS dict.
+
+    Returns:
+        List[str]: A list of `id_col` values for rows containing duplicated values.
+    """
+    if columns_to_check is None:
+        columns_to_check = [f'Oligo_{key}' for key in list(ADDUCT_MASS.keys())]
+
+    # Convert to lazy frame
+    df_lazy = ensure_lazy(df)
+
+    # Step 1: For each column, find which values appear more than once (lazy, vectorized)
+    duplicated_values_exprs = [
+        pl.col(c).is_in(  # rerurn bool for each row, whether the value in column c is in the given set of values
+            df_lazy.select(pl.col(c), allow_object=True)
+                   .group_by(c)  # separate DataFrame into groups of identical values.
+                   .agg(pl.len().alias("cnt"))  # count how many rows are in each group.
+                   .filter(pl.col("cnt") > 1)
+                   .collect()[c]
+                   .to_list()
         )
-    return df
+        for c in columns_to_check
+    ]
+
+    # Step 2: Combine all boolean masks horizontally with pl.any_horizontal
+    mask_global = pl.any_horizontal(duplicated_values_exprs)
+
+    # Step 3: Filter original DataFrame lazily and collect id_col values
+    duplicate_ids = (
+        df_lazy.filter(mask_global)
+               .select(id_col)
+               .unique()
+               .collect()[id_col]
+               .to_list()
+    )
+
+    return duplicate_ids
 
 
 def write_oligo_combinations_to_csv(
-    df: pl.DataFrame,
+    df: Union[pl.DataFrame, pl.LazyFrame],
     output_path: str,
     separator: str = ",",
     include_header: bool = True,
@@ -246,6 +336,8 @@ def write_oligo_combinations_to_csv(
     if output_dir and not output_dir.exists():
         output_dir.mkdir(parents=True, exist_ok=True)
 
+    df = df.collect() if isinstance(df, pl.LazyFrame) else df
+
     # Write the DataFrame to CSV
     df.write_csv(
         output_path,
@@ -255,14 +347,25 @@ def write_oligo_combinations_to_csv(
 
 
 if __name__ == "__main__":
-    spectrum_threshold = [500, 2500]  # Min / Maximum limit of the MS
+    spectrum_threshold = [500, 1000]  # Min / Maximum limit of the MS
     
     monomers_df = csv_to_df(Path("data/monomers.csv"), sep =";")
     monomers_df = calculate_molecular_mass(monomers_df)
     print(monomers_df)
     monomers_list = list(monomers_df["Notation"])
-    combinations_df = generate_oligo_combinations(monomers_df, monomers_list, spectrum_threshold)
-    combinations_df = add_adduct_columns(combinations_df, ADDUCT_MASS)
-    
+    print(f'Generation of comination please wait')
+    combinations_df = (
+        generate_oligo_combinations(monomers_df, monomers_list, spectrum_threshold)
+        .pipe(add_adduct_columns, ADDUCT_MASS)
+        .pipe(add_column_id, monomers_list)
+    )
+
+    size_combination = combinations_df.select(pl.len()).collect().item()
     write_oligo_combinations_to_csv(combinations_df, Path("data/oligo_combinations.csv"))
+
+    print(f'Calculation of mass duplicates please wait')
+
+    duplicate_ids = get_duplicate(combinations_df)
+    print(f'Size of cobination: {size_combination:,} include {len(duplicate_ids):,} duplicates')
+
     
