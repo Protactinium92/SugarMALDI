@@ -9,6 +9,13 @@
 
     The corresponding mass-to-charge ratio (m/z) is given by:
         m/z = x·m(Pentose) + y·m(Hexose) - (x + y - 1)·m(H2O)
+
+    The label used is the 3-AQ, which is involved in a condensation reaction with the reducing end
+    of the oligosaccharide.
+
+    Adduct mass are added at the end of the process.
+
+    
 """
 
 __author__  = "Pierre-Alexandre HO"
@@ -17,7 +24,7 @@ __version__ = "1.0"
 
 # import
 import polars as pl
-from typing import Dict, List, Set, Union
+from typing import Dict, List, Set, Union, Tuple
 from pathlib import Path
 
 # Constant
@@ -226,7 +233,7 @@ def add_adduct_columns(
     label_mass = calc_mass_mol(LABEL_3AQ)
     # Build all adduct columns in one call using list comprehension
     adduct_columns = [
-        (pl.col(mass_column_name) + label_mass + adduct_mass).alias(f"Oligo_{adduct}")
+        (pl.col(mass_column_name) + label_mass + adduct_mass).round(6).alias(f"Oligo_{adduct}")
         for adduct, adduct_mass in adduct_masses.items()
     ]
 
@@ -309,7 +316,56 @@ def get_duplicate(
     return duplicate_ids
 
 
-def write_oligo_combinations_to_csv(
+def reduce_row(
+    combinations_df: pl.DataFrame | pl.LazyFrame,
+    duplicate_ids: list[str],
+) -> pl.DataFrame | pl.LazyFrame:
+    """
+    Clean the dataframe by:
+      - keeping all rows whose `column_id` is not duplicated,
+      - keeping only the first occurrence of rows whose `column_id` belongs 
+        to the duplicated set (based on identical masses).
+
+    Args:
+        combinations_df (pl.DataFrame | pl.LazyFrame): 
+            Input DataFrame containing oligomer combinations.
+        duplicate_ids (list[str]): 
+            List of `column_id` values that correspond to duplicated masses.
+
+    Returns:
+        pl.DataFrame | pl.LazyFrame:
+            Cleaned DataFrame with:
+              - a new column 'Duplicate' tagging each row as "Unique" or "Duplicate",
+              - one row per duplicated mass group (first occurrence only).
+    """
+
+    # Convert to lazy frame
+    combinations_df = ensure_lazy(combinations_df)
+
+    # Keep all unique rows
+    unique = (
+        combinations_df
+        .filter(~pl.col("column_id").is_in(duplicate_ids))
+        .with_columns(pl.lit("Unique").alias("Duplicate"))
+    )
+
+    # Keep only first occurrence of duplicate rows
+    duplicate = (
+        combinations_df
+        .filter(pl.col("column_id").is_in(duplicate_ids))
+        .unique(
+            subset=[f"Oligo_{key}" for key in ADDUCT_MASS.keys()],
+            keep="first",
+            maintain_order=True,
+        )
+        .with_columns(pl.lit("Duplicate").alias("Duplicate"))
+    )
+
+    # Concatenate both
+    return pl.concat([unique, duplicate])
+
+
+def write_pl_df_to_csv(
     df: Union[pl.DataFrame, pl.LazyFrame],
     output_path: str,
     separator: str = ",",
@@ -347,13 +403,16 @@ def write_oligo_combinations_to_csv(
 
 
 if __name__ == "__main__":
-    spectrum_threshold = [500, 1000]  # Min / Maximum limit of the MS
+    spectrum_threshold = [500, 4000]  # Min / Maximum limit of the MS
     
+    # Monomers treatement
     monomers_df = csv_to_df(Path("data/monomers.csv"), sep =";")
     monomers_df = calculate_molecular_mass(monomers_df)
     print(monomers_df)
     monomers_list = list(monomers_df["Notation"])
-    print(f'Generation of comination please wait')
+
+    # Generation of all combination
+    print(f'Generation of combination please wait')
     combinations_df = (
         generate_oligo_combinations(monomers_df, monomers_list, spectrum_threshold)
         .pipe(add_adduct_columns, ADDUCT_MASS)
@@ -361,11 +420,17 @@ if __name__ == "__main__":
     )
 
     size_combination = combinations_df.select(pl.len()).collect().item()
-    write_oligo_combinations_to_csv(combinations_df, Path("data/oligo_combinations.csv"))
+    write_pl_df_to_csv(combinations_df, Path("data/oligo_combinations.csv"))
 
+    # Duplicate treatment
     print(f'Calculation of mass duplicates please wait')
-
     duplicate_ids = get_duplicate(combinations_df)
-    print(f'Size of cobination: {size_combination:,} include {len(duplicate_ids):,} duplicates')
+    print(f'Size of cobination: {size_combination:,} include {len(duplicate_ids):,} lines with '
+          'at least one mass identic to another one in the table')
 
-    
+    # Clean dataframe
+    print(f'Datacuration please wait')
+    final_oligomers = reduce_row(combinations_df, duplicate_ids).collect()
+    print(f"Final size of the database: {len(final_oligomers):,} * {len(ADDUCT_MASS)} mass")
+    write_pl_df_to_csv(final_oligomers, Path("data/oligo_combinations_clean.csv"))
+
