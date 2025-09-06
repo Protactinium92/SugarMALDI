@@ -46,7 +46,7 @@ def parse_spectra(dir: str, files:list):
 
 
 def plot_spectrum(spectrum):
-    fig = px.bar(spectrum, x=list(spectrum['m/z']), y=list(spectrum['Intensity']))
+    fig = px.line(spectrum, x=list(spectrum['m/z']), y=list(spectrum['Intensity']))
     fig.show
 
 
