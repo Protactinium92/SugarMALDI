@@ -11,4 +11,5 @@ dependencies = [
     "pandas>=2.3.2",
     "plotly>=6.3.0",
     "polars>=1.33.0",
+    "scipy>=1.16.1",
 ]
