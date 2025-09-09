@@ -40,22 +40,23 @@ def read_spectrum(file: str, spectre_name: str, sep: str = ','):
 
 
 
-def parse_spectra(dir: str, files:list):
+def parse_spectra(files, dir: str = None):
     dfs = []
-    for i, file in enumerate(files):
-        spectrum_path = os.path.join(dir, file)
-        dfs.append(read_spectrum(spectrum_path, f'Spectrum_{i}'))
+    for file in files:
+        if isinstance(file, str):
+            file = os.path.join(dir, file)
+            spectre_name = file.replace('.csv', '').replace(' ', '_')
+        else: # if uploader file from streamlit
+            spectre_name = file.name.replace('.csv', '').replace(' ', '_')
+        dfs.append(read_spectrum(file, spectre_name))
     
     # Fusionne tous les DataFrames
     df_combined = dfs[0]
     for df in dfs[1:]:
         df_combined = df_combined.join(df, on="m/z", how="full", coalesce=True)
 
-    # Exécute le plan et charge les données
-    df_combined = df_combined.collect()
-
     # Remplace les valeurs manquantes par 0 (après collect)
-    return df_combined.fill_null(0)
+    return df_combined.collect().fill_null(0)
 
 
 #def plot_spectrum()
@@ -65,5 +66,5 @@ if __name__ == "__main__":
     
     dir = "data/standards/"
     files = [f for f in os.listdir(dir) if f.endswith(".csv")]
-    spectra = parse_spectra(dir, files)
+    spectra = parse_spectra(files, dir)
     print(spectra.head(5))
