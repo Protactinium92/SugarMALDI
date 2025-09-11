@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import io, base64
 import numpy as np
-from scipy.signal import find_peaks as fp
+from functools import partial
 
 
 def upload_files() -> pl.DataFrame:
@@ -79,20 +79,10 @@ def make_background_b64(x: np.ndarray, y: np.ndarray, figsize=(12,4), dpi=150):
     return f"data:image/png;base64,{b64}", float(x.min()), float(x.max()), float(y.min()), float(y.max())
 
 
-
-@st.cache_data
-def find_all_peaks(intensity: np.ndarray, height=None, distance=None):
-    # Renvoie les indices des peaks
-    peaks, _ = fp(intensity, height=height, distance=distance)
-    return peaks
-
-
 # --- peak picking simple (local maxima + top_k) ---
 @st.cache_data
-def detect_peaks_polars(df: pl.DataFrame, mass_col: str, intensity_col: str, top_k: int, quantile_thresh: float):
-    qval = float(df[intensity_col].quantile(quantile_thresh))
-    df_filtered = df.filter(pl.col(intensity_col) >= qval)
-    df_filtered = df_filtered.sort(intensity_col, descending=True).head(top_k).sort(mass_col)
+def detect_peaks_polars(df: pl.DataFrame, mass_col: str, intensity_col: str, top_k: int):
+    df_filtered = df.sort(intensity_col, descending=True).head(top_k).sort(mass_col)
     return df_filtered
 
 
@@ -112,7 +102,7 @@ def build_plotly_figure(bg_src, mass_col: str, intensity_col: str, x_min, x_max,
         x=df_peaks[mass_col].to_numpy(),
         y=df_peaks[intensity_col].to_numpy(),
         mode="markers",
-        marker=dict(size=1),
+        marker=dict(size=4, color='red'),
 
         # mode="lines",  # Affiche uniquement les lignes (pas de markers)
         # line=dict(width=1),
@@ -143,55 +133,46 @@ if __name__ == "__main__":
         selected_col_name = st.selectbox("Sélectionner le spectre à visualiser", other_cols)
 
         # Créer un DataFrame avec m/z + spectre choisi
-        spectrum_0 = spectra.select([mz_col_name, selected_col_name]) 
+        spectrum = spectra.select([mz_col_name, selected_col_name]) 
 
-        x_all = spectrum_0[mz_col_name].to_numpy()
-        y_all = spectrum_0[selected_col_name].to_numpy()
-        
+        x_all = spectrum[mz_col_name].to_numpy()
+        y_all = spectrum[selected_col_name].to_numpy()
         
         # UI controls
         col1, col2 = st.columns([3,1])
         with col2:
-            top_k = st.slider("Nombre de pics (top K)", 100, 5000, 1000, step=100)
-            q = st.slider("Seuil quantile", 0.90, 0.999, 0.99, step=0.001)
+            top_k = st.slider("Nombre de pics (top K)", 1, 500, 500, step=1)
+            dist_min = st.number_input("Distance m/z min between peak", value=15, step=1)
+            window = st.number_input("Sub-window for looking peak", value=500, step=1)
             dpi = st.selectbox("DPI image (qualité)", [100, 150, 200, 300], index=1)
 
-        # Optionnel : zoom window (re-génère image pour la fenêtre) 
-        use_window = st.checkbox("Activer fenêtre m/z pour re-générer fond (meilleur rendu au zoom)", value=False)
-        if use_window:
-            mz_min, mz_max = st.slider("Fenêtre m/z", float(x_all.min()), float(x_all.max()),
-                                    (float(x_all.min()), float(x_all.max())))
-            mask = (spectrum_0[mz_col_name] >= mz_min) & (spectrum_0[mz_col_name] <= mz_max)
-            sub = spectrum_0.filter(mask)
-            x = sub[mz_col_name].to_numpy()
-            y = sub[selected_col_name].to_numpy()
-        else:
-            sub = spectrum_0
-            x = x_all; y = y_all
-
+        mz_min, mz_max = st.slider("Use the slider to zoom with a better rendering", float(x_all.min()), float(x_all.max()),
+                                (float(x_all.min()), float(x_all.max())))
+        mask = (spectrum[mz_col_name] >= mz_min) & (spectrum[mz_col_name] <= mz_max)
+        spectrum = spectrum.filter(mask)
+        x = spectrum[mz_col_name].to_numpy()
+        y = spectrum[selected_col_name].to_numpy()
+        
         # make background image
         bg_src, x_min, x_max, y_min, y_max = make_background_b64(x, y, dpi=dpi)
 
-        peak_indices = find_all_peaks(sub[selected_col_name])
-        spectrum_peaks = sub[peak_indices]
+        # As the interval of the m/z is not regular
+        # Search peaks in smaller window
+
+        spectrum_peaks = sp_ana.extract_peaks_all_windows(
+            spectrum,
+            mz_col_name,
+            selected_col_name,
+            window,
+            dist_min
+        )
+
         df_peaks = detect_peaks_polars(
             spectrum_peaks,
             mz_col_name,
             selected_col_name,
-            top_k=top_k,
-            quantile_thresh=q)
+            top_k=top_k)
+        
         fig = build_plotly_figure(bg_src, mz_col_name,
             selected_col_name, x_min, x_max, y_min, y_max, df_peaks)
         st.plotly_chart(fig, use_container_width=True)
-
-        # Too heavy
-        # fig = build_plotly_figure(bg_src, mz_col_name,
-        #     selected_col_name, x_min, x_max, y_min, y_max, spectrum_0)
-        # st.plotly_chart(fig, use_container_width=True)
-
-    
-    
-
-
-
-
