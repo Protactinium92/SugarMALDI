@@ -81,7 +81,7 @@ def make_background_b64(x: np.ndarray, y: np.ndarray, figsize=(12,4), dpi=150):
 
 # --- peak picking simple (local maxima + top_k) ---
 @st.cache_data
-def detect_peaks_polars(df: pl.DataFrame, mass_col: str, intensity_col: str, top_k: int):
+def filter_top_peak(df: pl.DataFrame, mass_col: str, intensity_col: str, top_k: int):
     df_filtered = df.sort(intensity_col, descending=True).head(top_k).sort(mass_col)
     return df_filtered
 
@@ -130,7 +130,26 @@ if __name__ == "__main__":
         other_cols = spectra.columns[1:]
 
         # Choisir une colonne parmi celles-ci (UI Streamlit par exemple)
-        selected_col_name = st.selectbox("Sélectionner le spectre à visualiser", other_cols)
+        selected_col_name = st.selectbox("Select spectrum", other_cols)
+
+        with st.expander("⚙️ Advanced options", expanded=False):
+            col1, col2 = st.columns([1,1])
+            with col1:
+                window = st.number_input("Sub-window for looking peak", value=500, step=1)
+                dist_min = st.number_input("Distance m/z min between peak", value=15, step=1)
+            with col2:
+                top_k = st.slider("Show number of peaks (top K)", 1, 500, 500, step=1)
+                dpi = st.selectbox("Image DPI (quality)", [100, 150, 200, 300], index=1)
+             
+        peaks_dict = sp_ana.extract_and_detect_peaks(
+            spectra,
+            mz_col_name,
+            other_cols,
+            window,
+            dist_min
+        )
+
+        # Show only the Top k peaks in the selected zone
 
         # Créer un DataFrame avec m/z + spectre choisi
         spectrum = spectra.select([mz_col_name, selected_col_name]) 
@@ -139,12 +158,6 @@ if __name__ == "__main__":
         y_all = spectrum[selected_col_name].to_numpy()
         
         # UI controls
-        col1, col2 = st.columns([3,1])
-        with col2:
-            top_k = st.slider("Nombre de pics (top K)", 1, 500, 500, step=1)
-            dist_min = st.number_input("Distance m/z min between peak", value=15, step=1)
-            window = st.number_input("Sub-window for looking peak", value=500, step=1)
-            dpi = st.selectbox("DPI image (qualité)", [100, 150, 200, 300], index=1)
 
         mz_min, mz_max = st.slider("Use the slider to zoom with a better rendering", float(x_all.min()), float(x_all.max()),
                                 (float(x_all.min()), float(x_all.max())))
@@ -156,23 +169,15 @@ if __name__ == "__main__":
         # make background image
         bg_src, x_min, x_max, y_min, y_max = make_background_b64(x, y, dpi=dpi)
 
-        # As the interval of the m/z is not regular
-        # Search peaks in smaller window
-
-        spectrum_peaks = sp_ana.extract_peaks_all_windows(
-            spectrum,
-            mz_col_name,
-            selected_col_name,
-            window,
-            dist_min
-        )
-
-        df_peaks = detect_peaks_polars(
-            spectrum_peaks,
+        df_peaks = filter_top_peak(
+            peaks_dict[selected_col_name],
             mz_col_name,
             selected_col_name,
             top_k=top_k)
+
         
         fig = build_plotly_figure(bg_src, mz_col_name,
             selected_col_name, x_min, x_max, y_min, y_max, df_peaks)
         st.plotly_chart(fig, use_container_width=True)
+
+

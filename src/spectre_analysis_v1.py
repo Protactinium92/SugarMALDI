@@ -14,15 +14,12 @@ import polars as pl
 import os
 import numpy as np
 
+
+from typing import Dict, Optional
 from pathlib import Path
-from joblib import Memory
 from scipy.signal import find_peaks as fp
 
 
-# TODO: Change spectrum name f'Spectrum_{i} in parse_spectra by the file name
-memory = Memory("cache_dir", verbose=0)
-
-@memory.cache
 def read_spectrum(file: str, spectre_name: str, sep: str = ','):
     """
     Lazy reading of the spectrum file....
@@ -42,6 +39,20 @@ def read_spectrum(file: str, spectre_name: str, sep: str = ','):
             pl.col("Intensity").alias(spectre_name)        # Colonne d'intensité renommée
         ])
     )
+
+
+def read_csv(file:str, sep: str = ','):
+    """
+    Read a lambda csv file
+
+    Args:
+        file (str): _description_
+        sep (str, optional): _description_. Defaults to ','.
+
+    Returns:
+        _type_: _description_
+    """
+    return pl.scan_csv(file, separator=sep)
 
 
 def parse_spectra(files, dir: str = None):
@@ -80,7 +91,7 @@ def make_window(df, column_name: str, step: int | float):
     )
 
 
-def find_all_peaks(intensity: np.ndarray, interval, prominence=None, height=None, distance=15):
+def find_all_peaks(intensity: np.ndarray, interval, prominence=2e5, height=None, distance=15):
     # in fp the distance correspond to the indice of the list
     # Convert real distance value m/z into the distance indice
     # max 1 avoid the risk to have distance < 1 indice
@@ -129,10 +140,42 @@ def extract_peaks_all_windows(df: pl.DataFrame, mz_col: str, intensity_col: str,
     return df[[mz_col, intensity_col]][all_idx,:]
 
 
+def extract_and_detect_peaks(
+    spectra: pl.DataFrame,
+    mz_col_name: str,
+    intensity_cols: list,
+    window: float,
+    dist_min: float,
+    progress: bool = True
+) -> Dict[str, pl.DataFrame]:
+    """
+    Extracts and detects peaks for all intensity columns in the spectra DataFrame.
 
+    Args:
+        spectra: Polars DataFrame containing m/z and intensity columns.
+        mz_col_name: Name of the m/z column.
+        intensity_cols: List of spectra
+        window: Window size for peak extraction.
+        dist_min: Minimum distance between peaks.
+        top_k: Number of top peaks to keep per window.
 
+    Returns:
+        Dictionary mapping each intensity column name to its detected peaks DataFrame.
+    """
 
-#def plot_spectrum()
+    if not intensity_cols:
+        raise ValueError("No intensity columns found in spectra (except m/z).")
+
+    peaks_dict = {}
+
+    for column in intensity_cols:
+    
+        spectrum_peaks = extract_peaks_all_windows(
+            spectra, mz_col_name, column, window, dist_min
+        )
+        peaks_dict[column] = spectrum_peaks
+        
+    return peaks_dict
 
 
 if __name__ == "__main__":
@@ -141,3 +184,4 @@ if __name__ == "__main__":
     files = [f for f in os.listdir(dir) if f.endswith(".csv")]
     spectra = parse_spectra(files, dir)
     print(spectra.head(5))
+
