@@ -15,7 +15,7 @@ import os
 import numpy as np
 
 
-from typing import Dict, Optional
+from typing import Dict, List
 from pathlib import Path
 from scipy.signal import find_peaks as fp
 
@@ -52,6 +52,8 @@ def read_csv(file:str, sep: str = ','):
     Returns:
         _type_: _description_
     """
+    if not file.exists():
+        raise FileNotFoundError(f"File not found: {file}")
     return pl.scan_csv(file, separator=sep)
 
 
@@ -146,7 +148,6 @@ def extract_and_detect_peaks(
     intensity_cols: list,
     window: float,
     dist_min: float,
-    progress: bool = True
 ) -> Dict[str, pl.DataFrame]:
     """
     Extracts and detects peaks for all intensity columns in the spectra DataFrame.
@@ -178,10 +179,101 @@ def extract_and_detect_peaks(
     return peaks_dict
 
 
+def match_oligos(
+    dico_peak: Dict[str, pl.DataFrame],
+    library: pl.DataFrame,
+    offset: float
+) -> List[pl.DataFrame]:
+    """
+    Match each mass in a spectrum to oligomers in a library within ±offset.
+    Returns a dictionary of DataFrames (one per spectrum) with matches, including:
+    - All original library columns (except temporary ones)
+    - Added columns: 'query_mass', 'Adduct', 'mass_diff'
+
+    Args:
+        dico_peak: Dict of spectra (key: spectrum name, value: DataFrame with 'm/z' column).
+        library: DataFrame with columns 'Oligo_H+', 'Oligo_Na+', 'Oligo_K+'.
+        offset: Mass tolerance for matching.
+
+    Returns:
+        Dict[str, pl.DataFrame]: {spectrum_name: matches_df}
+    """
+    results = {}
+
+    for spectrum_name, spectrum_df in dico_peak.items():
+        # Extract mass list (assuming column 0 is 'm/z')
+        mass_list = spectrum_df[spectrum_df.columns[0]].to_numpy()
+        intensity_list = spectrum_df[spectrum_df.columns[1]].to_numpy()
+        matched_oligos = []
+
+        for mass, intensity in zip(mass_list, intensity_list):
+            # --- Step 1: Filter candidates ---
+            candidates = library.filter(
+                (pl.col("Oligo_H+").is_between(mass - offset, mass + offset)) |
+                (pl.col("Oligo_Na+").is_between(mass - offset, mass + offset)) |
+                (pl.col("Oligo_K+").is_between(mass - offset, mass + offset))
+            )
+
+            # --- Step 2: Compute differences ---
+            candidates_with_diff = candidates.with_columns(
+                pl.lit(mass).alias("query_mass"),
+                pl.lit(intensity).alias("intensity"),
+                (pl.col("Oligo_H+") - mass).abs().alias("diff_H"),
+                (pl.col("Oligo_Na+") - mass).abs().alias("diff_Na"),
+                (pl.col("Oligo_K+") - mass).abs().alias("diff_K")
+            )
+
+            # --- Step 3: Find best match ---
+            best_match = (
+                candidates_with_diff
+                .with_columns(pl.min_horizontal("diff_H", "diff_Na", "diff_K").alias("mass_diff"))
+                .filter(pl.col("mass_diff") == pl.col("mass_diff").min())
+                .with_columns(
+                    pl.when(pl.col("diff_H") == pl.col("mass_diff")).then(pl.lit("H+"))
+                     .when(pl.col("diff_Na") == pl.col("mass_diff")).then(pl.lit("Na+"))
+                     .otherwise(pl.lit("K+")).alias("Adduct")
+                )
+                # Select relevant columns (exclude temporary ones)
+                .select([
+                    pl.exclude("diff_H", "diff_Na", "diff_K"),  # Keep all original columns
+                    #"query_mass", "Adduct", "mass_diff"
+                ])
+            )
+
+            matched_oligos.append(best_match)
+
+        # Concatenate all matches for this spectrum
+        if matched_oligos:
+            results[spectrum_name] = pl.concat(matched_oligos)
+        else:
+            results[spectrum_name] = pl.DataFrame(schema={
+                "query_mass": pl.Float64,
+                "Adduct": pl.Utf8,
+                "mass_diff": pl.Float64
+            })
+
+    return results
+
+
+def compare_to_library(dico_peak, offset, unique:bool = True):
+   
+    library_oligo_unic = read_csv(Path(__file__).parents[1]/"data"/"oligo_combinations_clean.csv", sep=",")
+    library_oligo_unic = library_oligo_unic.sort(pl.col("Oligo_mass"), descending=False)
+
+    return match_oligos(dico_peak, library_oligo_unic, offset)
+
+
+
+
 if __name__ == "__main__":
     
     dir = "data/standards/"
     files = [f for f in os.listdir(dir) if f.endswith(".csv")]
     spectra = parse_spectra(files, dir)
     print(spectra.head(5))
+
+    library_oligo_unic = read_csv(Path(__file__).parents[1]/"data"/"oligo_combinations_clean.csv", sep=",")
+    library_oligo_unic = library_oligo_unic.sort(pl.col("Oligo_mass"), descending=False)
+
+    print(library_oligo_unic.collect().head(5))
 

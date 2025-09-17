@@ -14,7 +14,8 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import io, base64
 import numpy as np
-from functools import partial
+from pathlib import Path
+
 
 
 def upload_files() -> pl.DataFrame:
@@ -132,7 +133,7 @@ if __name__ == "__main__":
         # Choisir une colonne parmi celles-ci (UI Streamlit par exemple)
         selected_col_name = st.selectbox("Select spectrum", other_cols)
 
-        with st.expander("⚙️ Advanced options", expanded=False):
+        with st.expander("⚙️ Advanced options to display the spectrum", expanded=False):
             col1, col2 = st.columns([1,1])
             with col1:
                 window = st.number_input("Sub-window for looking peak", value=500, step=1)
@@ -158,7 +159,6 @@ if __name__ == "__main__":
         y_all = spectrum[selected_col_name].to_numpy()
         
         # UI controls
-
         mz_min, mz_max = st.slider("Use the slider to zoom with a better rendering", float(x_all.min()), float(x_all.max()),
                                 (float(x_all.min()), float(x_all.max())))
         mask = (spectrum[mz_col_name] >= mz_min) & (spectrum[mz_col_name] <= mz_max)
@@ -169,15 +169,42 @@ if __name__ == "__main__":
         # make background image
         bg_src, x_min, x_max, y_min, y_max = make_background_b64(x, y, dpi=dpi)
 
+        # Selection of top k peaks
         df_peaks = filter_top_peak(
             peaks_dict[selected_col_name],
             mz_col_name,
             selected_col_name,
             top_k=top_k)
 
-        
+        # PLot the mass spectrum
         fig = build_plotly_figure(bg_src, mz_col_name,
             selected_col_name, x_min, x_max, y_min, y_max, df_peaks)
         st.plotly_chart(fig, use_container_width=True)
+
+        monomers = sp_ana.read_csv(Path(__file__).parents[1]/"data"/"monomers.csv", sep=";")
+        st.dataframe(monomers.collect())
+
+        with st.expander("⚙️ Advanced options for plotting", expanded=False):
+            offset = st.number_input("Potential offset of the spectre in ppm", value=5, step=1)
+            top_k2 = st.slider("Number of peaks to display (top K)", 1, 500, 500, step=1)
+            
+        # Comparison to clean library
+        check_oligo_dict = sp_ana.compare_to_library(
+            peaks_dict,
+            offset * 10e-6
+        )
+        
+        oligo = check_oligo_dict[selected_col_name].collect()
+        st.write(f"Number of oligosacharride found: {oligo.select(pl.len()).item()} / "
+                 f"{peaks_dict[selected_col_name].select(pl.len()).item()} peaks")
+
+        show_oligo = filter_top_peak(
+            oligo,
+            "query_mass",
+            "intensity",
+            top_k=top_k2)
+        
+        st.dataframe(show_oligo)
+
 
 
