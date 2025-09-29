@@ -217,6 +217,7 @@ def add_adduct_columns(
 ) -> pl.LazyFrame:
     """
     Add columns for each adduct's total mass to a Polars DataFrame of oligomer combinations.
+    Addition of the label 3AQ which is a condensation reaction with the oligomer
 
     Args:
         df: Polars DataFrame containing oligomer combinations and their base mass.
@@ -231,9 +232,10 @@ def add_adduct_columns(
     df_lazy = ensure_lazy(df)
 
     label_mass = calc_mass_mol(LABEL_3AQ)
+    water = calc_mass_mol(WATER)
     # Build all adduct columns in one call using list comprehension
     adduct_columns = [
-        (pl.col(mass_column_name) + label_mass + adduct_mass).round(6).alias(f"Oligo_{adduct}")
+        (pl.col(mass_column_name) + label_mass - water + adduct_mass).round(6).alias(f"Oligo_{adduct}")
         for adduct, adduct_mass in adduct_masses.items()
     ]
 
