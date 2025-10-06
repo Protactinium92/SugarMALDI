@@ -30,7 +30,7 @@ from pathlib import Path
 # Constant
 
 MONOISOTOPIC_MASS = {'C': 12.000000, 'H': 1.007825, 'O': 15.994915, 'N': 14.003074}
-ADDUCT_MASS = {'H+': 1.007276, 'Na+': 22.989769, 'K+': 38.963707}
+ADDUCT_MASS = {'H+': 1.007276, 'Na+': 22.989221, 'K+': 38.963158}
 WATER = {'H': 2, 'O': 1}
 LABEL_3AQ = {'C': 9, 'H': 8, 'N': 2}
 
