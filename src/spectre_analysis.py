@@ -432,7 +432,7 @@ def match_oligos(
         dico_peak: Dict of spectra (key: spectrum name, value: spectra LazyFrame).
         library: DataFrame with columns 'Oligo_H+', 'Oligo_Na+', 'Oligo_K+'.
         offset: Mass tolerance window to speedup the matching.
-        threshold: Ratio mass tolerence for matching: abs((theory-real)/real)
+        threshold: Mass accuracy tolerence for matching: abs((theory-real)/theory) in "ppm"
 
     Returns:
         Dict[str, pl.DataFrame]: {spectrum_name: matches_df}
@@ -477,20 +477,20 @@ def match_oligos(
             candidates_with_diff = candidates.with_columns(
                 pl.lit(int(mass)).cast(pl.Int64).alias("query_mass"),
                 pl.lit(float(intensity)).alias("intensity"),
-                ((pl.col("Oligo_H+_int") - mass)/mass).abs().alias("diff_H"),
-                ((pl.col("Oligo_Na+_int") - mass)/mass).abs().alias("diff_Na"),
-                ((pl.col("Oligo_K+_int") - mass)/mass).abs().alias("diff_K")
+                ((pl.col("Oligo_H+_int") - mass)/pl.col("Oligo_H+_int")).abs().alias("diff_H"),
+                ((pl.col("Oligo_Na+_int") - mass)/pl.col("Oligo_Na+_int")).abs().alias("diff_Na"),
+                ((pl.col("Oligo_K+_int") - mass)/pl.col("Oligo_K+_int")).abs().alias("diff_K")
             )
 
             # --- Step 3: Find best match ---
             best_match = (
                 candidates_with_diff
-                .with_columns(pl.min_horizontal("diff_H", "diff_Na", "diff_K").alias("mass_diff"))
-                .filter(pl.col("mass_diff") == pl.col("mass_diff").min())
-                .filter(pl.col("mass_diff") <= threshold)
+                .with_columns(pl.min_horizontal("diff_H", "diff_Na", "diff_K").alias("Delta_M"))
+                .filter(pl.col("Delta_M") == pl.col("Delta_M").min())  # Select 1 lign of the library
+                .filter(pl.col("Delta_M") <= threshold)
                 .with_columns(
-                    pl.when(pl.col("diff_H") == pl.col("mass_diff")).then(pl.lit("H+"))
-                     .when(pl.col("diff_Na") == pl.col("mass_diff")).then(pl.lit("Na+"))
+                    pl.when(pl.col("diff_H") == pl.col("Delta_M")).then(pl.lit("H+"))
+                     .when(pl.col("diff_Na") == pl.col("Delta_M")).then(pl.lit("Na+"))
                      .otherwise(pl.lit("K+")).alias("Adduct")
                 )
                 # Select relevant columns (exclude temporary ones)
