@@ -17,7 +17,7 @@ import plotly.express as px
 import numpy as np
 
 from pathlib import Path
-from typing import Dict, Union, Optional
+from typing import Dict, Union, Optional, Tuple, List
 from numpy.typing import NDArray
 from scipy.signal import find_peaks as fp
 from concurrent.futures import ProcessPoolExecutor
@@ -48,14 +48,7 @@ def normalize_mz_column(
     Returns:
         A new Polars LazyFrame with the original columns and the added normalized column.
         The new column contains m/z values scaled by `SCALE` and cast to Int64.
-
-    Raises:
-        pl.exceptions.ComputeError: If the input column cannot be cast to Float64.
-        ValueError: If the input column does not exist in the LazyFrame.
     """
-    if mz_col not in lf.columns:
-        raise ValueError(f"Column '{mz_col}' not found in the input LazyFrame.")
-
     mz = pl.col(mz_col).cast(pl.Float64)  # Ensure float64 before scaling
     return lf.with_columns(
         (mz * SCALE).round().cast(pl.Int64).alias(new_col)
@@ -177,9 +170,6 @@ def make_window(df: Union[pl.DataFrame, pl.LazyFrame],
         - The window_id is calculated as floor(column_value / step)
         - The function preserves the original DataFrame type (LazyFrame remains lazy)
     """
-    if column_name not in df.columns:
-        raise ValueError(f"Column '{column_name}' not found in DataFrame")
-
     return df.with_columns(
         (pl.col(column_name) // step).cast(pl.Int32).alias("window_id")
     )
@@ -328,9 +318,9 @@ def extract_peaks_all_windows(
 
     # Convert Polars columns to NumPy arrays for vectorized processing
     # Using float64 for m/z and intensity to maintain precision
-    mz: NDArray[np.float64] = df[mz_col_name].to_numpy()
-    intensity: NDArray[np.float64] = df[intensity_col_name].to_numpy()
-    windows: NDArray[np.int64] = df["window_id"].to_numpy()
+    mz: NDArray[np.float64] = df.select(mz_col_name).collect().to_numpy().flatten()
+    intensity: NDArray[np.float64] = df.select(intensity_col_name).collect().to_numpy().flatten()
+    windows: NDArray[np.int64] = df.select("window_id").collect().to_numpy().flatten()
 
     # Prepare arguments for parallel processing
     window_args: List[Tuple] = []
@@ -341,14 +331,23 @@ def extract_peaks_all_windows(
         mask: NDArray[np.bool_] = windows == window_id
         # Get indices of all points in this window
         window_indices: NDArray[np.int64] = np.where(mask)[0]
-
+        print(f'window ID {window_id}')
+        print(window_indices)
         # Skip windows with insufficient data points
         if len(window_indices) < 2:
             continue
 
         # Calculate local m/z interval (accounts for irregular spacing)
         # This is used by peak detection algorithm to determine appropriate thresholds
-        local_interval: float = np.mean(np.diff(mz[window_indices]))
+        mz_window = mz[window_indices]
+        diffs = np.diff(mz_window)
+
+        if len(diffs) == 0:
+            continue
+
+        local_interval = np.mean(diffs)
+        if np.isnan(local_interval) or local_interval == 0:
+            local_interval = 1.0  # Default or handle as needed
 
         # Package arguments for parallel processing
         window_args.append((
@@ -375,53 +374,11 @@ def extract_peaks_all_windows(
             all_idx.extend(result)
 
     # Return a new LazyFrame containing only peak data
-    # Using slice() to preserve original indices and enable lazy evaluation
-    return df.select([mz_col_name, intensity_col_name]).slice(all_idx)
-
-
-# def extract_peaks_all_windows(
-#         df: pl.LazyFrame,
-#         mz_col_name: str,
-#         intensity_col_name: str,
-#         step: float,
-#         dist_min: float
-#         ) -> pl.LazyFrame:
-#     """
-#     Découpe un spectre en fenêtres et extrait les pics par fenêtre.
-#     Optimisé pour de très gros DataFrames (millions de lignes).
-#     """
-#     # Découper en fenêtres
-#     df = make_window(df, mz_col_name, step)
-
-#     # Extraire en NumPy pour vectorisation
-#     mz = df[mz_col_name].to_numpy()
-#     intensity = df[intensity_col_name].to_numpy()
-#     windows = df["window_id"].to_numpy()
-
-#     all_idx = []
-
-#     # Boucle par fenêtre (unique IDs, beaucoup plus rapide que map_groups)
-#     for w in np.unique(windows):
-#         mask = windows == w
-#         sub_idx = np.where(mask)[0]
-
-#         if len(sub_idx) < 2:
-#             continue
-
-#         # Intervalle local (car irrégulier)
-#         interval = np.mean(np.diff(mz[sub_idx]))
-
-#         # Trouver les pics dans cette fenêtre
-#         peaks = find_all_peaks(intensity[sub_idx], interval, distance=dist_min)
-
-#         # Convertir indices locaux → indices globaux
-#         all_idx.extend(sub_idx[peaks])
-
-#     # Construire DataFrame final avec seulement les pics
-#     return df[[mz_col_name, intensity_col_name]][all_idx,:]
-
-
-
+    # Using filter() to preserve original indices and enable lazy evaluation
+    #  pl.int_range(0, pl.len()) create column of idx
+    #  is_in apply a boolean mask
+    return df.select([mz_col_name, intensity_col_name]).filter(
+        pl.int_range(0, pl.len()).is_in(all_idx))
 
 
 def extract_and_detect_peaks(
@@ -436,7 +393,6 @@ def extract_and_detect_peaks(
         spectra: Dictionary of all spectra store as pl.Dataframe.
         window: Window size for peak extraction.
         dist_min: Minimum distance between peaks.
-        top_k: Number of top peaks to keep per window.
 
     Returns:
         Dictionary mapping each intensity column name to its detected peaks DataFrame.
@@ -444,40 +400,192 @@ def extract_and_detect_peaks(
 
     if not spectra:
         raise ValueError("No spectrum found")
-
+    
     peaks_dict = {}
 
     for spectrum_name, spectum_data in spectra.items():
-    
+        col_names = spectum_data.collect_schema().names()
+        mz_col, intensity_col = col_names[0], col_names[1]
         spectrum_peaks = extract_peaks_all_windows(
-            spectum_data, spectum_data.columns[0], spectum_data.columns[1], window, dist_min
+            spectum_data, mz_col, intensity_col, window, dist_min
         )
         peaks_dict[spectrum_name] = spectrum_peaks
+
     del spectrum_name, spectum_data
     return peaks_dict
 
 
 
+def match_oligos(
+    dico_peak: Dict[str, pl.DataFrame],
+    library: pl.DataFrame,
+    offset: float,
+    threshold: int,
+) -> Dict[str, pl.DataFrame]:
+    """
+    Match each mass in a spectrum to oligomers in a library within ± offset.
+    Returns a dictionary of DataFrames (one per spectrum) with matches, including:
+    - All original library columns (except temporary ones)
+    - Added columns: 'query_mass', 'Adduct', 'mass_diff'
+
+    Args:
+        dico_peak: Dict of spectra (key: spectrum name, value: spectra LazyFrame).
+        library: DataFrame with columns 'Oligo_H+', 'Oligo_Na+', 'Oligo_K+'.
+        offset: Mass tolerance window to speedup the matching.
+        threshold: Ratio mass tolerence for matching: abs((theory-real)/real)
+
+    Returns:
+        Dict[str, pl.DataFrame]: {spectrum_name: matches_df}
+    """
+    results = {}
+    for adduct in ['Oligo_H+', 'Oligo_Na+', 'Oligo_K+']:
+        library = normalize_mz_column(
+        lf = library,
+        mz_col=adduct,
+        new_col=f"{adduct}_int"
+    )
+    for spectrum_name, spectrum_df in dico_peak.items():
+        
+        # Normalyse to ppm and create int
+        spectrum_df = normalize_mz_column(
+            lf = spectrum_df,
+            mz_col="m/z",
+            new_col="mz_int"
+        )
 
 
 
+        mass_list = spectrum_df.select('mz_int').collect().to_numpy()
+        intensity_list = spectrum_df.select('Intensity').collect().to_numpy()
+        matched_oligos = []
+
+        for mass, intensity in zip(mass_list, intensity_list):
+
+            # --- Step 1: Filter candidates ---
+            candidates = library.filter(
+                (pl.col("Oligo_H+_int").is_between(mass - offset, mass + offset)) |
+                (pl.col("Oligo_Na+_int").is_between(mass - offset, mass + offset)) |
+                (pl.col("Oligo_K+_int").is_between(mass - offset, mass + offset))
+            )
+
+            if candidates.select(pl.len()).collect().item() == 0:
+                continue
+
+            #print(candidates.collect())
+
+            # --- Step 2: Compute the mass ratio ---
+            candidates_with_diff = candidates.with_columns(
+                pl.lit(int(mass)).cast(pl.Int64).alias("query_mass"),
+                pl.lit(float(intensity)).alias("intensity"),
+                ((pl.col("Oligo_H+_int") - mass)/mass).abs().alias("diff_H"),
+                ((pl.col("Oligo_Na+_int") - mass)/mass).abs().alias("diff_Na"),
+                ((pl.col("Oligo_K+_int") - mass)/mass).abs().alias("diff_K")
+            )
+
+            # --- Step 3: Find best match ---
+            best_match = (
+                candidates_with_diff
+                .with_columns(pl.min_horizontal("diff_H", "diff_Na", "diff_K").alias("mass_diff"))
+                .filter(pl.col("mass_diff") == pl.col("mass_diff").min())
+                .filter(pl.col("mass_diff") <= threshold)
+                .with_columns(
+                    pl.when(pl.col("diff_H") == pl.col("mass_diff")).then(pl.lit("H+"))
+                     .when(pl.col("diff_Na") == pl.col("mass_diff")).then(pl.lit("Na+"))
+                     .otherwise(pl.lit("K+")).alias("Adduct")
+                )
+                # Select relevant columns (exclude temporary ones)
+                .select([
+                    pl.exclude("diff_H", "diff_Na", "diff_K"),  # Keep all original columns
+                    #"query_mass", "Adduct", "mass_diff"
+                ])
+            )
+
+            matched_oligos.append(best_match)
+
+        # Concatenate all matches for this spectrum
+        if matched_oligos:
+            results[spectrum_name] = pl.concat(matched_oligos)
+        else:
+            results[spectrum_name] = pl.DataFrame(schema={
+                "query_mass": pl.Float64,
+                "Adduct": pl.Utf8,
+                "mass_diff": pl.Float64
+            })
+    del spectrum_name, spectrum_df, matched_oligos
+    return results
 
 
 
+def compare_to_library(dico_peak, offset, ratio_max):
+   
+    library_oligo_unic = read_csv(Path(__file__).parents[1]/"data"/"oligo_combinations_clean.csv", sep=",")
+    library_oligo_unic = library_oligo_unic.sort(pl.col("Oligo_mass"), descending=False)
+
+    return match_oligos(dico_peak, library_oligo_unic, offset, ratio_max)
 
 
+def compile_oligo_name(match_dict: Dict[str, pl.LazyFrame], monomers: List[str]) -> Dict[str, pl.LazyFrame]:
+    """
+    Ajoute une colonne 'OligoName' à chaque LazyFrame du dictionnaire,
+    contenant la concaténation des monomères non nuls (format: valMono-valMono).
 
+    Args:
+        match_dict: Dictionnaire {nom_spectre: LazyFrame} contenant les résultats de matching
+        monomers: Liste des noms de colonnes des monomères (ex: ["dHex", "Hex", "HexA"])
 
+    Returns:
+        Dict[str, pl.LazyFrame]: Nouveau dictionnaire avec les LazyFrames modifiés
+    """
 
+    # 3. Création des expressions de concaténation
+    monomer_parts = []
+    for col in monomers:
+        # Utilise pl.lit("") comme valeur par défaut pour éviter les None
+        monomer_parts.append(
+            pl.when(pl.col(col) > 0)
+              .then(pl.col(col).cast(pl.Utf8) + col)
+              .otherwise(pl.lit(""))
+        )
 
+    # 4. Ajout d'une valeur non vide pour éviter l'erreur de concaténation
+    # (un espace qui sera supprimé plus tard)
+    monomer_parts.append(pl.lit(" "))
+
+    new_dict = {}
+    for spectrum_name, spectrum_df in match_dict.items():
+        # Concaténation avec filtre des chaînes vides
+        new_df = spectrum_df.with_columns(
+            pl.concat_str(monomer_parts, separator="-")
+              .str.replace_all(r'--+', '-')   # Supprime les doubles -
+              .str.strip_chars('-')  # Supprime les - en trop
+              .alias("OligoName")
+        )
+        new_dict[spectrum_name] = new_df
+
+    del new_df
+    return new_dict
 
 
 if __name__ == "__main__":
     
-    dir = "data/Standard_Gums_Calibrated_files"
+    dir = "data/std_test"
     files = [f for f in os.listdir(dir) if f.endswith(".csv")]
     spectra = parse_spectra(files, dir=dir)
     first_spectrum_name = next(iter(spectra.keys()))  # 1st key
     first_spectrum = spectra[first_spectrum_name].collect()
     print(first_spectrum.head(5))
-   
+
+    peaks_dict = extract_and_detect_peaks(
+        spectra,
+        window=500,
+        dist_min=15)
+    
+    print(f'peak dict 1 \n{peaks_dict[first_spectrum_name].collect()}')
+
+    match = compare_to_library(peaks_dict, 500_000_000, 5)
+    print(f'Match dict 1 \n{match[first_spectrum_name].collect()}')
+
+    monomers = read_csv(Path(__file__).parents[1]/"data"/"monomers.csv", sep=";")
+    monomers_list = monomers.select(pl.col("Notation")).collect().to_series().to_list()
+    match = compile_oligo_name(match, monomers_list)
+    print(f'Match dict 2S \n{match[first_spectrum_name].collect()}')
