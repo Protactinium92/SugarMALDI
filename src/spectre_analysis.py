@@ -480,9 +480,9 @@ def match_oligos(
             candidates_with_diff = candidates.with_columns(
                 pl.lit(int(mass)).cast(pl.Int64).alias("query_mass"),
                 pl.lit(float(intensity)).alias("intensity"),
-                ((pl.col("Oligo_H+_int") - mass)/pl.col("Oligo_H+_int")).abs().alias("diff_H"),
-                ((pl.col("Oligo_Na+_int") - mass)/pl.col("Oligo_Na+_int")).abs().alias("diff_Na"),
-                ((pl.col("Oligo_K+_int") - mass)/pl.col("Oligo_K+_int")).abs().alias("diff_K")
+                ((pl.col("Oligo_H+_int") - mass)/pl.col("Oligo_H+_int")*10**6).abs().alias("diff_H"),
+                ((pl.col("Oligo_Na+_int") - mass)/pl.col("Oligo_Na+_int")*10**6).abs().alias("diff_Na"),
+                ((pl.col("Oligo_K+_int") - mass)/pl.col("Oligo_K+_int")*10**6).abs().alias("diff_K")
             )
 
             # --- Step 3: Find best match ---
@@ -518,8 +518,28 @@ def match_oligos(
     return results
 
 
-def compare_to_library(dico_peak, offset, ratio_max):
-   
+def compare_to_library(
+    dico_peak: Dict[str, pl.LazyFrame],
+    offset: int,
+    ratio_max: float
+) -> Dict[str, pl.LazyFrame]:
+    """
+    Compares experimental spectra against a reference oligosaccharide library.
+
+    Args:
+        dico_peak: Dictionary of {spectrum_name: LazyFrame} containing m/z peaks to match
+        offset: Maximum allowed mass difference (in ppm) for a valid match
+        ratio_max: Mass Acuuracy thresold
+
+    Returns:
+        Dict[str, pl.LazyFrame]: Dictionary of matched oligosaccharides with annotation columns
+
+    Note:
+        - Loads reference library from '../data/oligo_combinations_clean.csv'
+        - Library must contain at least 'Oligo_mass' column for mass-based matching
+        - Returns modified input dictionaries with additional match columns
+    """
+
     library_oligo_unic = read_csv(Path(__file__).parents[1]/"data"/"oligo_combinations_clean.csv", sep=",")
     library_oligo_unic = library_oligo_unic.sort(pl.col("Oligo_mass"), descending=False)
 
@@ -528,38 +548,33 @@ def compare_to_library(dico_peak, offset, ratio_max):
 
 def compile_oligo_name(match_dict: Dict[str, pl.LazyFrame], monomers: List[str]) -> Dict[str, pl.LazyFrame]:
     """
-    Ajoute une colonne 'OligoName' à chaque LazyFrame du dictionnaire,
-    contenant la concaténation des monomères non nuls (format: valMono-valMono).
-
-    Args:
-        match_dict: Dictionnaire {nom_spectre: LazyFrame} contenant les résultats de matching
-        monomers: Liste des noms de colonnes des monomères (ex: ["dHex", "Hex", "HexA"])
-
+    Adds the Name of the oligosachharide to each LazyFrame in the dictionary,
+    containing the concatenation of non-zero monomers (format: valMono-valMono).
+       Args:
+        match_dict: Dictionary {spectrum_name: LazyFrame} containing matching results
+        monomers: List of monomer column names (e.g., ["dHex", "Hex", "HexA"])
     Returns:
-        Dict[str, pl.LazyFrame]: Nouveau dictionnaire avec les LazyFrames modifiés
+        Dict[str, pl.LazyFrame]: New dictionary with modified LazyFrames
     """
-
-    # 3. Création des expressions de concaténation
+    # 3. Create concatenation expressions
     monomer_parts = []
     for col in monomers:
-        # Utilise pl.lit("") comme valeur par défaut pour éviter les None
+        # Uses pl.lit("") as default value to avoid None
         monomer_parts.append(
             pl.when(pl.col(col) > 0)
               .then(pl.col(col).cast(pl.Utf8) + col)
               .otherwise(pl.lit(""))
         )
-
-    # 4. Ajout d'une valeur non vide pour éviter l'erreur de concaténation
-    # (un espace qui sera supprimé plus tard)
+    # 4. Add non-empty value to prevent concatenation error
+    # (a space that will be removed later)
     monomer_parts.append(pl.lit(" "))
-
     new_dict = {}
     for spectrum_name, spectrum_df in match_dict.items():
-        # Concaténation avec filtre des chaînes vides
+        # Concatenation with empty string filtering
         new_df = spectrum_df.with_columns(
             pl.concat_str(monomer_parts, separator="-")
-              .str.replace_all(r'--+', '-')   # Supprime les doubles -
-              .str.strip_chars('-')  # Supprime les - en trop
+              .str.replace_all(r'--+', '-')   # Remove double -
+              .str.strip_chars('-')  # Remove extra -
               .alias("OligoName")
         ).with_columns(
             pl.concat_str(["OligoName", "Adduct"], separator="")
@@ -567,11 +582,8 @@ def compile_oligo_name(match_dict: Dict[str, pl.LazyFrame], monomers: List[str])
             .alias("Oligo-Adduct")
         ).drop("OligoName")
         new_dict[spectrum_name] = new_df
-
     del new_df
     return new_dict
-
-
 
 
 def save_dataframes_to_temp(df_dict: Dict[str, pl.DataFrame]) -> Dict[str, Path]:
@@ -604,8 +616,6 @@ def create_zip(file_paths: Dict[str, Path]) -> BytesIO:
 
 def cleanup():
     shutil.rmtree(TEMP_DIR)
-
-
 
 
 def execute_process(
@@ -664,14 +674,6 @@ def execute_process(
     except Exception as e:
         print(f"Error in execute_process: {str(e)}")
         raise
-
-
-
-
-
-
-
-
 
 
 if __name__ == "__main__":

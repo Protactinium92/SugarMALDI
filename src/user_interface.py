@@ -63,11 +63,6 @@ if __name__=="__main__":
     # Check if their is an ulpoad wherase its crash
     if spectra is not None and len(spectra) > 0:
         
-        spectra_list = spectra.keys()  # type dico_key if issue put in list
-
-        # Choose the spectra to show
-        selected_col_name = st.selectbox("Select spectrum", spectra_list)
-
         with st.expander("⚙️ Advanced options for peak detection", expanded=False):
             st.subheader("Detection parameters")
             col1, col2 = st.columns([1,1])
@@ -80,7 +75,27 @@ if __name__=="__main__":
             with col3:          
                 offset = st.number_input("Potential offset of the spectre in ppm", value=100_000, step=1)
             with col4:
-                rm_threshold = st.number_input("Mass accuracy threshold", value=5, step=1)
+                rm_threshold = st.number_input('Mass accuracy threshold (ΔM, "ppm")', value=5, step=1,
+                                               help=
+                                                    """
+            **Mass Accuracy (ΔM)**:
+            Mass Measurement Accuracy / Error, calculated as (1):
+
+            $$\\Delta M \\ (\mathrm{ppm}) = \\left( \\frac{|M_{\\mathrm{exp}} - M_{\\mathrm{theo}}|}{M_{\\mathrm{theo}}} \\right) \\times 10^6$$
+
+            - **$M_{\\mathrm{exp}}$**: Experimentally measured mass.
+            - **$M_{\\mathrm{theo}}$**: Expected theoretical mass.
+            - **Typical threshold**: 5–20 ppm for MALDI-TOF.
+
+            *Example*: If ΔM = 10 ppm and $M_{\\mathrm{theo}}$ = 1000 Da,
+            the tolerated deviation is **±0.01 Da**.
+
+            *Note*: Lower ΔM = stricter peak matching.
+
+            **Reference:**
+            (1) Brenton, A.G.; Godfrey, A.R. *J. Am. Soc. Mass Spectrom.* **2010**, *21*(11), 1821-1835.
+            [DOI:10.1016/j.jasms.2010.06.006](https://www.sciencedirect.com/science/article/pii/S1044030510004022)
+            """)
         
         # Print Monomer tab
         monomers = sp_ana.read_csv(Path(__file__).parents[1]/"data"/"monomers.csv", sep=";")
@@ -113,6 +128,9 @@ if __name__=="__main__":
 
                 st.success('✅ Analysis completed !') 
 
+                # Choose the spectra to show
+                spectra_list = spectra.keys()  # type dico_key if issue put in list
+                selected_col_name = st.selectbox("Select spectrum", spectra_list)
 
                 #####
                 #   CODE POUR L'AFFICHAGE DES SPECTRES
