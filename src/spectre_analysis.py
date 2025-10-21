@@ -625,7 +625,7 @@ def execute_process(
     rm_threshold: int = 5,
     window: int = 10,
     dist_min: int = 15
-) -> BytesIO:
+) -> Tuple[BytesIO, Dict[str, pl.DataFrame]]:
     """
     Process MALDI spectra and generate a ZIP of results.
 
@@ -640,7 +640,9 @@ def execute_process(
         dist_min: Minimum distance between peaks (default: 0.5)
 
     Returns:
-        BytesIO: Buffer containing ZIP of results
+        Tuple[BytesIO, Dict[str, pl.DataFrame]]:
+            - BytesIO: Buffer containing ZIP of results
+            - Dict[str, pl.DataFrame]: Dictionary peaks
 
     Raises:
         Exception: If any error occurs during processing
@@ -666,10 +668,10 @@ def execute_process(
         zip_buffer = create_zip(file_paths)
 
         # 6. Explicit cleanup
-        del peaks_dict, match
+        del peaks_dict
         gc.collect()
 
-        return zip_buffer
+        return zip_buffer, match
 
     except Exception as e:
         print(f"Error in execute_process: {str(e)}")

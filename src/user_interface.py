@@ -46,8 +46,7 @@ def upload_files() -> pl.DataFrame:
     if uploaded_files:
         try:
             spectra = sp_ana.parse_spectra(uploaded_files)
-            st.subheader("Files have been successfully imported")
-            st.write("### See spectrum data")
+            st.success("✅Files have been successfully imported")
             
         except ValueError as e:
             st.error(f"Error: {str(e)}")
@@ -56,12 +55,69 @@ def upload_files() -> pl.DataFrame:
     return spectra
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 if __name__=="__main__":
     st.title('SugarMALDI')
+
     spectra = upload_files()
 
     # Check if their is an ulpoad wherase its crash
     if spectra is not None and len(spectra) > 0:
+
+        st.session_state.spectra_list = list(spectra.keys())
         
         with st.expander("⚙️ Advanced options for peak detection", expanded=False):
             st.subheader("Detection parameters")
@@ -77,22 +133,23 @@ if __name__=="__main__":
             with col4:
                 rm_threshold = st.number_input('Mass accuracy threshold (ΔM, "ppm")', value=5, step=1,
                                                help=
-                                                    """
+                                                    r"""
             **Mass Accuracy (ΔM)**:
             Mass Measurement Accuracy / Error, calculated as (1):
 
-            $$\\Delta M \\ (\mathrm{ppm}) = \\left( \\frac{|M_{\\mathrm{exp}} - M_{\\mathrm{theo}}|}{M_{\\mathrm{theo}}} \\right) \\times 10^6$$
+            $$\Delta M \ (\mathrm{ppm}) = \left( \frac{|M_{\mathrm{exp}} - M_{\mathrm{theo}}|}{M_{\mathrm{theo}}} \right) \times 10^6$$
 
-            - **$M_{\\mathrm{exp}}$**: Experimentally measured mass.
-            - **$M_{\\mathrm{theo}}$**: Expected theoretical mass.
-            - **Typical threshold**: 5–20 ppm for MALDI-TOF.
+            - **$M_{\mathrm{exp}}$**: Experimentally measured mass.
+            - **$M_{\mathrm{theo}}$**: Expected theoretical mass.
+            - **Typical threshold**: 5 ppm for MALDI-TOF.
 
-            *Example*: If ΔM = 10 ppm and $M_{\\mathrm{theo}}$ = 1000 Da,
+            *Example*: If ΔM = 10 ppm and $M_{\mathrm{theo}}$ = 1000 Da,
             the tolerated deviation is **±0.01 Da**.
 
             *Note*: Lower ΔM = stricter peak matching.
 
             **Reference:**
+
             (1) Brenton, A.G.; Godfrey, A.R. *J. Am. Soc. Mass Spectrom.* **2010**, *21*(11), 1821-1835.
             [DOI:10.1016/j.jasms.2010.06.006](https://www.sciencedirect.com/science/article/pii/S1044030510004022)
             """)
@@ -105,11 +162,15 @@ if __name__=="__main__":
         st.markdown("---")
         st.subheader("Process and Download")
 
+        # Initiatilisation of session state to store the treatment
+        if 'analysis_results' not in st.session_state:
+            st.session_state.analysis_results = None
+        
         col1, col2 = st.columns([1,1])
         with col1:
             if st.button("🔍 Spectra analysis"):
                 with st.spinner('🔄 Treatment ongoing...'):
-                    zip_buffer = sp_ana.execute_process(
+                    zip_buffer, peak_dict = sp_ana.execute_process(
                         spectra,
                         monomers_list,
                         offset,
@@ -117,23 +178,32 @@ if __name__=="__main__":
                         window,
                         dist_min
                     )
+                    st.session_state.peak_dict = {
+                        spectrum_name: peaks_lf.lazy() 
+                        for spectrum_name, peaks_lf in peak_dict.items()
+                    }
+                    st.session_state.analysis_results = zip_buffer
 
-                with col2:
-                    st.download_button(
-                        label="⬇️ Download ZIP",
-                        data=zip_buffer.getvalue(),
-                        file_name="resluts_maldi.zip",
-                        mime="application/zip"
-                    )
+        with col2:
+            if st.session_state.analysis_results:
+                st.download_button(
+                    label="⬇️ Download ZIP",
+                    data=st.session_state.analysis_results.getvalue(),
+                    file_name="results_maldi.zip",
+                    mime="application/zip"
+                )
 
-                st.success('✅ Analysis completed !') 
+        if 'peak_dict' in st.session_state:
+            st.success('✅ Analysis completed !') 
+            # Choose the spectra to show
+            selected_col_name = st.selectbox("Select spectrum", st.session_state.spectra_list)
+            peak_lf = st.session_state.peak_dict[selected_col_name]
+            nb_peak = peak_lf.select(pl.len()).collect().item()  # .item() extract the scalar value
+            st.write(f'Number of peak detected: {nb_peak}')
+            st.dataframe(peak_lf.sort(pl.col("intensity"), descending=False).collect())
 
-                # Choose the spectra to show
-                spectra_list = spectra.keys()  # type dico_key if issue put in list
-                selected_col_name = st.selectbox("Select spectrum", spectra_list)
-
-                #####
-                #   CODE POUR L'AFFICHAGE DES SPECTRES
-                #####
+            #####
+            #   CODE POUR L'AFFICHAGE DES SPECTRES
+            #####
 
     atexit.register(sp_ana.cleanup)
