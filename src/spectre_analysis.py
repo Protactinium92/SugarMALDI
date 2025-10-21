@@ -616,7 +616,7 @@ def create_zip(file_paths: Dict[str, Path]) -> BytesIO:
 
 def cleanup():
     shutil.rmtree(TEMP_DIR)
-
+    
 
 def execute_process(
     spectra: Dict[str, pl.DataFrame],

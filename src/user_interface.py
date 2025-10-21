@@ -17,9 +17,11 @@ import os
 import io, base64
 import numpy as np
 import atexit
-from pathlib import Path
 import subprocess
 import time
+
+from pathlib import Path
+from typing import Dict, Union, Optional, Tuple, List
 
 
 def upload_files() -> pl.DataFrame:
@@ -55,57 +57,101 @@ def upload_files() -> pl.DataFrame:
     return spectra
 
 
+@st.cache_data
+def make_background_b64(x: np.ndarray, y: np.ndarray, figsize=(12,4), dpi=150):
+    """
+    Create the spectrum background non interactive to optimize the display.
+    Args:
+        x (np.ndarray): m/z values.
+        y (np.ndarray): Intensity values.
+        figsize (tuple, optional): Figure size. Defaults to (12,4).
+        dpi (int, optional): DPI. Defaults to 150.
+    Returns:
+        str: Base64 encoded SVG image.
+        float: x min, x max, y min, y max.
+    """
+    fig, ax = plt.subplots(figsize=figsize, facecolor='none')
+    #ax = fig.add_axes([0, 0, 1, 1])  # Occupe toute la figure
+    ax.plot(x, y, linewidth=0.35)
+    ax.set_xlim(float(x.min()), float(x.max()))
+    ax.set_ylim(float(y.min()), float(y.max()))
+    ax.set_axis_off()  # Désactive les axes et les bordures
+    ax.margins(0)      # Supprime les marges internes
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=dpi, bbox_inches="tight", pad_inches=0,  transparent=True)
+    plt.close(fig)
+    buf.seek(0)
+    b64 = base64.b64encode(buf.read()).decode()
+    return f"data:image/png;base64,{b64}", float(x.min()), float(x.max()), float(y.min()), float(y.max())
 
 
 
+def build_plotly_figure(bg_src, df_peaks, mass_col: str, intensity_col: str, x_min, x_max, y_min, y_max, scale_factor=1e-6 ):
+    fig = go.Figure()
+    fig.add_layout_image(
+        dict(
+            source=bg_src,
+            xref="x", yref="y",
+            x=x_min, y=y_max,
+            sizex=x_max-x_min, sizey=y_max-y_min,
+            xanchor="left", yanchor="top",
+            sizing="stretch", opacity=1.0, layer="below"
+        )
+    )
+    oligo_name = df_peaks["Oligo-Adduct"].to_numpy().reshape(-1, 1)
+    fig.add_trace(go.Scattergl(
+        x=df_peaks[mass_col].to_numpy()*scale_factor,  # ppm --> Da
+        y=df_peaks[intensity_col].to_numpy(),
+        mode="markers",
+        marker=dict(size=4, color='red'),
+
+        name="Peaks",
+        customdata=oligo_name,
+        hovertemplate="m/z: %{x}<br>Intensity: %{y}<br>Oligo: %{customdata[0]}<extra></extra>",
+    ))
+    fig.update_xaxes(title_text="m/z", range=[x_min, x_max])
+    fig.update_yaxes(title_text="Intensity", range=[y_min, y_max])
+    fig.update_layout(height=520, margin=dict(l=40, r=20, t=40, b=40))
+    return fig
 
 
+def define_x_y(
+    spectra: Dict[str, pl.LazyFrame],
+    selected_spectrum: str,
+    mz_name: str = "m/z",
+    intensity_name: str = "Intensity"
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Extracts and filters m/z and intensity arrays from a MALDI spectrum DataFrame.
 
+    Args:
+        spectra: Dictrionary of Polars LazyFrame containing MALDI spectra data (must include m/z and Intensity columns)
+        selected_spectrum: Name of the spectrum to select from the spectra Dictionary
+        mz_name: Name of the m/z column (default: "m/z")
+        intensity_name: Name of the intensity column (default: "Intensity")
 
+    Returns:
+        Tuple of (x, y) numpy arrays where:
+        - x: Filtered m/z values
+        - y: Corresponding intensity values
+    """
+    # Collect the selected spectrum
+    spectrum = spectra[selected_spectrum].collect()
+    x_all = spectrum[mz_name].to_numpy()
 
+    # Adjust window vizualisation
+    mz_min, mz_max = st.slider("Use the slider to zoom with a better rendering", float(x_all.min()), float(x_all.max()),
+                        (float(x_all.min()), float(x_all.max())))
 
+    # Create mask for the selected m/z range
+    mask = (spectrum[mz_name] >= mz_min) & (spectrum[mz_name] <= mz_max)
+    # Apply filter and convert to numpy arrays
+    filtered_spectrum = spectrum.filter(mask)
+    x = filtered_spectrum[mz_name].to_numpy()
+    y = filtered_spectrum[intensity_name].to_numpy()
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    del spectrum, mask, filtered_spectrum
+    return x, y
 
 
 
@@ -196,8 +242,8 @@ if __name__=="__main__":
         if 'peak_dict' in st.session_state:
             st.success('✅ Analysis completed !') 
             # Choose the spectra to show
-            selected_col_name = st.selectbox("Select spectrum", st.session_state.spectra_list)
-            peak_lf = st.session_state.peak_dict[selected_col_name]
+            selected_spectrum = st.selectbox("Select spectrum", st.session_state.spectra_list)
+            peak_lf = st.session_state.peak_dict[selected_spectrum]
             nb_peak = peak_lf.select(pl.len()).collect().item()  # .item() extract the scalar value
             st.write(f'Number of peak detected: {nb_peak}')
             st.dataframe(peak_lf.sort(pl.col("intensity"), descending=False).collect())
@@ -205,5 +251,20 @@ if __name__=="__main__":
             #####
             #   CODE POUR L'AFFICHAGE DES SPECTRES
             #####
+            with st.expander("⚙️ Advanced options to display the spectrum", expanded=False):
+                dpi = st.selectbox("Image DPI (quality)", [100, 150, 200, 300], index=1)
+                      
+            # make background image
+            x, y = define_x_y(spectra, selected_spectrum,)
+            bg_src, x_min, x_max, y_min, y_max = make_background_b64(x, y, dpi=dpi)
+
+            # PLot the mass spectrum
+            fig = build_plotly_figure(bg_src, peak_lf.collect(),
+                                    mass_col="query_mass",
+                                    intensity_col="intensity",
+                                    x_min=x_min, x_max=x_max,
+                                    y_min=y_min, y_max=y_max,
+                                    scale_factor=1e-6)
+            st.plotly_chart(fig, use_container_width=True)
 
     atexit.register(sp_ana.cleanup)
