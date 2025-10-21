@@ -16,7 +16,10 @@ import tempfile
 import os
 import io, base64
 import numpy as np
+import atexit
 from pathlib import Path
+import subprocess
+import time
 
 
 def upload_files() -> pl.DataFrame:
@@ -53,8 +56,66 @@ def upload_files() -> pl.DataFrame:
     return spectra
 
 
-
-
 if __name__=="__main__":
     st.title('SugarMALDI')
     spectra = upload_files()
+
+    # Check if their is an ulpoad wherase its crash
+    if spectra is not None and len(spectra) > 0:
+        
+        spectra_list = spectra.keys()  # type dico_key if issue put in list
+
+        # Choose the spectra to show
+        selected_col_name = st.selectbox("Select spectrum", spectra_list)
+
+        with st.expander("⚙️ Advanced options for peak detection", expanded=False):
+            st.subheader("Detection parameters")
+            col1, col2 = st.columns([1,1])
+            with col1:
+                window = st.number_input("Sub-window for looking peak", value=500, step=1)
+            with col2:
+                dist_min = st.number_input("Distance m/z min between peak", value=15, step=1)
+            st.subheader("Match peaks parameters") 
+            col3, col4 = st.columns([1,1])
+            with col3:          
+                offset = st.number_input("Potential offset of the spectre in ppm", value=100_000, step=1)
+            with col4:
+                rm_threshold = st.number_input("Mass accuracy threshold", value=5, step=1)
+        
+        # Print Monomer tab
+        monomers = sp_ana.read_csv(Path(__file__).parents[1]/"data"/"monomers.csv", sep=";")
+        monomers_list = monomers.select(pl.col("Notation")).collect().to_series().to_list()
+        st.dataframe(monomers.collect())
+
+        st.markdown("---")
+        st.subheader("Process and Download")
+
+        col1, col2 = st.columns([1,1])
+        with col1:
+            if st.button("🔍 Spectra analysis"):
+                with st.spinner('🔄 Treatment ongoing...'):
+                    zip_buffer = sp_ana.execute_process(
+                        spectra,
+                        monomers_list,
+                        offset,
+                        rm_threshold,
+                        window,
+                        dist_min
+                    )
+
+                with col2:
+                    st.download_button(
+                        label="⬇️ Download ZIP",
+                        data=zip_buffer.getvalue(),
+                        file_name="resluts_maldi.zip",
+                        mime="application/zip"
+                    )
+
+                st.success('✅ Analysis completed !') 
+
+
+                #####
+                #   CODE POUR L'AFFICHAGE DES SPECTRES
+                #####
+
+    atexit.register(sp_ana.cleanup)

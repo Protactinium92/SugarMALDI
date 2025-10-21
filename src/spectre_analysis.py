@@ -15,15 +15,20 @@ import pandas as pd
 import polars as pl
 import plotly.express as px
 import numpy as np
+import tempfile
+import shutil
+import zipfile
+import gc
 
+from io import BytesIO
 from pathlib import Path
 from typing import Dict, Union, Optional, Tuple, List
 from numpy.typing import NDArray
 from scipy.signal import find_peaks as fp
 from concurrent.futures import ProcessPoolExecutor
 
-
-
+# --- Configuration ---
+TEMP_DIR = Path(tempfile.mkdtemp())  # Dossier temporaire pour stocker les fichiers
 SCALE = 1_000_000  # 1e6 to convert float mass in int
 
 
@@ -173,6 +178,7 @@ def make_window(df: Union[pl.DataFrame, pl.LazyFrame],
     return df.with_columns(
         (pl.col(column_name) // step).cast(pl.Int32).alias("window_id")
     )
+
 
 def find_all_peaks(intensity: NDArray[np.float64],
                    interval: float,
@@ -415,7 +421,6 @@ def extract_and_detect_peaks(
     return peaks_dict
 
 
-
 def match_oligos(
     dico_peak: Dict[str, pl.DataFrame],
     library: pl.DataFrame,
@@ -452,8 +457,6 @@ def match_oligos(
             mz_col="m/z",
             new_col="mz_int"
         )
-
-
 
         mass_list = spectrum_df.select('mz_int').collect().to_numpy()
         intensity_list = spectrum_df.select('Intensity').collect().to_numpy()
@@ -515,7 +518,6 @@ def match_oligos(
     return results
 
 
-
 def compare_to_library(dico_peak, offset, ratio_max):
    
     library_oligo_unic = read_csv(Path(__file__).parents[1]/"data"/"oligo_combinations_clean.csv", sep=",")
@@ -559,11 +561,117 @@ def compile_oligo_name(match_dict: Dict[str, pl.LazyFrame], monomers: List[str])
               .str.replace_all(r'--+', '-')   # Supprime les doubles -
               .str.strip_chars('-')  # Supprime les - en trop
               .alias("OligoName")
-        )
+        ).with_columns(
+            pl.concat_str(["OligoName", "Adduct"], separator="")
+            .str.replace_all(r'\s+', '')
+            .alias("Oligo-Adduct")
+        ).drop("OligoName")
         new_dict[spectrum_name] = new_df
 
     del new_df
     return new_dict
+
+
+
+
+def save_dataframes_to_temp(df_dict: Dict[str, pl.DataFrame]) -> Dict[str, Path]:
+    """
+    Save the dataframe in tempory file (for cloud)
+    Arg:
+
+    Returns:
+        Dict[str, Path]: Path of created files.
+    """
+    file_paths = {}
+    for filename, df in df_dict.items():
+        if isinstance(df, pl.LazyFrame):
+            df = df.collect()
+        filename = f'peak_{filename}.csv'
+        path = TEMP_DIR / filename
+        df.write_csv(path)
+        file_paths[filename] = path
+    return file_paths
+
+
+def create_zip(file_paths: Dict[str, Path]) -> BytesIO:
+    """Crée un ZIP en mémoire contenant tous les fichiers."""
+    zip_buffer = BytesIO()
+    with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
+        for filename, path in file_paths.items():
+            zip_file.write(path, filename)
+    return zip_buffer
+
+
+def cleanup():
+    shutil.rmtree(TEMP_DIR)
+
+
+
+
+def execute_process(
+    spectra: Dict[str, pl.DataFrame],
+    monomers_list: List[str],
+    offset: int = 10_000_000,
+    rm_threshold: int = 5,
+    window: int = 10,
+    dist_min: int = 15
+) -> BytesIO:
+    """
+    Process MALDI spectra and generate a ZIP of results.
+
+    Args:
+        spectra: Dictionary of DataFrames (key = sample name)
+        monomers_list: List of monomers for oligo name compilation
+        offset: Mass comparison offset (default: 10,000,000)
+        rm_threshold: Mass accuracy threshold (default: 5.0)
+        mz_col_name: Name of m/z column (default: "m/z")
+        other_cols: Additional columns to keep (default: None)
+        window: Window for peak detection (default: 10)
+        dist_min: Minimum distance between peaks (default: 0.5)
+
+    Returns:
+        BytesIO: Buffer containing ZIP of results
+
+    Raises:
+        Exception: If any error occurs during processing
+    """
+    try:
+        # 1. Peak extraction with memory optimization
+        peaks_dict = extract_and_detect_peaks(
+            spectra,
+            window=window,
+            dist_min=dist_min
+        )
+
+        # 2. Library comparison
+        match = compare_to_library(peaks_dict, offset=offset, ratio_max=rm_threshold)
+
+        # 3. Oligonucleotide name compilation
+        match = compile_oligo_name(match, monomers_list)
+
+        # 4. Save to temporary directory
+        file_paths = save_dataframes_to_temp(match)
+
+        # 5. Create ZIP in memory
+        zip_buffer = create_zip(file_paths)
+
+        # 6. Explicit cleanup
+        del peaks_dict, match
+        gc.collect()
+
+        return zip_buffer
+
+    except Exception as e:
+        print(f"Error in execute_process: {str(e)}")
+        raise
+
+
+
+
+
+
+
+
 
 
 if __name__ == "__main__":
