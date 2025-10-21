@@ -175,9 +175,7 @@ if __name__=="__main__":
             st.subheader("Match peaks parameters") 
             col3, col4 = st.columns([1,1])
             with col3:          
-                offset = st.number_input("Potential offset of the spectre in ppm", value=100_000, step=1)
-            with col4:
-                rm_threshold = st.number_input('Mass accuracy threshold (ΔM, "ppm")', value=5, step=1,
+                rm_threshold = st.number_input('Mass accuracy threshold (ΔM in ppm)', value=5, step=1,
                                                help=
                                                     r"""
             **Mass Accuracy (ΔM)**:
@@ -219,7 +217,6 @@ if __name__=="__main__":
                     zip_buffer, peak_dict = sp_ana.execute_process(
                         spectra,
                         monomers_list,
-                        offset,
                         rm_threshold,
                         window,
                         dist_min

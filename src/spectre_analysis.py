@@ -421,14 +421,33 @@ def extract_and_detect_peaks(
     return peaks_dict
 
 
+def calcul_offset(rm_threshold: float, real_mass: float) -> Tuple[float, float]:
+    """
+    Calculate the theoretical mass range [th_min, th_max] based on a mass accuracy threshold.
+
+    Args:
+        rm_threshold: Mass accuracy threshold in parts per million (ppm).
+        real_mass: Measured mass value in Daltons.
+
+    Returns:
+        A tuple containing:
+            - th_min (float): Minimum acceptable theoretical mass.
+            - th_max (float): Maximum acceptable theoretical mass.
+    """
+    factor: float = rm_threshold / 1e6
+    th_min: float = real_mass / (1 + factor)
+    th_max: float = real_mass / (1 - factor)
+    del factor
+    return th_min, th_max
+
+
 def match_oligos(
     dico_peak: Dict[str, pl.DataFrame],
     library: pl.DataFrame,
-    offset: float,
     threshold: int,
 ) -> Dict[str, pl.DataFrame]:
     """
-    Match each mass in a spectrum to oligomers in a library within ± offset.
+    Match each mass in a spectrum to oligomers in a library.
     Returns a dictionary of DataFrames (one per spectrum) with matches, including:
     - All original library columns (except temporary ones)
     - Added columns: 'query_mass', 'Adduct', 'mass_diff'
@@ -436,7 +455,6 @@ def match_oligos(
     Args:
         dico_peak: Dict of spectra (key: spectrum name, value: spectra LazyFrame).
         library: DataFrame with columns 'Oligo_H+', 'Oligo_Na+', 'Oligo_K+'.
-        offset: Mass tolerance window to speedup the matching.
         threshold: Mass accuracy tolerence for matching: abs((theory-real)/theory) in "ppm"
 
     Returns:
@@ -465,10 +483,13 @@ def match_oligos(
         for mass, intensity in zip(mass_list, intensity_list):
 
             # --- Step 1: Filter candidates ---
+
+            th_min, th_max = calcul_offset(threshold, mass)
+
             candidates = library.filter(
-                (pl.col("Oligo_H+_int").is_between(mass - offset, mass + offset)) |
-                (pl.col("Oligo_Na+_int").is_between(mass - offset, mass + offset)) |
-                (pl.col("Oligo_K+_int").is_between(mass - offset, mass + offset))
+                (pl.col("Oligo_H+_int").is_between(th_min, th_max)) |
+                (pl.col("Oligo_Na+_int").is_between(th_min, th_max)) |
+                (pl.col("Oligo_K+_int").is_between(th_min, th_max))
             )
 
             if candidates.select(pl.len()).collect().item() == 0:
@@ -480,9 +501,9 @@ def match_oligos(
             candidates_with_diff = candidates.with_columns(
                 pl.lit(int(mass)).cast(pl.Int64).alias("query_mass"),
                 pl.lit(float(intensity)).alias("intensity"),
-                ((pl.col("Oligo_H+_int") - mass)/pl.col("Oligo_H+_int")*10**6).abs().alias("diff_H"),
-                ((pl.col("Oligo_Na+_int") - mass)/pl.col("Oligo_Na+_int")*10**6).abs().alias("diff_Na"),
-                ((pl.col("Oligo_K+_int") - mass)/pl.col("Oligo_K+_int")*10**6).abs().alias("diff_K")
+                ((mass - pl.col("Oligo_H+_int"))/pl.col("Oligo_H+_int")*10**6).abs().alias("diff_H"),
+                ((mass - pl.col("Oligo_Na+_int"))/pl.col("Oligo_Na+_int")*10**6).abs().alias("diff_Na"),
+                ((mass  -pl.col("Oligo_K+_int"))/pl.col("Oligo_K+_int")*10**6).abs().alias("diff_K")
             )
 
             # --- Step 3: Find best match ---
@@ -490,7 +511,6 @@ def match_oligos(
                 candidates_with_diff
                 .with_columns(pl.min_horizontal("diff_H", "diff_Na", "diff_K").alias("Delta_M"))
                 .filter(pl.col("Delta_M") == pl.col("Delta_M").min())  # Select 1 lign of the library
-                .filter(pl.col("Delta_M") <= threshold)
                 .with_columns(
                     pl.when(pl.col("diff_H") == pl.col("Delta_M")).then(pl.lit("H+"))
                      .when(pl.col("diff_Na") == pl.col("Delta_M")).then(pl.lit("Na+"))
@@ -520,7 +540,6 @@ def match_oligos(
 
 def compare_to_library(
     dico_peak: Dict[str, pl.LazyFrame],
-    offset: int,
     ratio_max: float
 ) -> Dict[str, pl.LazyFrame]:
     """
@@ -528,7 +547,6 @@ def compare_to_library(
 
     Args:
         dico_peak: Dictionary of {spectrum_name: LazyFrame} containing m/z peaks to match
-        offset: Maximum allowed mass difference (in ppm) for a valid match
         ratio_max: Mass Acuuracy thresold
 
     Returns:
@@ -543,7 +561,7 @@ def compare_to_library(
     library_oligo_unic = read_csv(Path(__file__).parents[1]/"data"/"oligo_combinations_clean.csv", sep=",")
     library_oligo_unic = library_oligo_unic.sort(pl.col("Oligo_mass"), descending=False)
 
-    return match_oligos(dico_peak, library_oligo_unic, offset, ratio_max)
+    return match_oligos(dico_peak, library_oligo_unic, ratio_max)
 
 
 def compile_oligo_name(match_dict: Dict[str, pl.LazyFrame], monomers: List[str]) -> Dict[str, pl.LazyFrame]:
@@ -616,12 +634,11 @@ def create_zip(file_paths: Dict[str, Path]) -> BytesIO:
 
 def cleanup():
     shutil.rmtree(TEMP_DIR)
-    
+
 
 def execute_process(
     spectra: Dict[str, pl.DataFrame],
     monomers_list: List[str],
-    offset: int = 10_000_000,
     rm_threshold: int = 5,
     window: int = 10,
     dist_min: int = 15
@@ -632,7 +649,6 @@ def execute_process(
     Args:
         spectra: Dictionary of DataFrames (key = sample name)
         monomers_list: List of monomers for oligo name compilation
-        offset: Mass comparison offset (default: 10,000,000)
         rm_threshold: Mass accuracy threshold (default: 5.0)
         mz_col_name: Name of m/z column (default: "m/z")
         other_cols: Additional columns to keep (default: None)
@@ -656,7 +672,7 @@ def execute_process(
         )
 
         # 2. Library comparison
-        match = compare_to_library(peaks_dict, offset=offset, ratio_max=rm_threshold)
+        match = compare_to_library(peaks_dict, ratio_max=rm_threshold)
 
         # 3. Oligonucleotide name compilation
         match = compile_oligo_name(match, monomers_list)
