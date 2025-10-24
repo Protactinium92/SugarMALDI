@@ -165,17 +165,27 @@ if __name__=="__main__":
 
         st.session_state.spectra_list = list(spectra.keys())
         
+        # Initialize session state for parameters if not already set
+        # Default values, used for the first run
+        # Allowed to generate a warning if the user change them
+        if 'window' not in st.session_state:
+            st.session_state.window = 500
+        if 'dist_min' not in st.session_state:
+            st.session_state.dist_min = 15
+        if 'rm_threshold' not in st.session_state:
+            st.session_state.rm_threshold = 5
+
         with st.expander("⚙️ Advanced options for peak detection", expanded=False):
             st.subheader("Detection parameters")
             col1, col2 = st.columns([1,1])
             with col1:
-                window = st.number_input("Sub-window for looking peak", value=500, step=1)
+                window = st.number_input("Sub-window for peak detection", value=st.session_state.window, step=1)
             with col2:
-                dist_min = st.number_input("Distance m/z min between peak", value=15, step=1)
-            st.subheader("Match peaks parameters") 
+                dist_min = st.number_input("Minimum m/z distance between peaks", value=st.session_state.dist_min, step=1)
+            st.subheader("Match peaks parameters")
             col3, col4 = st.columns([1,1])
-            with col3:          
-                rm_threshold = st.number_input('Mass accuracy threshold (ΔM in ppm)', value=5, step=1,
+            with col3:
+                rm_threshold = st.number_input('Mass accuracy threshold (ΔM in ppm)', value=st.session_state.rm_threshold, step=1,
                                                help=
                                                     r"""
             **Mass Accuracy (ΔM)**:
@@ -198,6 +208,11 @@ if __name__=="__main__":
             [DOI:10.1016/j.jasms.2010.06.006](https://www.sciencedirect.com/science/article/pii/S1044030510004022)
             """)
         
+            # Detect changes and warn the user
+            if (window != st.session_state.window) or (dist_min != st.session_state.dist_min) or (rm_threshold != st.session_state.rm_threshold):
+                st.warning("⚠️ Warning: Parameter(s) changed. Please re-run the analysis to apply the new settings.")
+
+                                               
         # Print Monomer tab
         monomers = sp_ana.read_csv(Path(__file__).parents[1]/"data"/"monomers.csv", sep=";")
         monomers_list = monomers.select(pl.col("Notation")).collect().to_series().to_list()
@@ -225,7 +240,12 @@ if __name__=="__main__":
                         spectrum_name: peaks_lf.lazy() 
                         for spectrum_name, peaks_lf in peak_dict.items()
                     }
+                    # Update session state with new values
                     st.session_state.analysis_results = zip_buffer
+                    # For the warning message
+                    st.session_state.window = window
+                    st.session_state.dist_min = dist_min
+                    st.session_state.rm_threshold = rm_threshold
 
         with col2:
             if st.session_state.analysis_results:
@@ -242,12 +262,9 @@ if __name__=="__main__":
             selected_spectrum = st.selectbox("Select spectrum", st.session_state.spectra_list)
             peak_lf = st.session_state.peak_dict[selected_spectrum]
             nb_peak = peak_lf.select(pl.len()).collect().item()  # .item() extract the scalar value
-            st.write(f'Number of peak detected: {nb_peak}')
-            st.dataframe(peak_lf.sort(pl.col("intensity"), descending=False).collect())
+            st.write(f'Number of identified peaks: {nb_peak}')
 
-            #####
-            #   CODE POUR L'AFFICHAGE DES SPECTRES
-            #####
+            # Show specytrum plot
             with st.expander("⚙️ Advanced options to display the spectrum", expanded=False):
                 dpi = st.selectbox("Image DPI (quality)", [100, 150, 200, 300], index=1)
                       
@@ -263,5 +280,9 @@ if __name__=="__main__":
                                     y_min=y_min, y_max=y_max,
                                     scale_factor=1e-6)
             st.plotly_chart(fig, use_container_width=True)
+            
+            # Show peak table
+            st.subheader("Identified peaks")
+            st.dataframe(peak_lf.sort(pl.col("intensity"), descending=False).collect())
 
     atexit.register(sp_ana.cleanup)

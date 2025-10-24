@@ -337,7 +337,7 @@ def reduce_row(
     Returns:
         pl.DataFrame | pl.LazyFrame:
             Cleaned DataFrame with:
-              - a new column 'Duplicate' tagging each row as "Unique" or "Duplicate",
+              - a new column 'Duplicate' tagging each row as "Unique" or "Shared",
               - one row per duplicated mass group (first occurrence only).
     """
 
@@ -348,7 +348,7 @@ def reduce_row(
     unique = (
         combinations_df
         .filter(~pl.col("column_id").is_in(duplicate_ids))
-        .with_columns(pl.lit("Unique").alias("Duplicate"))
+        .with_columns(pl.lit("Unique").alias("Multiple_Oligo"))
     )
 
     # Keep only first occurrence of duplicate rows
@@ -360,7 +360,7 @@ def reduce_row(
             keep="first",
             maintain_order=True,
         )
-        .with_columns(pl.lit("Duplicate").alias("Duplicate"))
+        .with_columns(pl.lit("Shared").alias("Multiple_Oligo"))
     )
 
     # Concatenate both
