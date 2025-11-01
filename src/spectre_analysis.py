@@ -500,7 +500,7 @@ def match_oligos(
             # --- Step 2: Compute the mass ratio ---
             candidates_with_diff = candidates.with_columns(
                 pl.lit(int(mass)).cast(pl.Int64).alias("query_mass"),
-                pl.lit(float(intensity)).alias("intensity"),
+                pl.lit(float(intensity)).alias("Intensity"),
                 ((mass - pl.col("Oligo_H+_int"))/pl.col("Oligo_H+_int")*10**6).abs().alias("diff_H"),
                 ((mass - pl.col("Oligo_Na+_int"))/pl.col("Oligo_Na+_int")*10**6).abs().alias("diff_Na"),
                 ((mass  -pl.col("Oligo_K+_int"))/pl.col("Oligo_K+_int")*10**6).abs().alias("diff_K")
@@ -632,8 +632,39 @@ def create_zip(file_paths: Dict[str, Path]) -> BytesIO:
     return zip_buffer
 
 
-def cleanup():
+def cleanup() -> None:
+    """Remove the temporary directory and all its contents."""
     shutil.rmtree(TEMP_DIR)
+
+
+def combine_dict_df(
+    dict_1: Dict[str, pl.LazyFrame],
+    dict_2: Dict[str, pl.LazyFrame],
+    how: str = "right"
+) -> Dict[str, pl.LazyFrame]:
+    """
+    Combine two dictionaries of LazyFrames by joining on the 'query_mass' column.
+
+    Args:
+        dict_1: Dictionary of LazyFrames with full anotation.
+        dict_2: Dictionary of LazyFrames with of detected peak
+        how: Type of join to perform ('left', 'right', 'inner', 'outer'). Defaults to 'right'.
+
+    Returns:
+        Dictionary of combined LazyFrames, joined on 'query_mass'.
+    """
+    combine_dict: Dict[str, pl.LazyFrame] = {}
+    for spectrum, lf_1 in dict_1.items():
+        # Remove Intensity column to keep only one
+        lf_1 = lf_1.drop(pl.col("Intensity"))
+        
+        if spectrum in dict_2:
+            lf_2 = dict_2[spectrum]
+            lf_2 = normalize_mz_column(lf_2, new_col="query_mass")
+            combine_dict[spectrum] = lf_1.join(lf_2, on="query_mass", how=how)
+    
+    del spectrum, lf_1, lf_2
+    return combine_dict
 
 
 def execute_process(
@@ -683,6 +714,9 @@ def execute_process(
         # 5. Create ZIP in memory
         zip_buffer = create_zip(file_paths)
 
+        # 6. Combine the lfs to have the non identified peak
+        match = combine_dict_df(match, peaks_dict, "right")
+
         # 6. Explicit cleanup
         del peaks_dict
         gc.collect()
@@ -710,10 +744,13 @@ if __name__ == "__main__":
     
     print(f'peak dict 1 \n{peaks_dict[first_spectrum_name].collect()}')
 
-    match = compare_to_library(peaks_dict, 500_000_000, 5)
+    match = compare_to_library(peaks_dict, 5)
     print(f'Match dict 1 \n{match[first_spectrum_name].collect()}')
 
     monomers = read_csv(Path(__file__).parents[1]/"data"/"monomers.csv", sep=";")
     monomers_list = monomers.select(pl.col("Notation")).collect().to_series().to_list()
     match = compile_oligo_name(match, monomers_list)
     print(f'Match dict 2S \n{match[first_spectrum_name].collect()}')
+
+    combine = combine_dict_df(match, peaks_dict, "right")
+    print(combine[first_spectrum_name].collect())

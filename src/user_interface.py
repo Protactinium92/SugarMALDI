@@ -86,7 +86,29 @@ def make_background_b64(x: np.ndarray, y: np.ndarray, figsize=(12,4), dpi=150):
 
 
 
-def build_plotly_figure(bg_src, df_peaks, mass_col: str, intensity_col: str, x_min, x_max, y_min, y_max, scale_factor=1e-6 ):
+def build_plotly_figure(bg_src, lf_peaks, mass_col: str, intensity_col: str, x_min, x_max, y_min, y_max, scale_factor=1e-6 ):
+    """
+    _summary_
+
+    Args:
+        bg_src (_type_): _description_
+        df_peaks (_type_): Polars lazyframe
+        mass_col (str): _description_
+        intensity_col (str): _description_
+        x_min (_type_): _description_
+        x_max (_type_): _description_
+        y_min (_type_): _description_
+        y_max (_type_): _description_
+        scale_factor (_type_, optional): _description_. Defaults to 1e-6.
+
+    Returns:
+        _type_: _description_
+    """
+    
+    # Filter to split the identified peak vs the non identified one
+    df_identified = lf_peaks.filter(pl.col("Oligo-Adduct").is_not_null()).collect()
+    df_unidentified = lf_peaks.filter(pl.col("Oligo-Adduct").is_null()).collect()
+    
     fig = go.Figure()
     fig.add_layout_image(
         dict(
@@ -98,17 +120,31 @@ def build_plotly_figure(bg_src, df_peaks, mass_col: str, intensity_col: str, x_m
             sizing="stretch", opacity=1.0, layer="below"
         )
     )
-    oligo_name = df_peaks["Oligo-Adduct"].to_numpy().reshape(-1, 1)
+    
+    # Put red marker to identified peaks
+    oligo_name = df_identified["Oligo-Adduct"].to_numpy().reshape(-1, 1)
     fig.add_trace(go.Scattergl(
-        x=df_peaks[mass_col].to_numpy()*scale_factor,  # ppm --> Da
-        y=df_peaks[intensity_col].to_numpy(),
+        x=df_identified[mass_col].to_numpy(),
+        y=df_identified[intensity_col].to_numpy(),
         mode="markers",
         marker=dict(size=4, color='red'),
-
-        name="Peaks",
+        name="Identified Peaks",
         customdata=oligo_name,
         hovertemplate="m/z: %{x}<br>Intensity: %{y}<br>Oligo: %{customdata[0]}<extra></extra>",
     ))
+
+    print(df_unidentified)
+
+    # Put yellow marker to unidentified peaks
+    fig.add_trace(go.Scattergl(
+        x=df_unidentified[mass_col].to_numpy(),
+        y=df_unidentified[intensity_col].to_numpy(),
+        mode="markers",
+        marker=dict(size=4, color='yellow'),
+        name="Undentified Peaks",
+        hovertemplate="m/z: %{x}<br>Intensity: %{y}<br><extra></extra>",
+    ))
+
     fig.update_xaxes(title_text="m/z", range=[x_min, x_max])
     fig.update_yaxes(title_text="Intensity", range=[y_min, y_max])
     fig.update_layout(height=520, margin=dict(l=40, r=20, t=40, b=40))
@@ -242,8 +278,13 @@ if __name__=="__main__":
             selected_spectrum = st.selectbox("Select spectrum", st.session_state.spectra_list)
             peak_lf = st.session_state.peak_dict[selected_spectrum]
             nb_peak = peak_lf.select(pl.len()).collect().item()  # .item() extract the scalar value
-            st.write(f'Number of peak detected: {nb_peak}')
-            st.dataframe(peak_lf.sort(pl.col("intensity"), descending=False).collect())
+            nb_id_peak = peak_lf.filter(pl.col("Oligo-Adduct").is_not_null()).select(pl.len()).collect().item()  # .item() extract the scalar value
+            
+            st.write(f'Number of peak identified vs detected: {nb_id_peak} / {nb_peak}')
+            st.dataframe(peak_lf
+                         .filter(pl.col("Oligo-Adduct").is_not_null())
+                         .sort(pl.col("Intensity"), descending=False)
+                         .collect())
 
             #####
             #   CODE POUR L'AFFICHAGE DES SPECTRES
@@ -256,9 +297,9 @@ if __name__=="__main__":
             bg_src, x_min, x_max, y_min, y_max = make_background_b64(x, y, dpi=dpi)
 
             # PLot the mass spectrum
-            fig = build_plotly_figure(bg_src, peak_lf.collect(),
-                                    mass_col="query_mass",
-                                    intensity_col="intensity",
+            fig = build_plotly_figure(bg_src, peak_lf,
+                                    mass_col="m/z",
+                                    intensity_col="Intensity",
                                     x_min=x_min, x_max=x_max,
                                     y_min=y_min, y_max=y_max,
                                     scale_factor=1e-6)
