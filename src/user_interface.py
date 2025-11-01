@@ -1,5 +1,5 @@
 """
-    User interface for the streatment of the spectra
+    User interface for the treatment of the Maldi spectra
 """
 
 __author__  = "Pierre-Alexandre HO"
@@ -12,16 +12,12 @@ import spectre_analysis as sp_ana
 import polars as pl
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
-import tempfile
-import os
 import io, base64
 import numpy as np
 import atexit
-import subprocess
-import time
 
 from pathlib import Path
-from typing import Dict, Union, Optional, Tuple, List
+from typing import Dict, Union, Tuple, List
 
 
 def upload_files() -> pl.DataFrame:
@@ -85,29 +81,46 @@ def make_background_b64(x: np.ndarray, y: np.ndarray, figsize=(12,4), dpi=150):
     return f"data:image/png;base64,{b64}", float(x.min()), float(x.max()), float(y.min()), float(y.max())
 
 
-
-def build_plotly_figure(bg_src, lf_peaks, mass_col: str, intensity_col: str, x_min, x_max, y_min, y_max, scale_factor=1e-6 ):
+def build_plotly_figure(
+    bg_src: Union[str, Path],
+    lf_peaks: pl.LazyFrame,
+    mass_col: str = "m/z",
+    intensity_col: str = "Intensity",
+    oligo_col_name: str = "Oligo-Adduct",
+    x_min: float = 500,
+    x_max: float = 4000,
+    y_min: float = 0,
+    y_max: float = 1e6,
+) -> go.Figure:
     """
-    _summary_
+    Builds an interactive Plotly figure for MALDI-TOF spectra visualization with background image,
+    differentiated identified/unidentified peaks.
 
     Args:
-        bg_src (_type_): _description_
-        df_peaks (_type_): Polars lazyframe
-        mass_col (str): _description_
-        intensity_col (str): _description_
-        x_min (_type_): _description_
-        x_max (_type_): _description_
-        y_min (_type_): _description_
-        y_max (_type_): _description_
-        scale_factor (_type_, optional): _description_. Defaults to 1e-6.
+        bg_src: Path to background image file (PNG/JPG) or image data
+        lf_peaks: Polars LazyFrame containing peak data with columns:
+                 - mass_col (default "m/z")
+                 - intensity_col (default "Intensity")
+                 - Oligo-Adduct (default peak identification)
+        mass_col: Column name for mass/charge values
+        intensity_col: Column name for intensity values
+        oligo_col_name: Column name for oglicoshaccaride name,
+        x_min: Minimum m/z value for x-axis
+        x_max: Maximum m/z value for x-axis
+        y_min: Minimum intensity for y-axis
+        y_max: Maximum intensity for y-axis
 
     Returns:
-        _type_: _description_
-    """
-    
+        go.Figure: Configured Plotly figure with:
+                  - Background image stretched to axis range
+                  - Red markers for identified peaks (with oligo info on hover)
+                  - Yellow markers for unidentified peaks
+                  - Transparent background
+                  - Full-width display
+    """ 
     # Filter to split the identified peak vs the non identified one
-    df_identified = lf_peaks.filter(pl.col("Oligo-Adduct").is_not_null()).collect()
-    df_unidentified = lf_peaks.filter(pl.col("Oligo-Adduct").is_null()).collect()
+    df_identified = lf_peaks.filter(pl.col(oligo_col_name).is_not_null()).collect()
+    df_unidentified = lf_peaks.filter(pl.col(oligo_col_name).is_null()).collect()
     
     fig = go.Figure()
     fig.add_layout_image(
@@ -122,7 +135,7 @@ def build_plotly_figure(bg_src, lf_peaks, mass_col: str, intensity_col: str, x_m
     )
     
     # Put red marker to identified peaks
-    oligo_name = df_identified["Oligo-Adduct"].to_numpy().reshape(-1, 1)
+    oligo_name = df_identified[oligo_col_name].to_numpy().reshape(-1, 1)
     fig.add_trace(go.Scattergl(
         x=df_identified[mass_col].to_numpy(),
         y=df_identified[intensity_col].to_numpy(),
@@ -132,8 +145,6 @@ def build_plotly_figure(bg_src, lf_peaks, mass_col: str, intensity_col: str, x_m
         customdata=oligo_name,
         hovertemplate="m/z: %{x}<br>Intensity: %{y}<br>Oligo: %{customdata[0]}<extra></extra>",
     ))
-
-    print(df_unidentified)
 
     # Put yellow marker to unidentified peaks
     fig.add_trace(go.Scattergl(
@@ -148,6 +159,9 @@ def build_plotly_figure(bg_src, lf_peaks, mass_col: str, intensity_col: str, x_m
     fig.update_xaxes(title_text="m/z", range=[x_min, x_max])
     fig.update_yaxes(title_text="Intensity", range=[y_min, y_max])
     fig.update_layout(height=520, margin=dict(l=40, r=20, t=40, b=40))
+
+    # Clean memory
+    del df_identified, df_unidentified
     return fig
 
 
@@ -188,7 +202,6 @@ def define_x_y(
 
     del spectrum, mask, filtered_spectrum
     return x, y
-
 
 
 if __name__=="__main__":
@@ -315,9 +328,9 @@ if __name__=="__main__":
             fig = build_plotly_figure(bg_src, peak_lf,
                                     mass_col="m/z",
                                     intensity_col="Intensity",
+                                    oligo_col_name="Oligo-Adduct",
                                     x_min=x_min, x_max=x_max,
-                                    y_min=y_min, y_max=y_max,
-                                    scale_factor=1e-6)
+                                    y_min=y_min, y_max=y_max,)
             st.plotly_chart(fig, use_container_width=True)
             
             # Show peak table
