@@ -135,25 +135,42 @@ def build_plotly_figure(
     )
     
     # Put red marker to identified peaks
-    oligo_name = df_identified[oligo_col_name].to_numpy().reshape(-1, 1)
+    oligo_name = (
+            df_identified[oligo_col_name]
+            .fill_null("")  # Gère les None
+            .str.split("/")  # Split par "/"
+            .map_elements(
+                lambda x: "<br>".join(x) if len(x) > 0 else "",  # Vérifie si la liste n'est pas vide
+                return_dtype=pl.String
+            )
+            .to_list()
+        )
+    x_formate= [str(x).replace(",", "") for x in df_identified[mass_col].to_list()]
+    customdata = np.column_stack((x_formate, oligo_name))  # Custumdata need a
+
     fig.add_trace(go.Scattergl(
         x=df_identified[mass_col].to_numpy(),
         y=df_identified[intensity_col].to_numpy(),
         mode="markers",
         marker=dict(size=4, color='red'),
         name="Identified Peaks",
-        customdata=oligo_name,
-        hovertemplate="m/z: %{x}<br>Intensity: %{y}<br>Oligo: %{customdata[0]}<extra></extra>",
-    ))
+        customdata=customdata,
+        hovertemplate=(
+            "<b>m/z</b>: %{customdata[0]}<br>"
+            "<b>Intensity</b>: %{y}<br>"
+            "<b>Oligo(s):</b><br>%{customdata[1]}<extra></extra>"
+        )))
 
     # Put yellow marker to unidentified peaks
+    x_formate= [str(x).replace(",", "") for x in df_unidentified[mass_col].to_list()]
     fig.add_trace(go.Scattergl(
         x=df_unidentified[mass_col].to_numpy(),
         y=df_unidentified[intensity_col].to_numpy(),
         mode="markers",
         marker=dict(size=4, color='yellow'),
         name="Undentified Peaks",
-        hovertemplate="m/z: %{x}<br>Intensity: %{y}<br><extra></extra>",
+        customdata=x_formate,
+        hovertemplate="m/z: %{customdata}<br>Intensity: %{y}<br><extra></extra>",
     ))
 
     fig.update_xaxes(title_text="m/z", range=[x_min, x_max])
@@ -307,6 +324,10 @@ if __name__=="__main__":
 
         if 'peak_dict' in st.session_state:
             st.success('✅ Analysis completed !') 
+            
+            with st.expander("⚙️ Advanced options to display the spectrum", expanded=False):
+                dpi = st.selectbox("Image DPI (quality)", [100, 150, 200, 300], index=1)
+            
             # Choose the spectra to show
             selected_spectrum = st.selectbox("Select spectrum", st.session_state.spectra_list)
             peak_lf = st.session_state.peak_dict[selected_spectrum]
@@ -316,10 +337,7 @@ if __name__=="__main__":
             st.write(f'Number of peak identified vs detected: {nb_id_peak} / {nb_peak}')
 
             # Show specytrum plot
-
-            with st.expander("⚙️ Advanced options to display the spectrum", expanded=False):
-                dpi = st.selectbox("Image DPI (quality)", [100, 150, 200, 300], index=1)
-                      
+                                
             # make background image
             x, y = define_x_y(spectra, selected_spectrum,)
             bg_src, x_min, x_max, y_min, y_max = make_background_b64(x, y, dpi=dpi)
