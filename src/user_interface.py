@@ -222,6 +222,7 @@ def define_x_y(
 
 
 if __name__=="__main__":
+    st.set_page_config(page_title="SugarMALDI", page_icon="🧪")
     st.title('SugarMALDI')
 
     spectra = upload_files()
@@ -332,7 +333,7 @@ if __name__=="__main__":
             selected_spectrum = st.selectbox("Select spectrum", st.session_state.spectra_list)
             peak_lf = st.session_state.peak_dict[selected_spectrum]
             nb_peak = peak_lf.select(pl.len()).collect().item()  # .item() extract the scalar value
-            nb_id_peak = peak_lf.filter(pl.col("Oligo-Adduct").is_not_null()).select(pl.len()).collect().item()  # .item() extract the scalar value
+            nb_id_peak = peak_lf.filter(pl.col("Identifications").is_not_null()).select(pl.len()).collect().item()  # .item() extract the scalar value
             
             st.write(f'Number of peak identified vs detected: {nb_id_peak} / {nb_peak}')
 
@@ -346,15 +347,16 @@ if __name__=="__main__":
             fig = build_plotly_figure(bg_src, peak_lf,
                                     mass_col="m/z",
                                     intensity_col="Intensity",
-                                    oligo_col_name="Oligo-Adduct",
+                                    oligo_col_name="Identifications",
                                     x_min=x_min, x_max=x_max,
                                     y_min=y_min, y_max=y_max,)
             st.plotly_chart(fig, use_container_width=True)
             
             # Show peak table
             st.subheader("Identified peaks")
+            st.write("*Delta_M in ppm, m/z in datlton, query_mass in ppm*")
             st.dataframe(peak_lf
-                         .filter(pl.col("Oligo-Adduct").is_not_null())
+                         .filter(pl.col("Identifications").is_not_null())
                          .sort(pl.col("Intensity"), descending=False)
                          .collect())
 

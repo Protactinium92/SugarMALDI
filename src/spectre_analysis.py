@@ -458,14 +458,14 @@ def match_oligos(
 
     Args:
         dico_peak: Dict of spectra (key: spectrum name, value: spectra LazyFrame).
-        library: DataFrame with columns 'Oligo_H+', 'Oligo_Na+', 'Oligo_K+'.
+        library: DataFrame with columns 'labeled_mass_H+', 'labeled_mass_Na+', 'labeled_mass_K+'.
         threshold: Mass accuracy tolerence for matching: abs((theory-real)/theory) in "ppm"
 
     Returns:
         Dict[str, pl.DataFrame]: {spectrum_name: matches_df}
     """
     results = {}
-    for adduct in ['Oligo_H+', 'Oligo_Na+', 'Oligo_K+']:
+    for adduct in ['labeled_mass_H+', 'labeled_mass_Na+', 'labeled_mass_K+']:
         library = normalize_mz_column(
         lf = library,
         mz_col=adduct,
@@ -491,23 +491,21 @@ def match_oligos(
             th_min, th_max = calcul_offset(threshold, mass)
 
             candidates = library.filter(
-                (pl.col("Oligo_H+_int").is_between(th_min, th_max)) |
-                (pl.col("Oligo_Na+_int").is_between(th_min, th_max)) |
-                (pl.col("Oligo_K+_int").is_between(th_min, th_max))
+                (pl.col("labeled_mass_H+_int").is_between(th_min, th_max)) |
+                (pl.col("labeled_mass_Na+_int").is_between(th_min, th_max)) |
+                (pl.col("labeled_mass_K+_int").is_between(th_min, th_max))
             )
 
             if candidates.select(pl.len()).collect().item() == 0:
                 continue
 
-            #print(candidates.collect())
-
             # --- Step 2: Compute the mass ratio ---
             candidates_with_diff = candidates.with_columns(
                 pl.lit(int(mass)).cast(pl.Int64).alias("query_mass"),
                 pl.lit(float(intensity)).alias("Intensity"),
-                ((mass - pl.col("Oligo_H+_int"))/pl.col("Oligo_H+_int")*10**6).abs().alias("diff_H"),
-                ((mass - pl.col("Oligo_Na+_int"))/pl.col("Oligo_Na+_int")*10**6).abs().alias("diff_Na"),
-                ((mass  -pl.col("Oligo_K+_int"))/pl.col("Oligo_K+_int")*10**6).abs().alias("diff_K")
+                ((mass - pl.col("labeled_mass_H+_int"))/pl.col("labeled_mass_H+_int")*10**6).abs().alias("diff_H"),
+                ((mass - pl.col("labeled_mass_Na+_int"))/pl.col("labeled_mass_Na+_int")*10**6).abs().alias("diff_Na"),
+                ((mass  -pl.col("labeled_mass_K+_int"))/pl.col("labeled_mass_K+_int")*10**6).abs().alias("diff_K")
             )
 
             # --- Step 3: Find best match ---
@@ -542,97 +540,6 @@ def match_oligos(
     return results
 
 
-# def match_oligos(
-#     dico_peak: Dict[str, pl.DataFrame],
-#     library: pl.DataFrame,
-#     threshold: int,
-# ) -> Dict[str, pl.DataFrame]:
-#     """
-#     Optimized version of matching masses to oligomers in a library.
-#     Works fully in LazyFrames, no intermediate collect().
-
-#     Args:
-#         dico_peak: Dict of spectra (key: spectrum name, value: spectra DataFrame)
-#         library: DataFrame with columns 'Oligo_H+', 'Oligo_Na+', 'Oligo_K+'
-#         threshold: Mass tolerance in ppm
-
-#     Returns:
-#         Dict[str, pl.DataFrame]: {spectrum_name: matches_df}
-#     """
-#     # Precompute integer columns for library
-#     for adduct in ["Oligo_H+", "Oligo_Na+", "Oligo_K+"]:
-#         library = normalize_mz_column(library, mz_col=adduct, new_col=f"{adduct}_int")
-
-#     results = {}
-
-#     for spectrum_name, spectrum_df in dico_peak.items():
-
-#         # Normalize spectrum
-#         spectrum_df = normalize_mz_column(spectrum_df, mz_col="m/z", new_col="mz_int")
-
-#         # Convert to LazyFrames for full pipeline
-#         spectrum_lf = spectrum_df.lazy()
-#         library_lf = library.lazy()
-
-#         # Cross join spectrum x library to compute differences
-#         # This avoids Python loops entirely
-#         cross = spectrum_lf.join(
-#             library_lf, how="cross"
-#         ).with_columns([
-#             ((pl.col("mz_int") - pl.col("Oligo_H+_int")) / pl.col("Oligo_H+_int") * 1e6).abs().alias("diff_H"),
-#             ((pl.col("mz_int") - pl.col("Oligo_Na+_int")) / pl.col("Oligo_Na+_int") * 1e6).abs().alias("diff_Na"),
-#             ((pl.col("mz_int") - pl.col("Oligo_K+_int")) / pl.col("Oligo_K+_int") * 1e6).abs().alias("diff_K"),
-#         ])
-
-#         # Filter based on threshold
-#         cross = cross.filter(
-#             (pl.col("diff_H") <= threshold) |
-#             (pl.col("diff_Na") <= threshold) |
-#             (pl.col("diff_K") <= threshold)
-#         )
-
-#         if cross.collect().shape[0] == 0:
-#             results[spectrum_name] = pl.DataFrame(schema={
-#                 "query_mass": pl.Float64,
-#                 "Adduct": pl.Utf8,
-#                 "mass_diff": pl.Float64
-#             })
-#             continue
-
-#         # Compute Delta_M and best adduct
-#         matched = (
-#             cross
-#             .with_columns(
-#                 pl.min_horizontal(["diff_H", "diff_Na", "diff_K"]).alias("Delta_M"),
-#                 pl.col("mz_int").alias("query_mass"),
-#                 pl.col("Intensity")
-#             )
-#             .with_columns(
-#                 pl.when(pl.col("diff_H") == pl.col("Delta_M")).then(pl.lit("H+"))
-#                     .when(pl.col("diff_Na") == pl.col("Delta_M")).then(pl.lit("Na+"))
-#                     .otherwise(pl.lit("K+"))
-#                     .alias("Adduct")
-#             )
-#             .filter(pl.col("Delta_M") == pl.col("Delta_M").min())
-#             .select([
-#                 pl.exclude(["diff_H", "diff_Na", "diff_K", "Delta_M"])
-#             ])
-#         )
-
-#         results[spectrum_name] = matched
-
-#     return results
-
-
-
-
-
-
-
-
-
-
-
 def compare_to_library(
     dico_peak: Dict[str, pl.LazyFrame],
     ratio_max: float
@@ -649,12 +556,12 @@ def compare_to_library(
 
     Note:
         - Loads reference library from '../data/oligo_combinations_clean.csv'
-        - Library must contain at least 'Oligo_mass' column for mass-based matching
+        - Library must contain at least 'Neutral_unlabeled_mass' column for mass-based matching
         - Returns modified input dictionaries with additional match columns
     """
 
     library_oligo_unic = read_csv(Path(__file__).parents[1]/"data"/"oligo_combinations_clean.csv", sep=",")
-    library_oligo_unic = library_oligo_unic.sort(pl.col("Oligo_mass"), descending=False)
+    library_oligo_unic = library_oligo_unic.sort(pl.col("Neutral_unlabeled_mass"), descending=False)
 
     return match_oligos(dico_peak, library_oligo_unic, ratio_max)
 
@@ -692,7 +599,7 @@ def compile_oligo_name(match_dict: Dict[str, pl.LazyFrame], monomers: List[str])
         ).with_columns(
             pl.concat_str(["OligoName", "Adduct"], separator="")
             .str.replace_all(r'\s+', '')
-            .alias("Oligo-Adduct")
+            .alias("Identifications")
         ).drop("OligoName")
         new_dict[spectrum_name] = new_df
     del new_df
@@ -733,7 +640,7 @@ def cleanup() -> None:
 
 
 def process_mass(mass: float, adduct:str, full_library: pl.LazyFrame, monomers_list: List[str], mass_col_name: str):
-    """Traite une seule masse et renvoie le nom d’oligo correspondant.
+    """Traite une seule masse et renvoie le nom d'oligo correspondant.
     Use for parralelisation"""
     selected_oligo_lf = (full_library
                          .filter(pl.col(mass_col_name) == mass)
@@ -741,7 +648,7 @@ def process_mass(mass: float, adduct:str, full_library: pl.LazyFrame, monomers_l
     selected_oligo_dict = compile_oligo_name({str(mass): selected_oligo_lf}, monomers_list)
     oligo_names = (
         selected_oligo_dict[str(mass)]
-        .select(pl.col("Oligo-Adduct"))
+        .select(pl.col("Identifications"))
         .collect()
         .to_series()
         .to_list()
@@ -755,8 +662,9 @@ def check_shared_mass(
     match_dict: Dict[str, pl.LazyFrame],
     complete_library: Path,
     monomers_list: List[str],
-    mass_col_name: str = "Oligo_mass",
-    shared_col: str = "Multiple_Oligo",
+    mass_col_name: str = "Neutral_unlabeled_mass",
+    shared_col: str = "Recurrence",
+    oglido_id_col_name: str = "Identifications",
     n_workers: Optional[int] = None,
 ) -> Dict[str, pl.LazyFrame]:
     """
@@ -783,16 +691,13 @@ def check_shared_mass(
             )
         print(f"{spectrum} End duplicate analysis")
 
+        # Replace the initial column 
+        non_unique_lf = (non_unique_lf.drop(oglido_id_col_name)
+                         .with_columns(pl.Series(oglido_id_col_name, oligo_name_list)))
+
         # Fusion avec le LazyFrame initial
-        # non_unique_df = non_unique_lf.collect()
-        # non_unique_df = non_unique_df.with_columns(
-        #     pl.DataFrame({"Oligo-Adduct": oligo_name_list})
-        # ).lazy()
-
-        non_unique_lf = ( non_unique_lf.drop("Oligo-Adduct") .with_columns(pl.Series("Oligo-Adduct", oligo_name_list)) )
-
-        print(f"Unique : {unique_lf.select(pl.col("Oligo-Adduct")).collect().to_series().to_list()}")
-        print(f"Non Unique : {non_unique_lf.select(pl.col("Oligo-Adduct")).collect().to_series().to_list()}")
+        print(f"Unique : {unique_lf.select(pl.col(oglido_id_col_name)).collect().to_series().to_list()}")
+        print(f"Non Unique : {non_unique_lf.select(pl.col(oglido_id_col_name)).collect().to_series().to_list()}")
 
         full_lf = pl.concat([unique_lf, non_unique_lf])
         print(f'Full lf {full_lf.columns}')
@@ -804,7 +709,8 @@ def check_shared_mass(
 def combine_dict_df(
     dict_1: Dict[str, pl.LazyFrame],
     dict_2: Dict[str, pl.LazyFrame],
-    how: str = "left"
+    oglido_id_col_name: str = "Identifications",
+    how: str = "right"
 ) -> Dict[str, pl.LazyFrame]:
     """
     Combine two dictionaries of LazyFrames by joining on the 'query_mass' column.
@@ -818,7 +724,7 @@ def combine_dict_df(
         Dictionary of combined LazyFrames, joined on 'query_mass'.
     """
     combine_dict: Dict[str, pl.LazyFrame] = {}
-    cols_to_keep_1 = ["query_mass", "Oligo-Adduct"]
+    cols_to_keep_1 = ["query_mass", "Identifications", "Delta_M"]
     cols_to_keep_2 = ["m/z", "query_mass", "Intensity"]
     for spectrum, lf_1 in dict_1.items():
 
@@ -837,9 +743,9 @@ def combine_dict_df(
             print(f'lf 2 {lf_2_simple}')
 
             try:
-                print(f'LF 1 {lf_1_simple.select(pl.col("Oligo-Adduct")).to_series().to_list()}')
+                print(f'LF 1 {lf_1_simple.select(pl.col(oglido_id_col_name)).to_series().to_list()}')
                 joined = lf_1_simple.join(lf_2_simple, on="query_mass", how=how)
-                print(f'Joined  {joined.select(pl.col("Oligo-Adduct")).to_series().to_list()}')
+                print(f'Joined  {joined.select(pl.col(oglido_id_col_name)).to_series().to_list()}')
                 
                 # Diagnostic : collecter juste un petit échantillon
                 sample = joined.head(-5)
@@ -904,8 +810,8 @@ def execute_process(
             match_dict = match,
             complete_library =Path(__file__).parents[1]/"data"/"oligo_combinations.csv",
             monomers_list= monomers_list,
-            mass_col_name = "Oligo_mass",
-            shared_col = "Multiple_Oligo",
+            mass_col_name = "Neutral_unlabeled_mass",
+            shared_col = "Recurrence",
             n_workers= n_workers)
 
         # 4. Save to temporary directory
@@ -915,7 +821,7 @@ def execute_process(
         zip_buffer = create_zip(file_paths)
 
         # 6. Combine the lfs to have the non identified peak
-        match = combine_dict_df(match, peaks_dict, "right")
+        match = combine_dict_df(match, peaks_dict, how="right")
 
         # 6. Explicit cleanup
         del peaks_dict
@@ -959,10 +865,10 @@ if __name__ == "__main__":
             match_dict = match,
             complete_library =Path(__file__).parents[1]/"data"/"oligo_combinations.csv",
             monomers_list= monomers_list,
-            mass_col_name = "Oligo_mass",
-            shared_col = "Multiple_Oligo",
+            mass_col_name = "Neutral_unlabeled_mass",
+            shared_col = "Recurrence",
             n_workers= n_workers)
     print(f'Match dict after Shared oligo names comparison \n{match[first_spectrum_name].collect()}')
-    combine = combine_dict_df(match, peaks_dict, "right")
+    combine = combine_dict_df(match, peaks_dict, how="right")
     print(f'Combine dict: {combine}')
-    print(f'Final df \n{combine[first_spectrum_name].select(pl.col("Oligo-Adduct")).collect().to_series().to_list()}')
+    print(f'Final df \n{combine[first_spectrum_name].select(pl.col("Identifications")).collect().to_series().to_list()}')

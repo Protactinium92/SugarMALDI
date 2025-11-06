@@ -203,9 +203,9 @@ def generate_oligo_combinations(
                 count += 1
 
     # Create Polars DataFrame and filter by mass threshold
-    columns = monomers_list + ["Oligo_mass"]
+    columns = monomers_list + ["Neutral_unlabeled_mass"]
     df = pl.DataFrame(results, schema=columns,  orient="row").lazy()
-    df = df.filter((pl.col("Oligo_mass") <= max_mass))
+    df = df.filter((pl.col("Neutral_unlabeled_mass") <= max_mass))
 
     return df
 
@@ -213,7 +213,7 @@ def generate_oligo_combinations(
 def add_adduct_columns(
     df: Union[pl.DataFrame, pl.LazyFrame],
     adduct_masses: Dict[str, float],
-    mass_column_name: str = "Oligo_mass"
+    mass_column_name: str = "Neutral_unlabeled_mass"
 ) -> pl.LazyFrame:
     """
     Add columns for each adduct's total mass to a Polars DataFrame of oligomer combinations.
@@ -223,11 +223,11 @@ def add_adduct_columns(
         df: Polars DataFrame containing oligomer combinations and their base mass.
             Must include a column with the base mass (default: "masse").
         adduct_masses: Dictionary mapping adduct names to their masses (e.g., {"[M+H]+": 1.007, "[M+Na]+": 22.99}).
-        mass_column: Name of the column containing the base mass (default: "Oligo_mass").
+        mass_column: Name of the column containing the base mass (default: "Neutral_unlabeled_mass").
 
     Returns:
         pl.LazyFrame: Input LazyFrame with additional columns for each adduct's total mass.
-                      New columns are named "Oligo_[adduct]".
+                      New columns are named "labeled_mass_[adduct]".
     """
     df_lazy = ensure_lazy(df)
 
@@ -235,7 +235,7 @@ def add_adduct_columns(
     water = calc_mass_mol(WATER)
     # Build all adduct columns in one call using list comprehension
     adduct_columns = [
-        (pl.col(mass_column_name) + label_mass - water + adduct_mass).round(6).alias(f"Oligo_{adduct}")
+        (pl.col(mass_column_name) + label_mass - water + adduct_mass).round(6).alias(f"labeled_mass_{adduct}")
         for adduct, adduct_mass in adduct_masses.items()
     ]
 
@@ -285,7 +285,7 @@ def get_duplicate(
         List[str]: A list of `id_col` values for rows containing duplicated values.
     """
     if columns_to_check is None:
-        columns_to_check = [f'Oligo_{key}' for key in list(ADDUCT_MASS.keys())]
+        columns_to_check = [f'labeled_mass_{key}' for key in list(ADDUCT_MASS.keys())]
 
     # Convert to lazy frame
     df_lazy = ensure_lazy(df)
@@ -348,7 +348,7 @@ def reduce_row(
     unique = (
         combinations_df
         .filter(~pl.col("column_id").is_in(duplicate_ids))
-        .with_columns(pl.lit("Unique").alias("Multiple_Oligo"))
+        .with_columns(pl.lit("Unique").alias("Recurrence"))
     )
 
     # Keep only first occurrence of duplicate rows
@@ -356,11 +356,11 @@ def reduce_row(
         combinations_df
         .filter(pl.col("column_id").is_in(duplicate_ids))
         .unique(
-            subset=[f"Oligo_{key}" for key in ADDUCT_MASS.keys()],
+            subset=[f"labeled_mass_{key}" for key in ADDUCT_MASS.keys()],
             keep="first",
             maintain_order=True,
         )
-        .with_columns(pl.lit("Shared").alias("Multiple_Oligo"))
+        .with_columns(pl.lit("Shared").alias("Recurrence"))
     )
 
     # Concatenate both
