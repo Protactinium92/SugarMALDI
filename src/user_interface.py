@@ -216,7 +216,7 @@ def build_plotly_figure(
         hovertemplate=(
             "<b>m/z</b>: %{customdata[0]}<br>"
             "<b>Intensity</b>: %{y}<br>"
-            "<b>Oligo(s):</b><br>%{customdata[1]}<extra></extra>"
+            "<b>Identification:</b><br>%{customdata[1]}<extra></extra>"
         )))
 
     # Put yellow marker to unidentified peaks
@@ -338,13 +338,14 @@ if __name__=="__main__":
                 st.warning("⚠️ Warning: Parameter(s) changed. Please re-run the analysis to apply the new settings.")
 
         if "monomers_list" not in st.session_state:
-            st.session_state.monomers_list = []
+            st.session_state.monomers_list = None
         monomers_list____final = monomer_selection()
 
-        if monomers_list____final != st.session_state.monomers_list and monomers_list____final:
+        if (st.session_state.monomers_list is not None and              # 1 Check the 1st launch
+            monomers_list____final and                                  # 2 chek if not empty (warning in the function)
+            monomers_list____final != st.session_state.monomers_list):  # 3 check if the list changes
             st.warning("⚠️ Warning: List of menomers changes. Please re-run the analysis to apply the new settings.")
 
-        #monomers_list = st.session_state.monomers_list
         #TODO: changes monomers list
         monomers = sp_ana.read_csv(Path(__file__).parents[1]/"data"/"monomers.csv", sep=";")
         monomers_list = monomers.select(pl.col("Notation")).collect().to_series().to_list()
