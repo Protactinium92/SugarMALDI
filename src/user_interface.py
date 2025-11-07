@@ -53,6 +53,64 @@ def upload_files() -> pl.DataFrame:
     return spectra
 
 
+def monomer_selection() -> List[str]:
+    """
+    Interactive monomer selection interface for MALDI spectra analysis.
+
+    Returns:
+        List[str]: List of selected monomer notations (empty if none selected).
+                  Returns all monomers if selection is not implemented yet.
+    """
+    st.subheader("Monomer(s) Selection")
+
+    # Warning about ongoing implementation
+    st.error(
+        'Monomer selection is under implementation.\n'
+        'Results currently ignore selection.',
+        icon="🚨"
+    )
+
+    with st.expander("💬 **Information & Guidelines**", expanded=False):
+        st.write("Here will be the guidlines for the selection of monomers.")
+
+    # Load and prepare monomer data
+    monomers = sp_ana.read_csv(Path(__file__).parents[1] / "data" / "monomers.csv", sep=";")
+    monomers_df = (monomers
+        .with_columns(pl.lit(False).alias("Selection"))              # Boolean for checkbox
+        .select(["Selection"] +  monomers.collect_schema().names())  # Selection column first
+        .collect()
+    )
+
+    # Interactive DataFrame with selection
+    edited_df = st.data_editor(
+        monomers_df,
+        disabled=monomers_df.columns[1:],  # Disable all except Selection
+        hide_index=True,
+        width="stretch",
+        column_config={
+            "Selection": st.column_config.CheckboxColumn(
+                "Selection",
+                help="Check to include this monomer in analysis"
+            )
+        }
+    )
+
+    # Process selection
+    monomers_list = (
+        edited_df
+        .filter(pl.col("Selection"))["Notation"]
+        .to_list()
+    )
+
+    if not monomers_list:
+        st.warning("⚠️Please select at least one monomer")
+    else:
+        badges = " ".join([f":blue-badge[{m}]" for m in monomers_list])
+        st.markdown(badges)
+    del monomers, edited_df
+    return monomers_list
+
+
 @st.cache_data
 def make_background_b64(x: np.ndarray, y: np.ndarray, figsize=(12,4), dpi=150):
     """
@@ -279,11 +337,17 @@ if __name__=="__main__":
             if (window != st.session_state.window) or (dist_min != st.session_state.dist_min) or (rm_threshold != st.session_state.rm_threshold):
                 st.warning("⚠️ Warning: Parameter(s) changed. Please re-run the analysis to apply the new settings.")
 
-                                               
-        # Print Monomer tab
+        if "monomers_list" not in st.session_state:
+            st.session_state.monomers_list = []
+        monomers_list____final = monomer_selection()
+
+        if monomers_list____final != st.session_state.monomers_list and monomers_list____final:
+            st.warning("⚠️ Warning: List of menomers changes. Please re-run the analysis to apply the new settings.")
+
+        #monomers_list = st.session_state.monomers_list
+        #TODO: changes monomers list
         monomers = sp_ana.read_csv(Path(__file__).parents[1]/"data"/"monomers.csv", sep=";")
         monomers_list = monomers.select(pl.col("Notation")).collect().to_series().to_list()
-        st.dataframe(monomers.collect())
 
         st.markdown("---")
         st.subheader("Process and Download")
@@ -292,36 +356,38 @@ if __name__=="__main__":
         if 'analysis_results' not in st.session_state:
             st.session_state.analysis_results = None
         
-        col1, col2 = st.columns([1,1])
-        with col1:
-            if st.button("🔍 Spectra analysis"):
-                with st.spinner('🔄 Treatment ongoing...'):
-                    zip_buffer, peak_dict = sp_ana.execute_process(
-                        spectra,
-                        monomers_list,
-                        rm_threshold,
-                        window,
-                        dist_min
-                    )
-                    st.session_state.peak_dict = {
-                        spectrum_name: peaks_lf.lazy() 
-                        for spectrum_name, peaks_lf in peak_dict.items()
-                    }
-                    # Update session state with new values
-                    st.session_state.analysis_results = zip_buffer
-                    # For the warning message
-                    st.session_state.window = window
-                    st.session_state.dist_min = dist_min
-                    st.session_state.rm_threshold = rm_threshold
+        if monomers_list____final:
+            col1, col2 = st.columns([1,1])
+            with col1:
+                if st.button("🔍 Spectra analysis"):
+                    with st.spinner('🔄 Treatment ongoing...'):
+                        zip_buffer, peak_dict = sp_ana.execute_process(
+                            spectra,
+                            monomers_list,
+                            rm_threshold,
+                            window,
+                            dist_min
+                        )
+                        st.session_state.peak_dict = {
+                            spectrum_name: peaks_lf.lazy() 
+                            for spectrum_name, peaks_lf in peak_dict.items()
+                        }
+                        # Update session state with new values
+                        st.session_state.analysis_results = zip_buffer
+                        # For the warning message
+                        st.session_state.window = window
+                        st.session_state.dist_min = dist_min
+                        st.session_state.rm_threshold = rm_threshold
+                        st.session_state.monomers_list = monomers_list____final
 
-        with col2:
-            if st.session_state.analysis_results:
-                st.download_button(
-                    label="⬇️ Download ZIP",
-                    data=st.session_state.analysis_results.getvalue(),
-                    file_name="results_maldi.zip",
-                    mime="application/zip"
-                )
+            with col2:
+                if st.session_state.analysis_results:
+                    st.download_button(
+                        label="⬇️ Download ZIP",
+                        data=st.session_state.analysis_results.getvalue(),
+                        file_name="results_maldi.zip",
+                        mime="application/zip"
+                    )
 
         if 'peak_dict' in st.session_state:
             st.success('✅ Analysis completed !') 
@@ -353,7 +419,7 @@ if __name__=="__main__":
             st.plotly_chart(fig, use_container_width=True)
             
             # Show peak table
-            st.subheader("Identified peaks")
+            st.write("### **Identified peaks**")
             st.write("*Delta_M in ppm, m/z in datlton, query_mass in ppm*")
             st.dataframe(peak_lf
                          .filter(pl.col("Identifications").is_not_null())
