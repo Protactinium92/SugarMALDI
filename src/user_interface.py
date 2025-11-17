@@ -63,13 +63,6 @@ def monomer_selection() -> List[str]:
     """
     st.subheader("Monomer(s) Selection")
 
-    # Warning about ongoing implementation
-    st.error(
-        'Monomer selection is under implementation.\n'
-        'Results currently ignore selection.',
-        icon="🚨"
-    )
-
     with st.expander("💬 **Information & Guidelines**", expanded=False):
         st.write("Here will be the guidlines for the selection of monomers.")
 
@@ -344,11 +337,12 @@ if __name__=="__main__":
         if (st.session_state.monomers_list is not None and              # 1 Check the 1st launch
             monomers_list____final and                                  # 2 chek if not empty (warning in the function)
             monomers_list____final != st.session_state.monomers_list):  # 3 check if the list changes
-            st.warning("⚠️ Warning: List of menomers changes. Please re-run the analysis to apply the new settings.")
+            st.warning("⚠️ Warning: List of monomers changes. Please re-run the analysis to apply the new settings.")
 
         #TODO: changes monomers list
-        monomers = sp_ana.read_csv(Path(__file__).parents[1]/"data"/"monomers.csv", sep=";")
-        monomers_list = monomers.select(pl.col("Notation")).collect().to_series().to_list()
+        # monomers = sp_ana.read_csv(Path(__file__).parents[1]/"data"/"monomers.csv", sep=";")
+        # monomers_list = monomers.select(pl.col("Notation")).collect().to_series().to_list()
+        monomers_list = monomers_list____final
 
         st.markdown("---")
         st.subheader("Process and Download")

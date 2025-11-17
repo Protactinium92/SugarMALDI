@@ -531,10 +531,13 @@ def match_oligos(
         if matched_oligos:
             results[spectrum_name] = pl.concat(matched_oligos)
         else:
-            results[spectrum_name] = pl.DataFrame(schema={
-                "query_mass": pl.Float64,
+            results[spectrum_name] = pl.LazyFrame(schema={
+                "Neutral_unlabeled_mass": pl.Int64,
+                "query_mass": pl.Int64,
                 "Adduct": pl.Utf8,
-                "mass_diff": pl.Float64
+                "Delta_M": pl.Float64,
+                "Recurrence": pl.Utf8,
+                "Identifications":pl.Utf8
             })
     del spectrum_name, spectrum_df, matched_oligos
     return results
@@ -542,13 +545,17 @@ def match_oligos(
 
 def compare_to_library(
     dico_peak: Dict[str, pl.LazyFrame],
+    monomers_list: List[str],
     ratio_max: float
 ) -> Dict[str, pl.LazyFrame]:
     """
     Compares experimental spectra against a reference oligosaccharide library.
+    The library is first filtered to include only oligomers composed of monomers
+    from the desired monomer list.
 
     Args:
         dico_peak: Dictionary of {spectrum_name: LazyFrame} containing m/z peaks to match
+        monomers_list: List of monomers used for oligo selection
         ratio_max: Mass Acuuracy thresold
 
     Returns:
@@ -560,8 +567,30 @@ def compare_to_library(
         - Returns modified input dictionaries with additional match columns
     """
 
+    column_selection = ["column_id"] + monomers_list + [
+        "Neutral_unlabeled_mass","labeled_mass_H+","labeled_mass_Na+","labeled_mass_K+","Recurrence"
+    ]
+
     library_oligo_unic = read_csv(Path(__file__).parents[1]/"data"/"oligo_combinations_clean.csv", sep=",")
-    library_oligo_unic = library_oligo_unic.sort(pl.col("Neutral_unlabeled_mass"), descending=False)
+    all_columns = library_oligo_unic.collect_schema().names()
+    unauthorized_columns = [col for col in all_columns if col not in column_selection]
+    
+    # If unauthorized_columns is empty every columns are True and conserved
+    unauthorized_filter_condition = (
+        pl.all_horizontal(pl.col(m) == 0 for m in unauthorized_columns)
+        if unauthorized_columns  
+        else pl.lit(True) 
+    )
+
+
+    library_oligo_unic = (library_oligo_unic
+        # Remove lines with at meast 1 monomere unauthorized
+        .filter(unauthorized_filter_condition)
+        .select(column_selection)
+        # Remove all lines where every authorized monomers = 0
+        .filter(pl.any_horizontal(pl.col(m) != 0 for m in monomers_list))
+        .sort(pl.col("Neutral_unlabeled_mass"), descending=False)
+    )
 
     return match_oligos(dico_peak, library_oligo_unic, ratio_max)
 
@@ -591,17 +620,20 @@ def compile_oligo_name(match_dict: Dict[str, pl.LazyFrame], monomers: List[str])
     new_dict = {}
     for spectrum_name, spectrum_df in match_dict.items():
         # Concatenation with empty string filtering
-        new_df = spectrum_df.with_columns(
-            pl.concat_str(monomer_parts, separator="-")
-              .str.replace_all(r'--+', '-')   # Remove double -
-              .str.strip_chars('-')  # Remove extra -
-              .alias("OligoName")
-        ).with_columns(
-            pl.concat_str(["OligoName", "Adduct"], separator="")
-            .str.replace_all(r'\s+', '')
-            .alias("Identifications")
-        ).drop("OligoName")
-        new_dict[spectrum_name] = new_df
+        if spectrum_df.select(pl.len()).collect().item() > 0:
+            new_df = spectrum_df.with_columns(
+                pl.concat_str(monomer_parts, separator="-")
+                .str.replace_all(r'--+', '-')   # Remove double -
+                .str.strip_chars('-')  # Remove extra -
+                .alias("OligoName")
+            ).with_columns(
+                pl.concat_str(["OligoName", "Adduct"], separator="")
+                .str.replace_all(r'\s+', '')
+                .alias("Identifications")
+            ).drop("OligoName")
+            new_dict[spectrum_name] = new_df
+        else:
+            new_dict[spectrum_name] = spectrum_df
     del new_df
     return new_dict
 
@@ -774,7 +806,7 @@ def execute_process(
 
     Args:
         spectra: Dictionary of DataFrames (key = sample name)
-        monomers_list: List of monomers for oligo name compilation
+        monomers_list: List of monomers used for oligo selection
         rm_threshold: Mass accuracy threshold (default: 5.0)
         mz_col_name: Name of m/z column (default: "m/z")
         other_cols: Additional columns to keep (default: None)
@@ -800,7 +832,7 @@ def execute_process(
         )
 
         # 2. Library comparison
-        match = compare_to_library(peaks_dict, ratio_max=rm_threshold)
+        match = compare_to_library(peaks_dict, monomers_list, ratio_max=rm_threshold)
 
         # 3. Oligonucleotide name compilation
         match = compile_oligo_name(match, monomers_list)
