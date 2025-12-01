@@ -20,6 +20,24 @@ from pathlib import Path
 from typing import Dict, Union, Tuple, List
 
 
+def display_logo() -> None:
+    """
+    Displays the SugarMALDI logo in the Streamlit in function the user theme.
+    """
+    theme =  st.context.theme.type
+    
+    if theme == "dark":
+        logo_path = Path(__file__).parents[1] / "pictures" / "sugarmaldi_logo_dark_theme.png"
+    else:
+        logo_path = Path(__file__).parents[1] / "pictures" / "sugarmaldi_logo_light_theme.png"
+
+    if logo_path.exists():
+        with st.columns(3)[1]:  # Center the logo on 3 columns
+            st.image(str(logo_path), use_container_width=True)
+    else:
+        st.write("Logo not found.")
+        
+
 def upload_files() -> pl.DataFrame:
     """
     Handles the upload of MS spectra CSV files via Streamlit's file uploader,
@@ -273,8 +291,8 @@ def define_x_y(
 
 
 if __name__=="__main__":
-    st.set_page_config(page_title="SugarMALDI", page_icon="favicon.png", layout="wide")
-    st.title('SugarMALDI')
+    st.set_page_config(page_title="SugarMALDI", page_icon="pictures/favicon.png", layout="wide")
+    display_logo()
 
     spectra = upload_files()
 
