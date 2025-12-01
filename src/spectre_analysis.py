@@ -621,7 +621,7 @@ def compile_oligo_name(match_dict: Dict[str, pl.LazyFrame], monomers: List[str])
     for spectrum_name, spectrum_df in match_dict.items():
         # Concatenation with empty string filtering
         if spectrum_df.select(pl.len()).collect().item() > 0:
-            new_df = spectrum_df.with_columns(
+            new_dict[spectrum_name] = spectrum_df.with_columns(
                 pl.concat_str(monomer_parts, separator="-")
                 .str.replace_all(r'--+', '-')   # Remove double -
                 .str.strip_chars('-')  # Remove extra -
@@ -631,10 +631,10 @@ def compile_oligo_name(match_dict: Dict[str, pl.LazyFrame], monomers: List[str])
                 .str.replace_all(r'\s+', '')
                 .alias("Identifications")
             ).drop("OligoName")
-            new_dict[spectrum_name] = new_df
+            # new_dict[spectrum_name] = new_df
         else:
             new_dict[spectrum_name] = spectrum_df
-    del new_df
+    # del new_df
     return new_dict
 
 

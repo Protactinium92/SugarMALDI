@@ -273,7 +273,7 @@ def define_x_y(
 
 
 if __name__=="__main__":
-    st.set_page_config(page_title="SugarMALDI", page_icon="🧪")
+    st.set_page_config(page_title="SugarMALDI", page_icon="favicon.png", layout="wide")
     st.title('SugarMALDI')
 
     spectra = upload_files()
