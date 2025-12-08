@@ -36,9 +36,34 @@ def display_logo() -> None:
             st.image(str(logo_path), use_container_width=True)
     else:
         st.write("Logo not found.")
-        
 
-def upload_files() -> pl.DataFrame:
+
+def choose_delimiter() -> str:
+    """
+    Interactive delimiter selection for file parsing.
+
+    Returns:
+        str: The selected delimiter character (converted to actual character for 'Tab'/'Space').
+             Possible values: ',', '\t', ' ', ';', ':', '|', '-'.
+    """
+    delimiter_options = (",", "Tab", "Space", ";", ":", "|", "-")
+    mapping = {"Tab": "\t", "Space": " "}  # Conversion for display vs. actual values
+    
+    col1, col2 = st.columns([0.25, 0.75])
+    with col1:
+        st.write("Select delimiter file:") 
+    with col2:
+        option = st.selectbox(
+            label="Select file delimiter", 
+            options=delimiter_options, 
+            label_visibility="collapsed", 
+            key="csv_delimeter")
+
+    # Return converted value if needed, otherwise return as-is
+    return mapping.get(option, option)
+
+
+def upload_files(delimiter: str =",") -> pl.DataFrame:
     """
     Handles the upload of MS spectra CSV files via Streamlit's file uploader,
     parses them using `sp_ana.parse_spectra`, and displays a preview of the merged data.
@@ -61,7 +86,7 @@ def upload_files() -> pl.DataFrame:
 
     if uploaded_files:
         try:
-            spectra = sp_ana.parse_spectra(uploaded_files)
+            spectra = sp_ana.parse_spectra(uploaded_files, delimiter=delimiter)
             st.success("✅Files have been successfully imported")
             
         except ValueError as e:
@@ -294,7 +319,8 @@ if __name__=="__main__":
     st.set_page_config(page_title="SugarMALDI", page_icon="pictures/favicon.png", layout="wide")
     display_logo()
 
-    spectra = upload_files()
+    delimiter = choose_delimiter()
+    spectra = upload_files(delimiter)
 
     # Check if their is an ulpoad wherase its crash
     if spectra is not None and len(spectra) > 0:
@@ -406,10 +432,10 @@ if __name__=="__main__":
             st.success('✅ Analysis completed !') 
             
             with st.expander("⚙️ Advanced options to display the spectrum", expanded=False):
-                dpi = st.selectbox("Image DPI (quality)", [100, 150, 200, 300], index=1)
+                dpi = st.selectbox("Image DPI (quality)", [100, 150, 200, 300], index=1, key="dpi")
             
             # Choose the spectra to show
-            selected_spectrum = st.selectbox("Select spectrum", st.session_state.spectra_list)
+            selected_spectrum = st.selectbox("Select spectrum", st.session_state.spectra_list, key="spectrum_selection")
             peak_lf = st.session_state.peak_dict[selected_spectrum]
             nb_peak = peak_lf.select(pl.len()).collect().item()  # .item() extract the scalar value
             nb_id_peak = peak_lf.filter(pl.col("Identifications").is_not_null()).select(pl.len()).collect().item()  # .item() extract the scalar value

@@ -20,6 +20,9 @@ from pathlib import Path
 from scipy.signal import find_peaks as fp
 
 
+SCALE = 1_000_000  # 1e6, adapte si besoin
+
+
 def read_spectrum(file: str, spectre_name: str, sep: str = ','):
     """
     Lazy reading of the spectrum file....
@@ -38,6 +41,7 @@ def read_spectrum(file: str, spectre_name: str, sep: str = ','):
             pl.col("m/z"),          # Colonne des masses (clé de jointure)
             pl.col("Intensity").alias(spectre_name)        # Colonne d'intensité renommée
         ])
+        .sort(by='m/z')
     )
 
 
@@ -57,6 +61,17 @@ def read_csv(file:str, sep: str = ','):
     return pl.scan_csv(file, separator=sep)
 
 
+def normalize_mz_column(lf: pl.LazyFrame, mz_col="m/z", new_col="mz_int"):
+    """
+    - ndigits : si tu veux arrondir en décimales avant le scaling (ex: 6)
+    - crée une colonne entière 'mz_int' et garde la colonne originale
+    """
+    mz = pl.col(mz_col).cast(pl.Float64)  # assure float64 avant tout
+    return lf.with_columns(
+        (mz * SCALE).round().cast(pl.Int64).alias(new_col)
+    )
+
+
 def parse_spectra(files, dir: str = None):
     dfs = []
     for file in files:
@@ -65,8 +80,10 @@ def parse_spectra(files, dir: str = None):
             spectre_name = file.replace('.csv', '').replace(' ', '_')
         else: # if uploader file from streamlit
             spectre_name = file.name.replace('.csv', '').replace(' ', '_')
-        dfs.append(read_spectrum(file, spectre_name))
-    
+        df = read_spectrum(file, spectre_name)
+        df = df.sort("m/z")
+        dfs.append(df)
+    del df
     # Fusionne tous les DataFrames
     df_combined = dfs[0]
     for df in dfs[1:]:
@@ -175,7 +192,7 @@ def extract_and_detect_peaks(
             spectra, mz_col_name, column, window, dist_min
         )
         peaks_dict[column] = spectrum_peaks
-        
+    del column
     return peaks_dict
 
 
@@ -251,7 +268,7 @@ def match_oligos(
                 "Adduct": pl.Utf8,
                 "mass_diff": pl.Float64
             })
-
+    # del spectrum_name, spectrum_df, matched_oligos
     return results
 
 
@@ -261,8 +278,6 @@ def compare_to_library(dico_peak, offset, unique:bool = True):
     library_oligo_unic = library_oligo_unic.sort(pl.col("Oligo_mass"), descending=False)
 
     return match_oligos(dico_peak, library_oligo_unic, offset)
-
-
 
 
 if __name__ == "__main__":
