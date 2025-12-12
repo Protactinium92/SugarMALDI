@@ -538,7 +538,7 @@ def match_oligos(
                 "query_mass": pl.Int64,
                 "Adduct": pl.Utf8,
                 "Delta_M": pl.Float64,
-                "Recurrence": pl.Utf8,
+                #"Recurrence": pl.Utf8,
                 "Identifications":pl.Utf8
             })
     del spectrum_name, spectrum_df, matched_oligos
@@ -570,10 +570,10 @@ def compare_to_library(
     """
 
     column_selection = ["column_id"] + monomers_list + [
-        "Neutral_unlabeled_mass","labeled_mass_H+","labeled_mass_Na+","labeled_mass_K+","Recurrence"
+        "Neutral_unlabeled_mass","labeled_mass_H+","labeled_mass_Na+","labeled_mass_K+",#"Recurrence"
     ]
 
-    library_oligo_unic = read_csv(Path(__file__).parents[1]/"data"/"oligo_combinations_clean.csv", sep=",")
+    library_oligo_unic = read_csv(Path(__file__).parents[1]/"data"/"oligo_combinations.csv", sep=",")
     all_columns = library_oligo_unic.collect_schema().names()
     unauthorized_columns = [col for col in all_columns if col not in column_selection]
     
@@ -840,13 +840,13 @@ def execute_process(
         match = compile_oligo_name(match, monomers_list)
 
         # 4. Add Shared mass names
-        match = check_shared_mass(
-            match_dict = match,
-            complete_library =Path(__file__).parents[1]/"data"/"oligo_combinations.csv",
-            monomers_list= monomers_list,
-            mass_col_name = "Neutral_unlabeled_mass",
-            shared_col = "Recurrence",
-            n_workers= n_workers)
+        # match = check_shared_mass(
+        #     match_dict = match,
+        #     complete_library =Path(__file__).parents[1]/"data"/"oligo_combinations.csv",
+        #     monomers_list= monomers_list,
+        #     mass_col_name = "Neutral_unlabeled_mass",
+        #     shared_col = "Recurrence",
+        #     n_workers= n_workers)
 
         # 4. Save to temporary directory
         file_paths = save_dataframes_to_temp(match)
