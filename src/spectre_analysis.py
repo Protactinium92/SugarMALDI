@@ -109,7 +109,8 @@ def read_spectrum(
 
 def parse_spectra(
     files: list[Union[str, "StreamlitUploadedFile"]],
-    dir: Optional[str] = None
+    dir: Optional[str] = None,
+    delimiter: str = ","
 ) -> Dict[str, pl.LazyFrame]:
     """
     Parses a list of MALDI spectra files into a dictionary of Polars LazyFrames.
@@ -122,6 +123,7 @@ def parse_spectra(
             a Streamlit UploadedFile object.
         dir: Optional base directory for local file paths. If provided, each string in `files` is joined
             with `dir` to form the full path. Defaults to None.
+        delimiter: Delimiter used in the CSV file. Defaults to ','.
 
     Returns:
         A dictionary where keys are spectrum names (derived from filenames) and values are Polars LazyFrames
@@ -141,7 +143,7 @@ def parse_spectra(
         else:  # Streamlit uploaded file
             spectrum_name = file.name.replace('.csv', '').replace(' ', '_')
         
-        spectra[spectrum_name] = read_spectrum(file)
+        spectra[spectrum_name] = read_spectrum(file, sep = delimiter)
     del file
     return spectra
 
