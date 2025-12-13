@@ -236,7 +236,7 @@ def find_all_peaks(intensity: NDArray[np.float64],
         raise RuntimeError(f"Peak detection failed: {str(e)}") from e
 
 
-def _process_window(args: Tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.int64], float, float]
+def _process_window(args: Tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.int64], float, int, float]
                     ) -> List[int]:
     """
     Processes a single window of MALDI spectrum data to extract peak indices.
@@ -252,6 +252,7 @@ def _process_window(args: Tuple[NDArray[np.float64], NDArray[np.float64], NDArra
             - window_indices: Indices of data points belonging to current window
             - local_interval: Average m/z interval in current window (accounts for irregular spacing)
             - dist_min: Minimum distance between peaks in m/z units
+            - prominence: Minimum height difference between peak and its neighboring samples
 
     Returns:
         List[int]: Global indices of detected peaks in the original spectrum data.
@@ -266,7 +267,8 @@ def _process_window(args: Tuple[NDArray[np.float64], NDArray[np.float64], NDArra
     intensity: NDArray[np.float64] = args[1]
     window_indices: NDArray[np.int64] = args[2]
     local_interval: float = args[3]
-    dist_min: float = args[4]
+    dist_min: int = args[4]
+    prominence: float = args[5]
 
     # Skip processing if window contains insufficient data points
     if len(window_indices) < 2:
@@ -276,7 +278,8 @@ def _process_window(args: Tuple[NDArray[np.float64], NDArray[np.float64], NDArra
     peaks: NDArray[np.int64] = find_all_peaks(
         intensity[window_indices],  # Intensity values for current window
         local_interval,             # Average spacing between m/z values in this window
-        distance=dist_min           # Minimum required distance between peaks
+        distance=dist_min,           # Minimum required distance between peaks
+        prominence=prominence       # Minimum height difference between a peak and its neighbors
     )
 
     return window_indices[peaks].tolist()
@@ -295,7 +298,8 @@ def extract_peaks_all_windows(
         mz_col_name: str,
         intensity_col_name: str,
         step: float,
-        dist_min: float,
+        dist_min: int,
+        prominence: float,
         n_workers: int
 ) -> pl.LazyFrame:
     """
@@ -312,6 +316,7 @@ def extract_peaks_all_windows(
         intensity_col_name: Name of column containing intensity values.
         step: Size of m/z windows for spectrum segmentation (in m/z units).
         dist_min: Minimum required distance between detected peaks (in m/z units).
+        prominence: Minimum height difference between peak and its neighboring samples.
         n_workers: Number of parallel workers to use
 
     Returns:
@@ -372,7 +377,8 @@ def extract_peaks_all_windows(
             intensity,         # Full intensity array (shared across all workers)
             window_indices,    # Indices specific to this window
             local_interval,    # Calculated spacing for this window
-            dist_min           # Minimum peak distance parameter
+            dist_min,          # Minimum peak distance parameter
+            prominence
         ))
 
     # Execute peak detection in parallel
@@ -393,8 +399,9 @@ def extract_peaks_all_windows(
 
 def extract_and_detect_peaks(
     spectra: Dict[str, pl.DataFrame],
-    window: float,
-    dist_min: float,
+    window: int,
+    dist_min: int,
+    prominence: float,
     n_workers: int
 ) -> Dict[str, pl.DataFrame]:
     """
@@ -404,6 +411,7 @@ def extract_and_detect_peaks(
         spectra: Dictionary of all spectra store as pl.Dataframe.
         window: Window size for peak extraction.
         dist_min: Minimum distance between peaks.
+        prominence: Minimum height difference between peak and its neighboring samples.
         n_workers: Number of parallel workers to use
 
     Returns:
@@ -419,7 +427,7 @@ def extract_and_detect_peaks(
         col_names = spectum_data.collect_schema().names()
         mz_col, intensity_col = col_names[0], col_names[1]
         spectrum_peaks = extract_peaks_all_windows(
-            spectum_data, mz_col, intensity_col, window, dist_min, n_workers
+            spectum_data, mz_col, intensity_col, window, dist_min, prominence, n_workers
         )
         peaks_dict[spectrum_name] = spectrum_peaks
 
@@ -801,7 +809,8 @@ def execute_process(
     monomers_list: List[str],
     rm_threshold: int = 5,
     window: int = 10,
-    dist_min: int = 15
+    dist_min: int = 15,
+    prominence: float = 2e5
 ) -> Tuple[BytesIO, Dict[str, pl.DataFrame]]:
     """
     Process MALDI spectra and generate a ZIP of results.
@@ -830,6 +839,7 @@ def execute_process(
             spectra,
             window=window,
             dist_min=dist_min,
+            prominence=prominence,
             n_workers=n_workers
         )
 

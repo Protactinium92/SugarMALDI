@@ -326,6 +326,20 @@ if __name__=="__main__":
     if spectra is not None and len(spectra) > 0:
 
         st.session_state.spectra_list = list(spectra.keys())
+       
+        if "monomers_list" not in st.session_state:
+            st.session_state.monomers_list = None
+        monomers_list____final = monomer_selection()
+
+        if (st.session_state.monomers_list is not None and              # 1 Check the 1st launch
+            monomers_list____final and                                  # 2 chek if not empty (warning in the function)
+            monomers_list____final != st.session_state.monomers_list):  # 3 check if the list changes
+            st.warning("⚠️ Warning: List of monomers changes. Please re-run the analysis to apply the new settings.")
+
+        #TODO: changes monomers list
+        # monomers = sp_ana.read_csv(Path(__file__).parents[1]/"data"/"monomers.csv", sep=";")
+        # monomers_list = monomers.select(pl.col("Notation")).collect().to_series().to_list()
+        monomers_list = monomers_list____final
         
         # Initialize session state for parameters if not already set
         # Default values, used for the first run
@@ -333,15 +347,21 @@ if __name__=="__main__":
         if 'window' not in st.session_state:
             st.session_state.window = 500
         if 'dist_min' not in st.session_state:
-            st.session_state.dist_min = 15
+            st.session_state.dist_min = 0
         if 'rm_threshold' not in st.session_state:
             st.session_state.rm_threshold = 5
-
+        if 'prominence' not in st.session_state:
+            st.session_state.prominence = 3e5  # Float 
+        if 'analysis_results' not in st.session_state:
+            st.session_state.analysis_results = None
+        
         with st.expander("⚙️ Advanced options for peak detection", expanded=False):
             st.subheader("Detection parameters")
             col1, col2 = st.columns([1,1])
             with col1:
-                window = st.number_input("Sub-window for peak detection", value=st.session_state.window, step=1)
+                window = st.number_input("Sub-window for peak detection (Da)", value=st.session_state.window, step=1)
+                prominence = st.number_input("Prominence", value=st.session_state.prominence, step=0.1e5,
+                                              help="Minimum height difference between peak and its neighbores")
             with col2:
                 dist_min = st.number_input("Minimum m/z distance between peaks", value=st.session_state.dist_min, step=1)
             st.subheader("Match peaks parameters")
@@ -371,30 +391,15 @@ if __name__=="__main__":
             """)
         
             # Detect changes and warn the user
-            if (window != st.session_state.window) or (dist_min != st.session_state.dist_min) or (rm_threshold != st.session_state.rm_threshold):
+            if (((window != st.session_state.window) or
+                (dist_min != st.session_state.dist_min) or
+                (rm_threshold != st.session_state.rm_threshold)) and
+                (st.session_state.analysis_results != None)):
                 st.warning("⚠️ Warning: Parameter(s) changed. Please re-run the analysis to apply the new settings.")
 
-        if "monomers_list" not in st.session_state:
-            st.session_state.monomers_list = None
-        monomers_list____final = monomer_selection()
-
-        if (st.session_state.monomers_list is not None and              # 1 Check the 1st launch
-            monomers_list____final and                                  # 2 chek if not empty (warning in the function)
-            monomers_list____final != st.session_state.monomers_list):  # 3 check if the list changes
-            st.warning("⚠️ Warning: List of monomers changes. Please re-run the analysis to apply the new settings.")
-
-        #TODO: changes monomers list
-        # monomers = sp_ana.read_csv(Path(__file__).parents[1]/"data"/"monomers.csv", sep=";")
-        # monomers_list = monomers.select(pl.col("Notation")).collect().to_series().to_list()
-        monomers_list = monomers_list____final
 
         st.markdown("---")
         st.subheader("Process and Download")
-
-        # Initiatilisation of session state to store the treatment
-        if 'analysis_results' not in st.session_state:
-            st.session_state.analysis_results = None
-        
         if monomers_list____final:
             col1, col2 = st.columns([1,1])
             with col1:
@@ -405,7 +410,8 @@ if __name__=="__main__":
                             monomers_list,
                             rm_threshold,
                             window,
-                            dist_min
+                            dist_min,
+                            prominence
                         )
                         st.session_state.peak_dict = {
                             spectrum_name: peaks_lf.lazy() 
@@ -418,6 +424,7 @@ if __name__=="__main__":
                         st.session_state.dist_min = dist_min
                         st.session_state.rm_threshold = rm_threshold
                         st.session_state.monomers_list = monomers_list____final
+                        st.session_state.prominence = prominence
 
             with col2:
                 if st.session_state.analysis_results:
