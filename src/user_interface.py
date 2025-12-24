@@ -33,7 +33,7 @@ def display_logo() -> None:
 
     if logo_path.exists():
         with st.columns(3)[1]:  # Center the logo on 3 columns
-            st.image(str(logo_path), use_container_width=True)
+            st.image(str(logo_path), width='stretch')
     else:
         st.write("Logo not found.")
 
@@ -462,7 +462,7 @@ if __name__=="__main__":
                                     oligo_col_name="Identifications",
                                     x_min=x_min, x_max=x_max,
                                     y_min=y_min, y_max=y_max,)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
             
             # Show peak table
             st.write("### **Identified peaks**")
