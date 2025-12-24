@@ -562,6 +562,10 @@ def adjust_library(
 
     Returns:
         pl.LazyFrame: Processed library in lazy evaluation mode
+
+    Note:
+        Collect come back to lazy allow optimize the process by allowing the work only on the 
+        desired columns and lines
     """
     
     column_selection = ["column_id"] + monomers_list + [
