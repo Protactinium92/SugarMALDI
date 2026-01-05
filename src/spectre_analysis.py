@@ -1,19 +1,47 @@
 """
-    Analysis of the MALDI spectrum
+MALDI-TOF spectra analysis pipeline for oligosaccharide characterization.
 
-    THIS FILE IS A 1st TO PARSE THE SPECTRA
+This module provides core functionality for:
+- Data processing of high-resolution mass spectrometry spectra (~2M data points)
+- Memory-efficient workflows using Polars LazyFrames and piped operations
+- Peak detection and noise filtering using window-based algorithms
+- Library matching against oligosaccharide databases with configurable mass offset
 
+Key Features:
+- Input/Output Compatibility:
+  * Input: CSV files with mandatory 'm/z' and 'Intensity' columns
+  * Output: Standardized DataFrames 
+  * Temporary files stored in: {TEMP_DIR} (auto-cleaned via atexit)
 
+- Processing Pipeline:
+  1. Spectrum merging on m/z values
+  2. Peak extraction with dynamic windowing (default: ±10 m/z units)
+  3. Mass comparison against oligosaccharide library (default offset: ±{SCALE} ppm)
+  4. Name compilation using IUPAC-like nomenclature (e.g., "2dHex-3Hex")
+
+- Performance Optimizations:
+  * Polars-based operations for memory efficiency
+  * Garbage collection hooks for cloud deployment
+
+- Scientific Standards:
+  * Mass scaling factor: {SCALE} (1e6 for ppm-level precision)
+  * Distance metrics: Euclidean mass difference with thresholding
+  * Adduct handling: [M+Na]+, [M+K]+, [M+H]+ 
+
+Dependencies:
+    polars>=0.19.0     # Core data processing
+    scipy>=1.10.0      # Peak detection (find_peaks)
+    numpy>=1.24        # Numerical operations
 """
+
 
 __author__  = "Pierre-Alexandre HO"
 __date__    = "2025-09-02"
 __version__ = "1.0"
 
+
 import os
-import pandas as pd
 import polars as pl
-import plotly.express as px
 import numpy as np
 import tempfile
 import shutil
@@ -33,32 +61,12 @@ TEMP_DIR = Path(tempfile.mkdtemp())  # Temporate files
 SCALE = 1_000_000  # 1e6 to convert float mass in int
 
 
-def normalize_mz_column(
-    lf: pl.LazyFrame,
-    mz_col: str = "m/z",
-    new_col: str = "mz_int"
-) -> pl.LazyFrame:
-    """
-    Normalizes the m/z column by scaling and converting to integer values.
-
-    This function is designed for MALDI-TOF spectra preprocessing. It scales the m/z values
-    by a fixed factor and rounds them to the nearest integer, which is useful for
-    binning or reducing floating-point precision issues in downstream analysis.
-
-    Args:
-        lf: Input Polars LazyFrame containing the spectrum data.
-        mz_col: Name of the column containing m/z values. Defaults to "m/z".
-        new_col: Name of the new column to store the normalized (integer) m/z values.
-                 Defaults to "mz_int".
-
-    Returns:
-        A new Polars LazyFrame with the original columns and the added normalized column.
-        The new column contains m/z values scaled by `SCALE` and cast to Int64.
-    """
-    mz = pl.col(mz_col).cast(pl.Float64)  # Ensure float64 before scaling
-    return lf.with_columns(
-        (mz * SCALE).round().cast(pl.Int64).alias(new_col)
-    )
+def find_workers():
+    n_workers = os.cpu_count()
+    # Leave one CPU free for system processes if we have many cores
+    if n_workers > 1:
+        n_workers -= 1
+    return n_workers
 
 
 def read_csv(file:str, sep: str = ','):
@@ -146,6 +154,34 @@ def parse_spectra(
         spectra[spectrum_name] = read_spectrum(file, sep = delimiter)
     del file
     return spectra
+
+
+def normalize_mz_column(
+    lf: pl.LazyFrame,
+    mz_col: str = "m/z",
+    new_col: str = "mz_int"
+) -> pl.LazyFrame:
+    """
+    Normalizes the m/z column by scaling and converting to integer values.
+
+    This function is designed for MALDI-TOF spectra preprocessing. It scales the m/z values
+    by a fixed factor and rounds them to the nearest integer, which is useful for
+    binning or reducing floating-point precision issues in downstream analysis.
+
+    Args:
+        lf: Input Polars LazyFrame containing the spectrum data.
+        mz_col: Name of the column containing m/z values. Defaults to "m/z".
+        new_col: Name of the new column to store the normalized (integer) m/z values.
+                 Defaults to "mz_int".
+
+    Returns:
+        A new Polars LazyFrame with the original columns and the added normalized column.
+        The new column contains m/z values scaled by `SCALE` and cast to Int64.
+    """
+    mz = pl.col(mz_col).cast(pl.Float64)  # Ensure float64 before scaling
+    return lf.with_columns(
+        (mz * SCALE).round().cast(pl.Int64).alias(new_col)
+    )
 
 
 def make_window(df: Union[pl.DataFrame, pl.LazyFrame],
@@ -283,14 +319,6 @@ def _process_window(args: Tuple[NDArray[np.float64], NDArray[np.float64], NDArra
     )
 
     return window_indices[peaks].tolist()
-
-
-def find_workers():
-    n_workers = os.cpu_count()
-    # Leave one CPU free for system processes if we have many cores
-    if n_workers > 1:
-        n_workers -= 1
-    return n_workers
 
 
 def extract_peaks_all_windows(
@@ -468,7 +496,6 @@ def match_oligos(
     """
 
     # Transform the mass in ppm and int to optimize the algorithm
-    
     for adduct in ['labeled_mass_H+', 'labeled_mass_Na+', 'labeled_mass_K+']:
         library = normalize_mz_column(
         lf = library,
@@ -680,11 +707,6 @@ def create_zip(file_paths: Dict[str, Path]) -> BytesIO:
     return zip_buffer
 
 
-def cleanup() -> None:
-    """Remove the temporary directory and all its contents."""
-    shutil.rmtree(TEMP_DIR)
-
-
 def process_mass(mass: float, adduct:str, full_library: pl.LazyFrame, monomers_list: List[str], mass_col_name: str):
     """Traite une seule masse et renvoie le nom d'oligo correspondant.
     Use for parralelisation"""
@@ -792,6 +814,7 @@ def combine_lf(
             "Intensity": pl.Int64
         })
 
+
 def execute_process(
     spectra_dict: Dict[str, pl.LazyFrame],
     monomers_list: List[str],
@@ -883,41 +906,11 @@ def execute_process(
         raise
 
 
+def cleanup() -> None:
+    """Remove the temporary directory and all its contents."""
+    shutil.rmtree(TEMP_DIR)
+
+
 if __name__ == "__main__":
     
-    dir = "data/std_test"
-    files = [f for f in os.listdir(dir) if f.endswith(".csv")]
-    spectra = parse_spectra(files, dir=dir)
-    first_spectrum_name = next(iter(spectra.keys()))  # 1st key
-    first_spectrum = spectra[first_spectrum_name].collect()
-    print(first_spectrum.head(5))
-
-    n_workers=find_workers()
-
-    peaks_dict = extract_and_detect_peaks(
-        spectra,
-        window=500,
-        dist_min=15,
-        n_workers= n_workers)
-    
-    print(f'peak dict 1 \n{peaks_dict[first_spectrum_name].collect()}')
-
-    match = compare_to_library(peaks_dict, 5)
-    print(f'Match dict after library comparison \n{match[first_spectrum_name].collect()}')
-
-    monomers = read_csv(Path(__file__).parents[1]/"data"/"monomers.csv", sep=";")
-    monomers_list = monomers.select(pl.col("Notation")).collect().to_series().to_list()
-    match = compile_oligo_name(match, monomers_list)
-    print(f'Match dict after adding oligo names \n{match[first_spectrum_name].collect()}')
-    print(match[first_spectrum_name].columns)
-    match = check_shared_mass(
-            match_dict = match,
-            complete_library =Path(__file__).parents[1]/"data"/"oligo_combinations.csv",
-            monomers_list= monomers_list,
-            mass_col_name = "Neutral_unlabeled_mass",
-            shared_col = "Recurrence",
-            n_workers= n_workers)
-    print(f'Match dict after Shared oligo names comparison \n{match[first_spectrum_name].collect()}')
-    combine = combine_lf(match, peaks_dict, how="right")
-    print(f'Combine dict: {combine}')
-    print(f'Final df \n{combine[first_spectrum_name].select(pl.col("Identifications")).collect().to_series().to_list()}')
+   pass

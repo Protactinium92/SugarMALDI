@@ -16,6 +16,13 @@ Designed to work with:
 - Data format: CSV files with 'm/z' and 'Intensity' columns
 - Visualization: Matplotlib/Plotly with transparent backgrounds
 
+Dependencies:
+    polars>=1.33.0      # Data processing backbone
+    streamlit>=1.49.1   # UI framework
+    plotly>=6.3.0       # Interactive visualizations
+    matplotlib>=3.10.6  # Background graph operation
+    numpy>=2.3.2        # Numerical operations
+
 Note:
     All functions are optimized for:
     - Memory efficiency with Polars LazyFrames
