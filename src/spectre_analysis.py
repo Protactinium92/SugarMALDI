@@ -29,9 +29,9 @@ Key Features:
   * Adduct handling: [M+Na]+, [M+K]+, [M+H]+ 
 
 Dependencies:
-    polars>=0.19.0     # Core data processing
-    scipy>=1.10.0      # Peak detection (find_peaks)
-    numpy>=1.24        # Numerical operations
+    polars>=1.33.0     # Core data processing
+    scipy>=1.16.1      # Peak detection (find_peaks)
+    numpy>=2.3.2       # Numerical operations
 """
 
 
@@ -602,7 +602,7 @@ def adjust_library(
     library_oligo_unic = read_csv(library_path, sep=",")
     all_columns = library_oligo_unic.collect_schema().names()
     # Identify unauthorized columns (all columns not in selection)
-    unauthorized_columns = [col for col in all_columns if col not in column_selection]
+    unauthorized_columns = [col for col in all_columns if col not in column_selection and col != "Recurrence"]
     
     # Create filter conditions
     # If unauthorized_columns is empty every columns are True and conserved
