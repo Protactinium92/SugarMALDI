@@ -429,13 +429,15 @@ def extract_and_detect_peaks(
     window: int,
     dist_min: int,
     prominence: float,
-    n_workers: int
+    n_workers: int,
+    mz_col: str = None,
+    intensity_col: str = None,
 ) -> pl.LazyFrame:
     """
     Extracts and detects peaks for all intensity columns in the spectra DataFrame.
 
     Args:
-        spectrum: Spectrum LaztFrame with m/z and intensity columns.
+        spectrum: Spectrum LazYFrame with m/z and intensity columns.
         window: Window size for peak extraction.
         dist_min: Minimum distance between peaks.
         prominence: Minimum height difference between peak and its neighboring samples.
@@ -446,8 +448,13 @@ def extract_and_detect_peaks(
                      with original indices preserved.
     """
 
-    col_names = spectrum_data.collect_schema().names()
-    mz_col, intensity_col = col_names[0], col_names[1]
+    if mz_col is None or intensity_col is None:
+        col_names = spectrum_data.collect_schema().names()
+        if mz_col is None:
+            mz_col = col_names[0]
+        if intensity_col is None:
+            intensity_col = col_names[1]
+            
     spectrum_peaks = extract_peaks_all_windows(
         spectrum_data, mz_col, intensity_col, window, dist_min, prominence, n_workers
     )

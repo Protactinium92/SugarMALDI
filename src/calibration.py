@@ -11,6 +11,7 @@ __version__ = "1.0"
 import spectre_analysis as sp_ana
 import polars as pl
 import numpy as np
+import os
 import matplotlib.pyplot as plt
 from pathlib import Path
 from scipy.stats import gaussian_kde
@@ -98,7 +99,7 @@ def calculate_error_table(
 
 def interpolate_corrections(
     spectrum: pl.LazyFrame,  # TOUT le spectre (m/z + Intensity)
-    recalib_curve: pl.LazyFrame,  # Pics assignés + ppm_correction
+    error_table: pl.LazyFrame,  # Pics assignés + ppm_correction
     experimental_mass_col: str = "mz_int",
     new_col_name: str = "new_m/z",
     theorical_mass_col: str = "theoretical_mass"
@@ -107,7 +108,7 @@ def interpolate_corrections(
     Interpole les corrections ppm pour TOUTES les masses du spectre.
     Args:
         spectrum: Toutes les masses à corriger (même le bruit).
-        recalib_curve: Pics assignés avec leur ppm_correction.
+        error_table: Pics assignés avec leur ppm_correction.
     Returns:
         LazyFrame avec une colonne `ppm_correction` interpolée pour toutes les masses.
     """
@@ -117,8 +118,8 @@ def interpolate_corrections(
         mz_col="m/z",
         new_col="mz_int")
     masses = spectrum.select(experimental_mass_col).collect().to_numpy().ravel()
-    known_masses = recalib_curve.select(pl.col(theorical_mass_col)).collect().to_numpy().ravel()
-    known_corrections = recalib_curve.select(pl.col("ppm_correction")).collect().to_numpy().ravel()
+    known_masses = error_table.select(pl.col(theorical_mass_col)).collect().to_numpy().ravel()
+    known_corrections = error_table.select(pl.col("ppm_correction")).collect().to_numpy().ravel()
 
     # ---- Sécurisation : tri obligatoire ----
     order = np.argsort(known_masses)
@@ -137,5 +138,71 @@ def interpolate_corrections(
             .with_columns(ppm_correction=pl.lit(corrections_interp),
                           corrected_mz=pl.col(experimental_mass_col) / (1 + pl.lit(corrections_interp) / 1e6))
             .with_columns((pl.col("corrected_mz") / 1e6).alias(new_col_name))
-            .select(["m/z","new_mz", 'Intensity'])
+            .select(["m/z", new_col_name, 'Intensity'])
     )
+
+
+def save_spectrum(spectrum, path, spectrum_name ):
+    file_name = Path(path) / spectrum_name
+    spectrum.collect().write_csv(file_name, separator=',')
+
+
+def process_calibration(
+    spectrum_name: str,
+    original_spectrum:pl.LazyFrame,
+    peaks:pl.LazyFrame,
+    oligo_ref: pl.LazyFrame,
+    path_to_save: str,
+    new_col_name:str = "new_mz"
+) -> pl.LazyFrame:
+    """
+    Process MALDI spectrum calibration pipeline with peak extraction, normalization,
+    mass difference mapping, and error correction.
+
+    Args:
+        spectrum_name: Identifier for the spectrum being processed
+        original_spectrum: LazyFrame containing the original spectrum to calibrate
+        peaks: LazyFrame containing the orignal peaks dectection 
+        oligo_ref: LazyFrame containing reference oligomers with mass data
+        path_to_save: Directory path for saving processed output
+
+    Returns:
+        LazyFrame containing the corrected spectrum with new mass column ('all_mono')
+
+    Workflow:
+        1. Spectrum extraction → 2. Peak detection → 3. m/z normalization
+        4. Mass difference mapping → 5. Error calculation → 6. Interpolation
+        7. Memory cleanup → 8. Persistence
+    """
+
+    # Mass difference analysis
+    print("[INFO] Building mass difference map (500ppm threshold)")
+    mdim: pl.LazyFrame = build_mass_difference_map(
+        peaks=peaks,
+        oligo_ref=oligo_ref,
+        threshold_ppm=500
+    )
+
+    # Error quantification and correction
+    print("[INFO] Calculating correction factors")
+    error_table: pl.LazyFrame = calculate_error_table(mdim)
+
+    print("[INFO] Applying calibration corrections")
+    corrected_spectrum: pl.LazyFrame = interpolate_corrections(
+        spectrum=original_spectrum,
+        error_table=error_table,
+        new_col_name=new_col_name
+    )
+
+    # Persistence with explicit resource management
+    print("[INFO] Saving results")
+    save_spectrum(corrected_spectrum, path_to_save, spectrum_name)
+
+    # Explicit cleanup 
+    del peaks, mdim, error_table
+
+    return corrected_spectrum.lazy()  # Ensure return type consistency
+
+if __name__=="main":
+    pass
+
