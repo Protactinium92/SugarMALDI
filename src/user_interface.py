@@ -55,7 +55,10 @@ import spectre_analysis as sp_ana
 
 
 if __name__=="__main__":
-    st.set_page_config(page_title="SugarMALDI", page_icon="pictures/favicon.png", layout="wide")
+    st.set_page_config(page_title="SugarMALDI",
+                       page_icon="pictures/favicon.png",
+                       layout="wide",
+                       initial_sidebar_state="collapsed")
     ff.display_logo()
 
     delimiter = ff.choose_delimiter()
