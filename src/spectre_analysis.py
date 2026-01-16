@@ -87,6 +87,7 @@ def read_csv(file:str, sep: str = ','):
 
 def read_spectrum(
     file: Union[str, "StreamlitUploadedFile"],
+    mz_col: str = "m/z",
     sep: str = ','
 ) -> pl.LazyFrame:
     """
@@ -98,6 +99,7 @@ def read_spectrum(
     Args:
         file: Path to the spectrum file (str) or a Streamlit UploadedFile object.
             The file must be a CSV with at least 'm/z' and 'Intensity' columns.
+        mz_col: name of the mz column to extract. Defaults to 'm/z'
         sep: Delimiter used in the CSV file. Defaults to ','.
 
     Returns:
@@ -108,10 +110,10 @@ def read_spectrum(
     return (
         pl.scan_csv(file, separator=sep)
         .select([
-            pl.col("m/z"),       # Mass-to-charge ratio column (join key)
+            pl.col(mz_col),       # Mass-to-charge ratio column (join key)
             pl.col("Intensity")  # Signal intensity column
         ])
-        .sort(by="m/z")
+        .sort(by=mz_col)
     )
 
 

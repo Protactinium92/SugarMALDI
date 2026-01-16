@@ -38,17 +38,17 @@ if __name__=='__main__':
         sys.exit()
 
     # 1) All monomers
-    print("[INFO] load reference library with all monomers")
-    monomers_list = ["dHex", "Hex", "HexA", "HexN", "HexNac", "Pent", "Neu", "NeuAc", "NeuGc"]
-    library = Path.cwd() / "data" / "oligo_combinations_clean.csv"
-    oligo_ref_all = sp_ana.adjust_library(library, monomers_list)
-    # Transform the mass in ppm and int to optimize the algorithm
-    for adduct in ['labeled_mass_H+', 'labeled_mass_Na+', 'labeled_mass_K+']:
-        oligo_ref_all = sp_ana.normalize_mz_column(
-        lf = oligo_ref_all,
-        mz_col=adduct,
-        new_col=f"{adduct}_int"
-    )
+    # print("[INFO] load reference library with all monomers")
+    # monomers_list = ["dHex", "Hex", "HexA", "HexN", "HexNac", "Pent", "Neu", "NeuAc", "NeuGc"]
+    # library = Path.cwd() / "data" / "oligo_combinations_clean.csv"
+    # oligo_ref_all = sp_ana.adjust_library(library, monomers_list)
+    # # Transform the mass in ppm and int to optimize the algorithm
+    # for adduct in ['labeled_mass_H+', 'labeled_mass_Na+', 'labeled_mass_K+']:
+    #     oligo_ref_all = sp_ana.normalize_mz_column(
+    #     lf = oligo_ref_all,
+    #     mz_col=adduct,
+    #     new_col=f"{adduct}_int"
+    # )
 
     # 2) Selection of mmonomers
     print("[INFO] load reference library with aselection of monomers")
@@ -76,6 +76,9 @@ if __name__=='__main__':
     # print("[INFO] Calibration all monomers")
     # for spectrum_name in spectra:
 
+    #     if spectrum_name == "18052022-arabinogalactane-0.01mg_0_0_L13_000002.csv":
+    #         continue
+
     #     # Spectrum extraction with progress logging
     #     print(f"[INFO] Starting analysis for {spectrum_name}")
     #     spectrum_file = Path.cwd() / "data" / "standards" / spectrum_name
@@ -93,7 +96,7 @@ if __name__=='__main__':
     #             window=500,
     #             dist_min=0,
     #             prominence=3e5,
-    #             n_workers=workers
+    #             n_workers=1
     #         ))
     #         .pipe(lambda df: sp_ana.normalize_mz_column(
     #             lf=df,
@@ -116,7 +119,7 @@ if __name__=='__main__':
     #     gc.collect()
 
 
-    # 2 Selection of spectrum
+    # 2 Selection of monmers
 
     print("[INFO] Calibration selection monomers")
     for spectrum_name in spectra:
