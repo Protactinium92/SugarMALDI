@@ -152,19 +152,22 @@ def process_calibration(
     original_spectrum:pl.LazyFrame,
     peaks:pl.LazyFrame,
     oligo_ref: pl.LazyFrame,
-    path_to_save: str,
-    new_col_name:str = "new_mz"
+    mass_tolerence: float = 500.0,
+    path_to_save: str = None,
+    new_col_name:str = "new_mz",
 ) -> pl.LazyFrame:
     """
     Process MALDI spectrum calibration pipeline with peak extraction, normalization,
-    mass difference mapping, and error correction.
+    mass difference mapping (mdim), and error correction.
 
     Args:
         spectrum_name: Identifier for the spectrum being processed
         original_spectrum: LazyFrame containing the original spectrum to calibrate
         peaks: LazyFrame containing the orignal peaks dectection 
         oligo_ref: LazyFrame containing reference oligomers with mass data
+        mass_tolerence: Mass treshold to build the mdim
         path_to_save: Directory path for saving processed output
+        new_col_name: Name of the calibrated mass spectrum column
 
     Returns:
         LazyFrame containing the corrected spectrum with new mass column ('all_mono')
@@ -180,7 +183,7 @@ def process_calibration(
     mdim: pl.LazyFrame = build_mass_difference_map(
         peaks=peaks,
         oligo_ref=oligo_ref,
-        threshold_ppm=500
+        threshold_ppm=mass_tolerence
     )
 
     # Error quantification and correction
@@ -195,8 +198,9 @@ def process_calibration(
     )
 
     # Persistence with explicit resource management
-    print("[INFO] Saving results")
-    save_spectrum(corrected_spectrum, path_to_save, spectrum_name)
+    if path_to_save is not None:
+        print("[INFO] Saving results")
+        save_spectrum(corrected_spectrum, path_to_save, spectrum_name)
 
     # Explicit cleanup 
     del peaks, mdim, error_table

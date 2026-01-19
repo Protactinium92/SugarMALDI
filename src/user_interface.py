@@ -78,7 +78,15 @@ if __name__=="__main__":
             monomers_list != st.session_state.monomers_list):  # 3 check if the list changes
             st.warning("⚠️ Warning: List of monomers changes. Please re-run the analysis to apply the new settings.")
 
-        
+        # Inialize calibration log
+        if "do_calibration" not in st.session_state:
+            st.session_state.do_calibration = True
+        do_calibration = st.toggle("Perform calibration based on selected monomers", value=True,
+                  help="Allow to realign mass through a mass difference map algorythm")
+
+        if do_calibration == False:
+            st.warning("⚠️ Warning: No calibration will be perform")            
+            
         # Initialize session state for parameters if not already set
         # Default values, used for the first run
         # Allowed to generate a warning if the user change them
@@ -88,11 +96,16 @@ if __name__=="__main__":
             st.session_state.dist_min = 0
         if 'rm_threshold' not in st.session_state:
             st.session_state.rm_threshold = 5
+        if 'mass_tolerence' not in st.session_state:
+            st.session_state.mass_tolerence = 500.0
         if 'prominence' not in st.session_state:
-            st.session_state.prominence = 3e5  # Float 
+            st.session_state.prominence = 1e5  # Float 
         if 'analysis_results' not in st.session_state:
             st.session_state.analysis_results = None
+        if 'calibrate_spectrum' not in st.session_state:
+            st.session_state.calibrate_spectrum = None
         
+
         with st.expander("⚙️ Advanced options for peak detection", expanded=False):
             st.subheader("Detection parameters")
             col1, col2 = st.columns([1,1])
@@ -102,9 +115,13 @@ if __name__=="__main__":
                                               help="Minimum height difference between peak and its neighbores")
             with col2:
                 dist_min = st.number_input("Minimum m/z distance between peaks", value=st.session_state.dist_min, step=1)
-            st.subheader("Match peaks parameters")
             col3, col4 = st.columns([1,1])
             with col3:
+                st.subheader("Calibration parameter")
+                mass_tolerence = st.number_input('Mass difference tolerence threshold (in ppm)', value=st.session_state.mass_tolerence, step=1.0,
+                                                help="Use to build the mass difference map ")
+            with col4:
+                st.subheader("Match peaks parameter")
                 rm_threshold = st.number_input('Mass accuracy threshold (ΔM in ppm)', value=st.session_state.rm_threshold, step=1,
                                                help=
                                                     r"""
@@ -127,6 +144,7 @@ if __name__=="__main__":
             (1) Brenton, A.G.; Godfrey, A.R. *J. Am. Soc. Mass Spectrom.* **2010**, *21*(11), 1821-1835.
             [DOI:10.1016/j.jasms.2010.06.006](https://www.sciencedirect.com/science/article/pii/S1044030510004022)
             """)
+
         
             # Detect changes and warn the user
             if (((window != st.session_state.window) or
@@ -139,13 +157,15 @@ if __name__=="__main__":
         st.markdown("---")
         st.subheader("Process and Download")
         if monomers_list:
-            col1, col2 = st.columns([1,1])
+            col1, col2, col3 = st.columns([1,1,1])
             with col1:
                 if st.button("🔍 Spectra analysis"):
                     with st.spinner('🔄 Treatment ongoing...'):
-                        zip_buffer, peak_dict = sp_ana.execute_process(
+                        zip_buffer_results, zip_buffer_calibrate_spectrum, peak_dict, spectra = sp_ana.execute_process(
                             spectra,
                             monomers_list,
+                            do_calibration,
+                            mass_tolerence,
                             rm_threshold,
                             window,
                             dist_min,
@@ -156,15 +176,27 @@ if __name__=="__main__":
                             for spectrum_name, peaks_lf in peak_dict.items()
                         }
                         # Update session state with new values
-                        st.session_state.analysis_results = zip_buffer
+                        st.session_state.analysis_results = zip_buffer_results
+                        st.session_state.calibrate_spectrum = zip_buffer_calibrate_spectrum
+                        st.session_state.do_calibration = do_calibration
                         # For warning messages
                         st.session_state.window = window
                         st.session_state.dist_min = dist_min
                         st.session_state.rm_threshold = rm_threshold
+                        st.session_state.mass_tolerence = mass_tolerence
                         st.session_state.monomers_list = monomers_list
                         st.session_state.prominence = prominence
 
             with col2:
+                if (st.session_state.calibrate_spectrum and 
+                    st.session_state.do_calibration):
+                    st.download_button(
+                        label="⬇️ Download ZIP calibrated spectrum",
+                        data=st.session_state.calibrate_spectrum.getvalue(),
+                        file_name="calibrated_spectrum.zip",
+                        mime="application/zip"
+                    )
+            with col3:
                 if st.session_state.analysis_results:
                     st.download_button(
                         label="⬇️ Download ZIP",

@@ -48,6 +48,8 @@ import shutil
 import zipfile
 import gc
 
+import calibration as cal
+
 from io import BytesIO
 from pathlib import Path
 from typing import Dict, Union, Optional, Tuple, List
@@ -698,12 +700,12 @@ def save_dataframe_to_temp(file_name:str, lf: pl.DataFrame) -> Path:
     return file_path
 
 
-def create_zip(file_paths: Dict[str, Path]) -> BytesIO:
+def create_zip(file_paths_results: Dict[str, Path]) -> BytesIO:
     """
     Create an optimized ZIP in memory with all files.
 
     Args:
-        file_paths: Dictionary mapping file names to their Path objects
+        file_paths_results: Dictionary mapping file names to their Path objects
 
     Returns:
         BytesIO: ZIP file buffer ready for download
@@ -711,7 +713,7 @@ def create_zip(file_paths: Dict[str, Path]) -> BytesIO:
 
     zip_buffer = BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED, False) as zip_file:
-        for file_name, path in file_paths.items():
+        for file_name, path in file_paths_results.items():
             zip_file.write(path, f'peak_{file_name}.csv')
     return zip_buffer
 
@@ -827,10 +829,12 @@ def combine_lf(
 def execute_process(
     spectra_dict: Dict[str, pl.LazyFrame],
     monomers_list: List[str],
+    perform_calibration: bool,
+    mass_tolerence: float = 500.0,
     rm_threshold: int = 5,
     window: int = 10,
     dist_min: int = 15,
-    prominence: float = 2e5
+    prominence: float = 1e5
 ) -> Tuple[BytesIO, Dict[str, pl.LazyFrame]]:
     """
     Process MALDI spectra and generate a ZIP of results.
@@ -838,6 +842,8 @@ def execute_process(
     Args:
         spectra: Dictionary of LazyFrames (key = sample name)
         monomers_list: List of monomers used for oligo selection
+        perform_calibration: Boolean to choose to perform a calibration before the analysis
+        mass_tolerence: Mass treshold to build the mass difference map during the calibration (default: 500 ppm)
         rm_threshold: Mass accuracy threshold (default: 5.0)
         mz_col_name: Name of m/z column (default: "m/z")
         other_cols: Additional columns to keep (default: None)
@@ -857,17 +863,55 @@ def execute_process(
         n_workers=find_workers()
 
         # Use only the selected monomers
-        print("Initialization")
+        print("[INFO] Initialization")
         ref_oligo_path = Path(__file__).parents[1]/"data"/"oligo_combinations.csv"
         ref_oligo_df = adjust_library(ref_oligo_path, monomers_list)
+        for adduct in ['labeled_mass_H+', 'labeled_mass_Na+', 'labeled_mass_K+']:
+            ref_oligo_df = normalize_mz_column(
+                lf = ref_oligo_df,
+                mz_col=adduct,
+                new_col=f"{adduct}_int"
+            )
 
-        file_paths, peaks_dict = {}, {}
+        file_paths_results, file_paths_calibrate_spectrum, peaks_dict = {}, {}, {}
         for spectrum_name, spectrum_data in spectra_dict.items():
             
-            print(f"Start analysis {spectrum_name}")
+            print(f"[INFO] Start analysis {spectrum_name}")
             
+            if perform_calibration:
+
+                # Peak detection pipeline
+                print("[INFO] Extracting peaks for calibration")
+                peaks = (
+                    spectrum_data
+                    .pipe(lambda df: extract_and_detect_peaks(
+                        spectrum_data=df,
+                        window=window,
+                        dist_min=dist_min,
+                        prominence=prominence,
+                        n_workers=n_workers
+                    ))
+                    .pipe(lambda df: normalize_mz_column(
+                        lf=df,
+                        mz_col="m/z",
+                        new_col="mz_int"
+                    ))
+                )
+                spectrum_data = cal.process_calibration(
+                    spectrum_name,
+                    spectrum_data,
+                    peaks,
+                    ref_oligo_df,
+                    mass_tolerence,
+                    None,
+                    "new_mz"
+                ).drop("m/z").rename({"new_mz": "m/z"})
+                
+                # Replace the spectra
+                spectra_dict[spectrum_name] = spectrum_data
+
             # 1. Peak extraction with memory optimization
-            print("Extract peaks")
+            print("[INFO] Extract peaks")
             peaks_lazy = extract_and_detect_peaks(
                 spectrum_data,
                 window=window,
@@ -877,12 +921,12 @@ def execute_process(
             )
 
             # 2. Library comparison
-            print("Library reference comparison")
+            print("[INFO] Library reference comparison")
             #match = compare_to_library(peaks_lazy, monomers_list, ratio_max=rm_threshold)
             match = match_oligos(peaks_lazy, ref_oligo_df, rm_threshold)
 
             # 3. Oligonucleotide name compilation
-            print("Name atttribution")
+            print("[INFO] Name atttribution")
             match = compile_oligo_name(match, monomers_list)
 
             # 4. Add Shared mass names
@@ -895,20 +939,22 @@ def execute_process(
             #     n_workers= n_workers)
 
             # 4. Save to temporary file
-            print("Save temp file")
-            file_paths[spectrum_name] = save_dataframe_to_temp(spectrum_name, match)
+            print("[INFO] Save temp file")
+            file_paths_results[spectrum_name] = save_dataframe_to_temp(spectrum_name, match)
+            file_paths_calibrate_spectrum[spectrum_name] = save_dataframe_to_temp(spectrum_name, spectrum_data)
 
             # 6. Combine the lfs to have the non identified peak
             peaks_dict[spectrum_name] = combine_lf(match, peaks_lazy, how="right")
 
         # 7. Create ZIP in memory
-        zip_buffer = create_zip(file_paths)
+        zip_buffer_results = create_zip(file_paths_results)
+        zip_buffer_calibrate_spectrum = create_zip(file_paths_calibrate_spectrum)
         
         # 8. Explicit cleanup
         del peaks_lazy, match
         gc.collect()
 
-        return zip_buffer, peaks_dict
+        return zip_buffer_results, zip_buffer_calibrate_spectrum, peaks_dict, spectra_dict
 
     except Exception as e:
         print(f"Error in execute_process: {str(e)}")
