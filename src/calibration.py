@@ -174,7 +174,7 @@ def process_calibration(
     logger = logging.getLogger(__name__)
 
     # Mass difference analysis
-    logger.info("[INFO] Building mass difference map (500ppm threshold)")
+    logger.info(f"[INFO] {spectrum_name} -> Building mass difference map (500ppm threshold)")
     mdim: pl.LazyFrame = build_mass_difference_map(
         peaks=peaks,
         oligo_ref=oligo_ref,
@@ -182,10 +182,10 @@ def process_calibration(
     )
 
     # Error quantification and correction
-    logger.info("[INFO] Calculating correction factors")
+    logger.info(f"[INFO] {spectrum_name} -> Calculating correction factors")
     error_table: pl.LazyFrame = calculate_error_table(mdim)
 
-    logger.info("[INFO] Applying calibration corrections")
+    logger.info(f"[INFO] {spectrum_name} -> Applying calibration corrections")
     corrected_spectrum: pl.LazyFrame = interpolate_corrections(
         spectrum=original_spectrum,
         error_table=error_table,

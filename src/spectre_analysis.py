@@ -887,7 +887,7 @@ def execute_process(
             if perform_calibration:
 
                 # Peak detection pipeline
-                logger.info("[INFO] Extracting peaks for calibration")
+                logger.info(f"[INFO] {spectrum_name} -> Extracting peaks for calibration")
                 peaks = (
                     spectrum_data
                     .pipe(lambda df: extract_and_detect_peaks(
@@ -917,7 +917,7 @@ def execute_process(
                 spectra_dict[spectrum_name] = spectrum_data
 
             # 1. Peak extraction with memory optimization
-            logger.info("[INFO] Extract peaks")
+            logger.info(f"[INFO] {spectrum_name} -> Extract peaks")
             peaks_lazy = extract_and_detect_peaks(
                 spectrum_data,
                 window=window,
@@ -927,12 +927,12 @@ def execute_process(
             )
 
             # 2. Library comparison
-            logger.info("[INFO] Library reference comparison")
+            logger.info(f"[INFO] {spectrum_name} -> Library reference comparison")
             #match = compare_to_library(peaks_lazy, monomers_list, ratio_max=rm_threshold)
             match = match_oligos(peaks_lazy, ref_oligo_df, rm_threshold)
 
             # 3. Oligonucleotide name compilation
-            logger.info("[INFO] Name atttribution")
+            logger.info(f"[INFO] {spectrum_name} -> Name atttribution")
             match = compile_oligo_name(match, monomers_list)
 
             # 4. Add Shared mass names
@@ -945,7 +945,7 @@ def execute_process(
             #     n_workers= n_workers)
 
             # 4. Save to temporary file
-            logger.info("[INFO] Save temp file")
+            logger.info(f"[INFO] {spectrum_name} -> Save temp file")
             file_paths_results[spectrum_name] = save_dataframe_to_temp(spectrum_name, match)
             file_paths_calibrate_spectrum[spectrum_name] = save_dataframe_to_temp(spectrum_name, spectrum_data)
 
@@ -955,6 +955,8 @@ def execute_process(
             if progress:
                 progress.update(i)
 
+
+        logger.info("[INFO] Create zip files")
         # 7. Create ZIP in memory
         zip_buffer_results = create_zip(file_paths_results)
         zip_buffer_calibrate_spectrum = create_zip(file_paths_calibrate_spectrum)

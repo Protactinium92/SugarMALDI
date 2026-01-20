@@ -29,6 +29,10 @@ Note:
     - Streamlit's reactive programming model
 """
 
+__author__  = "Pierre-Alexandre HO"
+__date__    = "2026-01-14"
+__version__ = "1.0"
+
 import streamlit as st
 import spectre_analysis as sp_ana
 import polars as pl
