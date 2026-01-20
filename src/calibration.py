@@ -11,15 +11,9 @@ __version__ = "1.0"
 import spectre_analysis as sp_ana
 import polars as pl
 import numpy as np
-import os
-import matplotlib.pyplot as plt
+import logging
 from pathlib import Path
-from scipy.stats import gaussian_kde
 from typing import Dict, Union, Optional, Tuple, List
-
-import datashader as ds
-from datashader import transfer_functions as tf
-import colorcet as cc
 
 
 def build_mass_difference_map(
@@ -177,9 +171,10 @@ def process_calibration(
         4. Mass difference mapping → 5. Error calculation → 6. Interpolation
         7. Memory cleanup → 8. Persistence
     """
+    logger = logging.getLogger(__name__)
 
     # Mass difference analysis
-    print("[INFO] Building mass difference map (500ppm threshold)")
+    logger.info("[INFO] Building mass difference map (500ppm threshold)")
     mdim: pl.LazyFrame = build_mass_difference_map(
         peaks=peaks,
         oligo_ref=oligo_ref,
@@ -187,10 +182,10 @@ def process_calibration(
     )
 
     # Error quantification and correction
-    print("[INFO] Calculating correction factors")
+    logger.info("[INFO] Calculating correction factors")
     error_table: pl.LazyFrame = calculate_error_table(mdim)
 
-    print("[INFO] Applying calibration corrections")
+    logger.info("[INFO] Applying calibration corrections")
     corrected_spectrum: pl.LazyFrame = interpolate_corrections(
         spectrum=original_spectrum,
         error_table=error_table,

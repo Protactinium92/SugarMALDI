@@ -826,6 +826,9 @@ def combine_lf(
         })
 
 
+import logging
+
+
 def execute_process(
     spectra_dict: Dict[str, pl.LazyFrame],
     monomers_list: List[str],
@@ -834,7 +837,8 @@ def execute_process(
     rm_threshold: int = 5,
     window: int = 10,
     dist_min: int = 15,
-    prominence: float = 1e5
+    prominence: float = 1e5,
+    progress=None
 ) -> Tuple[BytesIO, Dict[str, pl.LazyFrame]]:
     """
     Process MALDI spectra and generate a ZIP of results.
@@ -850,6 +854,7 @@ def execute_process(
         window: Window for peak detection (default: 10)
         dist_min: Minimum distance between peaks (default: 0.5)
         prominence: Minimum height difference between peak and its neighboring samples (default: 2e5).
+        progress: Use to communicate with streamlit progress bar
 
     Returns:
         Tuple[BytesIO, Dict[str, pl.DataFrame]]:
@@ -861,9 +866,10 @@ def execute_process(
     """
     try:
         n_workers=find_workers()
+        logger = logging.getLogger(__name__)
 
         # Use only the selected monomers
-        print("[INFO] Initialization")
+        logger.info("[INFO] Initialization")
         ref_oligo_path = Path(__file__).parents[1]/"data"/"oligo_combinations.csv"
         ref_oligo_df = adjust_library(ref_oligo_path, monomers_list)
         for adduct in ['labeled_mass_H+', 'labeled_mass_Na+', 'labeled_mass_K+']:
@@ -874,14 +880,14 @@ def execute_process(
             )
 
         file_paths_results, file_paths_calibrate_spectrum, peaks_dict = {}, {}, {}
-        for spectrum_name, spectrum_data in spectra_dict.items():
+        for i, (spectrum_name, spectrum_data) in enumerate(spectra_dict.items(), start=1):
             
-            print(f"[INFO] Start analysis {spectrum_name}")
+            logger.info(f"[INFO] Start analysis {spectrum_name}")
             
             if perform_calibration:
 
                 # Peak detection pipeline
-                print("[INFO] Extracting peaks for calibration")
+                logger.info("[INFO] Extracting peaks for calibration")
                 peaks = (
                     spectrum_data
                     .pipe(lambda df: extract_and_detect_peaks(
@@ -911,7 +917,7 @@ def execute_process(
                 spectra_dict[spectrum_name] = spectrum_data
 
             # 1. Peak extraction with memory optimization
-            print("[INFO] Extract peaks")
+            logger.info("[INFO] Extract peaks")
             peaks_lazy = extract_and_detect_peaks(
                 spectrum_data,
                 window=window,
@@ -921,12 +927,12 @@ def execute_process(
             )
 
             # 2. Library comparison
-            print("[INFO] Library reference comparison")
+            logger.info("[INFO] Library reference comparison")
             #match = compare_to_library(peaks_lazy, monomers_list, ratio_max=rm_threshold)
             match = match_oligos(peaks_lazy, ref_oligo_df, rm_threshold)
 
             # 3. Oligonucleotide name compilation
-            print("[INFO] Name atttribution")
+            logger.info("[INFO] Name atttribution")
             match = compile_oligo_name(match, monomers_list)
 
             # 4. Add Shared mass names
@@ -939,12 +945,15 @@ def execute_process(
             #     n_workers= n_workers)
 
             # 4. Save to temporary file
-            print("[INFO] Save temp file")
+            logger.info("[INFO] Save temp file")
             file_paths_results[spectrum_name] = save_dataframe_to_temp(spectrum_name, match)
             file_paths_calibrate_spectrum[spectrum_name] = save_dataframe_to_temp(spectrum_name, spectrum_data)
 
             # 6. Combine the lfs to have the non identified peak
             peaks_dict[spectrum_name] = combine_lf(match, peaks_lazy, how="right")
+
+            if progress:
+                progress.update(i)
 
         # 7. Create ZIP in memory
         zip_buffer_results = create_zip(file_paths_results)
@@ -953,6 +962,8 @@ def execute_process(
         # 8. Explicit cleanup
         del peaks_lazy, match
         gc.collect()
+
+        logger.info("[INFO]: End Analysis generation of spectrum")
 
         return zip_buffer_results, zip_buffer_calibrate_spectrum, peaks_dict, spectra_dict
 

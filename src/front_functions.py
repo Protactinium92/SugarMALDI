@@ -334,3 +334,99 @@ def define_x_y(
 
     del spectrum, mask, filtered_spectrum
     return x, y
+
+import logging
+
+class StreamlitHandler(logging.Handler):
+    def __init__(self, placeholder):
+        super().__init__()
+        self.placeholder = placeholder
+        self.logs = []
+
+    def emit(self, record):
+        msg = self.format(record)
+        self.placeholder.text(msg)
+
+import logging
+
+def init_streamlit_logger(placeholder, level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S"):
+    """
+    Initialise un logger qui envoie les logs vers un placeholder Streamlit.
+
+    Args:
+        placeholder: st.empty() ou st.container() pour afficher les logs
+        level: niveau de logging (default INFO)
+        datefmt: format de la date pour les logs
+
+    Returns:
+        root_logger: le logger root avec handler attaché
+        handler: le StreamlitHandler attaché (pour pouvoir le retirer après usage)
+    """
+    # Création du handler Streamlit
+    handler = StreamlitHandler(placeholder)
+
+    formatter = logging.Formatter(
+        fmt="%(asctime)s - %(message)s",
+        datefmt=datefmt
+    )
+    handler.setFormatter(formatter)
+
+    # Logger root
+    root_logger = logging.getLogger()
+    root_logger.setLevel(level)
+    root_logger.handlers.clear()
+    root_logger.addHandler(handler)
+
+    return root_logger, handler
+import logging
+
+def init_streamlit_logger(placeholder, level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S"):
+    """
+    Initialise un logger qui envoie les logs vers un placeholder Streamlit.
+
+    Args:
+        placeholder: st.empty() ou st.container() pour afficher les logs
+        level: niveau de logging (default INFO)
+        datefmt: format de la date pour les logs
+
+    Returns:
+        root_logger: le logger root avec handler attaché
+        handler: le StreamlitHandler attaché (pour pouvoir le retirer après usage)
+    """
+    # Création du handler Streamlit
+    handler = StreamlitHandler(placeholder)
+
+    formatter = logging.Formatter(
+        fmt="%(asctime)s - %(message)s",
+        datefmt=datefmt
+    )
+    handler.setFormatter(formatter)
+
+    # Logger root
+    root_logger = logging.getLogger()
+    root_logger.setLevel(level)
+    root_logger.handlers.clear()
+    root_logger.addHandler(handler)
+
+    return root_logger, handler
+
+
+class StreamlitProgress:
+    def __init__(self, total: int):
+        self.total = total
+        col_text, col_bar = st.columns([1, 9])
+        self.text = col_text.empty()
+        self.progress_bar = col_bar.progress(0)
+        self._render(0)
+        
+    def _render(self, current: int):
+        percent = int((current / self.total) * 100) if self.total else 0
+        self.text.write(f"📊 {current} / {self.total} ({percent}%)")
+
+    def update(self, current: int):
+        self.progress_bar.progress(current / self.total)
+        self._render(current)
+
+    def clear(self):
+        self.progress_bar.empty()
+        self.text.empty()
