@@ -45,10 +45,9 @@ __version__ = "1.0"
 
 import streamlit as st
 import polars as pl
-import matplotlib.pyplot as plt
 import plotly.graph_objects as go
-import numpy as np
 import atexit  # Clean closure of tempory files
+import logging
 
 import front_functions as ff
 import spectre_analysis as sp_ana
@@ -136,39 +135,42 @@ if __name__=="__main__":
         st.markdown("---")
         st.subheader("Process and Download")
         if monomers_list:
-            col1, col2 = st.columns([1,1])
-            with col1:
-                if st.button("🔍 Spectra analysis"):
-                    with st.spinner('🔄 Treatment ongoing...'):
-                        zip_buffer, peak_dict = sp_ana.execute_process(
-                            spectra,
-                            monomers_list,
-                            rm_threshold,
-                            window,
-                            dist_min,
-                            prominence
-                        )
-                        st.session_state.peak_dict = {
-                            spectrum_name: peaks_lf.lazy() 
-                            for spectrum_name, peaks_lf in peak_dict.items()
-                        }
-                        # Update session state with new values
-                        st.session_state.analysis_results = zip_buffer
-                        # For warning messages
-                        st.session_state.window = window
-                        st.session_state.dist_min = dist_min
-                        st.session_state.rm_threshold = rm_threshold
-                        st.session_state.monomers_list = monomers_list
-                        st.session_state.prominence = prominence
+            
+            if st.button("🔍 Spectra analysis"):
+                with st.spinner('🔄 Treatment ongoing...'):
 
-            with col2:
-                if st.session_state.analysis_results:
-                    st.download_button(
-                        label="⬇️ Download ZIP",
-                        data=st.session_state.analysis_results.getvalue(),
-                        file_name="results_maldi.zip",
-                        mime="application/zip"
+                    # --- Logger Streamlit ---
+                    progress = ff.StreamlitProgress(len(spectra))
+                    log_placeholder = st.empty()
+                    root_logger, handler = ff.init_streamlit_logger(log_placeholder)
+
+                    zip_buffer, peak_dict = sp_ana.execute_process(
+                        spectra,
+                        monomers_list,
+                        rm_threshold,
+                        window,
+                        dist_min,
+                        prominence,
+                        progress
                     )
+                    st.session_state.peak_dict = {
+                        spectrum_name: peaks_lf.lazy() 
+                        for spectrum_name, peaks_lf in peak_dict.items()
+                    }
+                    # Update session state with new values
+                    st.session_state.analysis_results = zip_buffer
+                    # For warning messages
+                    st.session_state.window = window
+                    st.session_state.dist_min = dist_min
+                    st.session_state.rm_threshold = rm_threshold
+                    st.session_state.monomers_list = monomers_list
+                    st.session_state.prominence = prominence
+
+                    # Clear logs
+                    root_logger.removeHandler(handler)
+                    handler.close()
+                    log_placeholder.empty()
+                    progress.clear()
 
         if 'peak_dict' in st.session_state:
             st.success('✅ Analysis completed !') 
@@ -206,5 +208,15 @@ if __name__=="__main__":
                          .filter(pl.col("Identifications").is_not_null())
                          .sort(pl.col("Intensity"), descending=False)
                          .collect())
+
+
+            if st.session_state.analysis_results:
+                st.download_button(
+                    label="⬇️ Download all results ZIP",
+                    data=st.session_state.analysis_results.getvalue(),
+                    file_name="results_maldi.zip",
+                    mime="application/zip",
+                    use_container_width=True,
+                )
 
     atexit.register(sp_ana.cleanup)

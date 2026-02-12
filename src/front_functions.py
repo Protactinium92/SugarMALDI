@@ -29,6 +29,10 @@ Note:
     - Streamlit's reactive programming model
 """
 
+__author__  = "Pierre-Alexandre HO"
+__date__    = "2026-01-14"
+__version__ = "1.0"
+
 import streamlit as st
 import spectre_analysis as sp_ana
 import polars as pl
@@ -36,6 +40,7 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import io, base64
 import numpy as np
+import logging
 
 from pathlib import Path
 from typing import Dict, Union, Tuple, List
@@ -334,3 +339,121 @@ def define_x_y(
 
     del spectrum, mask, filtered_spectrum
     return x, y
+
+
+class StreamlitHandler(logging.Handler):
+    """
+    A custom logging handler that outputs log messages to a Streamlit placeholder.
+
+    Attributes:
+        placeholder (st.delta_generator.DeltaGenerator): The Streamlit container where logs will be displayed.
+        logs (List[str]): A list storing all emitted log messages for reference.
+    """
+    
+    def __init__(self, placeholder: st.delta_generator.DeltaGenerator) -> None:
+        """
+        Initialize the handler with a Streamlit placeholder.
+
+        Args:
+            placeholder: A Streamlit container to display log messages.
+        """
+        super().__init__()
+        self.placeholder = placeholder
+        self.logs = []
+
+    
+    def emit(self, record: logging.LogRecord) -> None:
+        """
+        Format and emit a log record to the Streamlit placeholder.
+
+        Args:
+            record: The log record to process and display.
+        """
+        msg = self.format(record)
+        self.placeholder.text(msg)
+
+
+def init_streamlit_logger(
+    placeholder: st.delta_generator.DeltaGenerator,
+    level: int = logging.INFO,
+    datefmt: str = "%Y-%m-%d %H:%M:%S"
+) -> Tuple[logging.Logger, "StreamlitHandler"]:
+    """
+    Initialize a logger that outputs logs to a Streamlit placeholder.
+
+    Args:
+        placeholder: Streamlit container (e.g., `st.empty()` or `st.container()`) to display logs.
+        level: Logging level (default: `logging.INFO`).
+        datefmt: Date format for log timestamps (default: `"%Y-%m-%d %H:%M:%S"`).
+
+    Returns:
+        Tuple[logging.Logger, StreamlitHandler]:
+            - root_logger: Configured root logger with attached handler.
+            - handler: The `StreamlitHandler` instance (for later removal if needed).
+    """
+    # Create Streamlit handler
+    handler = StreamlitHandler(placeholder)
+
+    formatter = logging.Formatter(
+        fmt="%(asctime)s - %(message)s",
+        datefmt=datefmt
+    )
+    handler.setFormatter(formatter)
+
+    # Logger root
+    root_logger = logging.getLogger()
+    root_logger.setLevel(level)
+    root_logger.handlers.clear()  # Remove existing handlers
+    root_logger.addHandler(handler)
+
+    return root_logger, handler
+
+
+class StreamlitProgress:
+    """
+    A Streamlit-compatible progress bar with text display.
+
+    Features:
+        - Shows current/total count and percentage
+        - Clean layout with text in left column and progress bar in right
+        - Methods to update and clear the display
+    """
+     
+    def __init__(self, total: int) -> None:
+        """
+        Initialize progress tracking with a given total.
+
+        Args:
+            total: Total number of items/steps to complete.
+        """
+        self.total = total
+        col_text, col_bar = st.columns([1, 9])
+        self.text = col_text.empty()
+        self.progress_bar = col_bar.progress(0)
+        self._render(0)
+        
+
+    def _render(self, current: int) -> None:
+        """
+        Update the displayed progress text.
+
+        Args:
+            current: Current progress count.
+        """
+        percent = int((current / self.total) * 100) if self.total else 0
+        self.text.write(f"📊 {current} / {self.total} ({percent}%)")
+
+    def update(self, current: int) -> None:
+        """
+        Update the progress bar
+
+        Args:
+            current: Current progress count.
+        """
+        self.progress_bar.progress(current / self.total)
+        self._render(current)
+
+    def clear(self):
+        """Remove the progress display from the Streamlit interface."""
+        self.progress_bar.empty()
+        self.text.empty()

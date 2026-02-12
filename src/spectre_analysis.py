@@ -47,6 +47,7 @@ import tempfile
 import shutil
 import zipfile
 import gc
+import logging
 
 from io import BytesIO
 from pathlib import Path
@@ -821,21 +822,21 @@ def execute_process(
     rm_threshold: int = 5,
     window: int = 10,
     dist_min: int = 15,
-    prominence: float = 2e5
+    prominence: float = 1e5,
+    progress=None
 ) -> Tuple[BytesIO, Dict[str, pl.LazyFrame]]:
     """
     Process MALDI spectra and generate a ZIP of results.
 
     Args:
-        spectra: Dictionary of LazyFrames (key = sample name)
+        spectra_dict: Dictionary of LazyFrames (key = sample name)
         monomers_list: List of monomers used for oligo selection
         rm_threshold: Mass accuracy threshold (default: 5.0)
-        mz_col_name: Name of m/z column (default: "m/z")
-        other_cols: Additional columns to keep (default: None)
         window: Window for peak detection (default: 10)
         dist_min: Minimum distance between peaks (default: 0.5)
         prominence: Minimum height difference between peak and its neighboring samples (default: 2e5).
-
+        progress: Use to communicate with streamlit progress bar
+        
     Returns:
         Tuple[BytesIO, Dict[str, pl.DataFrame]]:
             - BytesIO: Buffer containing ZIP of results
@@ -846,19 +847,20 @@ def execute_process(
     """
     try:
         n_workers=find_workers()
+        logger = logging.getLogger(__name__)
 
         # Use only the selected monomers
-        print("Initialization")
+        logger.info("[INFO] Initialization")
         ref_oligo_path = Path(__file__).parents[1]/"data"/"oligo_combinations.csv"
         ref_oligo_df = adjust_library(ref_oligo_path, monomers_list)
 
         file_paths, peaks_dict = {}, {}
-        for spectrum_name, spectrum_data in spectra_dict.items():
+        for i, (spectrum_name, spectrum_data) in enumerate(spectra_dict.items(), start=1):    
             
-            print(f"Start analysis {spectrum_name}")
+            logger.info(f"[INFO] Start analysis {spectrum_name}")
             
             # 1. Peak extraction with memory optimization
-            print("Extract peaks")
+            logger.info(f"[INFO] {spectrum_name} -> Extract peaks")
             peaks_lazy = extract_and_detect_peaks(
                 spectrum_data,
                 window=window,
@@ -868,12 +870,12 @@ def execute_process(
             )
 
             # 2. Library comparison
-            print("Library reference comparison")
+            logger.info(f"[INFO] {spectrum_name} -> Library reference comparison")
             #match = compare_to_library(peaks_lazy, monomers_list, ratio_max=rm_threshold)
             match = match_oligos(peaks_lazy, ref_oligo_df, rm_threshold)
 
             # 3. Oligonucleotide name compilation
-            print("Name atttribution")
+            logger.info(f"[INFO] {spectrum_name} -> Name atttribution")
             match = compile_oligo_name(match, monomers_list)
 
             # 4. Add Shared mass names
@@ -886,19 +888,24 @@ def execute_process(
             #     n_workers= n_workers)
 
             # 4. Save to temporary file
-            print("Save temp file")
+            logger.info(f"[INFO] {spectrum_name} -> Save temp file")
             file_paths[spectrum_name] = save_dataframe_to_temp(spectrum_name, match)
 
             # 6. Combine the lfs to have the non identified peak
             peaks_dict[spectrum_name] = combine_lf(match, peaks_lazy, how="right")
 
+            if progress:
+                progress.update(i)
+
         # 7. Create ZIP in memory
+        logger.info("[INFO]: Creation of ZIP files")
         zip_buffer = create_zip(file_paths)
         
         # 8. Explicit cleanup
         del peaks_lazy, match
         gc.collect()
 
+        logger.info("[INFO]: End Analysis generation of spectrum")
         return zip_buffer, peaks_dict
 
     except Exception as e:
