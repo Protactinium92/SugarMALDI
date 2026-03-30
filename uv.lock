@@ -374,6 +374,44 @@ wheels = [
 ]
 
 [[package]]
+name = "isospecpy"
+version = "2.3.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cffi" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/85/e3/3e31f178bfad6111f03029397e43f0f27762ee3b635b0b404d17946595fd/isospecpy-2.3.5.tar.gz", hash = "sha256:2f4151aad0b73ed91389b819c57f199141bc534712fa9a661932c91b75f97d11", size = 88270, upload-time = "2026-03-27T14:54:13.561Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/40/5f/6a99f3067af0369c710c915b02bf8080732184914232ed582a42b9dd31cd/isospecpy-2.3.5-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:1de2026052b24e63d64319e54bfa9b20ce59c2bbc7f79318471e28491ba53207", size = 155692, upload-time = "2026-03-27T14:52:58.199Z" },
+    { url = "https://files.pythonhosted.org/packages/70/2d/a5724b9fb90c9b7bf073104503d3823796c42bfb412aaceb839b71f0dba0/isospecpy-2.3.5-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:add8c89ed13a0d8b5a78d0988d4f886b09ebbf7e1b1b42e3c6bba17e48cfe38c", size = 143545, upload-time = "2026-03-27T14:52:59.896Z" },
+    { url = "https://files.pythonhosted.org/packages/25/0b/a2ad7f42ac80b9ad5aa79fb5839c3a0c4957ec1e8097ce3dffb542945416/isospecpy-2.3.5-cp313-cp313-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:657e41c0074649f79e971691d9d349f4a2795d1b2abe1904096df667a265e363", size = 145921, upload-time = "2026-03-27T14:53:01.228Z" },
+    { url = "https://files.pythonhosted.org/packages/c3/28/5685a98bbfb3d1b0c011dbcf6a3541be2456a490ed3dcb6862ab0be2908e/isospecpy-2.3.5-cp313-cp313-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:29f1fa811742e7a224410cc3c230a6b05f18b65a06915d4f51208ab37c7f2f3d", size = 152093, upload-time = "2026-03-27T14:53:03.66Z" },
+    { url = "https://files.pythonhosted.org/packages/04/4b/c6601ed355224eb4552158c606eef9b0f76f63f38658e6d65337435bdf42/isospecpy-2.3.5-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:634e8602a6e82b997fd1a474b3a44a93915781e0efe0371d05ea8a79b1ced3d7", size = 1126666, upload-time = "2026-03-27T14:53:05.244Z" },
+    { url = "https://files.pythonhosted.org/packages/20/11/d30a55244d339a514382f8f0d738da76195a29953611e6fb2b12488abab2/isospecpy-2.3.5-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:203dfa2cf858ce5ffcc165bdeb7bd0c9b89e43018c90d4bee0b4d443c0db6df2", size = 1184618, upload-time = "2026-03-27T14:53:06.844Z" },
+    { url = "https://files.pythonhosted.org/packages/dd/2a/53881180145f0b8c3165514a763799a058c0c86df7ada1b0ed39eed4a780/isospecpy-2.3.5-cp313-cp313-win32.whl", hash = "sha256:4c51bec36e392dcf4d9672162801e204bf8e96479d02d03fe8af80b426533993", size = 119120, upload-time = "2026-03-27T14:53:08.255Z" },
+    { url = "https://files.pythonhosted.org/packages/a2/de/521f7a15b5574eab350cd48efdd7120f6da58456c108b4564670e2d5eeef/isospecpy-2.3.5-cp313-cp313-win_amd64.whl", hash = "sha256:e6c95b47330084ed9b33c51649a706ed1d4edc1399c706d725b9a26d31820739", size = 127858, upload-time = "2026-03-27T14:53:09.528Z" },
+    { url = "https://files.pythonhosted.org/packages/01/63/99a04c35c23e18f48aa1c606c19fa40853b8764916727f890552a5f97e3b/isospecpy-2.3.5-cp313-cp313-win_arm64.whl", hash = "sha256:93ba1024e1448c061c80f58fe2f48dd71f98680203bfde8be7b3a8bdc8399858", size = 118109, upload-time = "2026-03-27T14:53:10.783Z" },
+    { url = "https://files.pythonhosted.org/packages/9f/d0/138f328ef7218b0fdf794949bbbdf0b82ccd20f1fe40fea297013555d2a9/isospecpy-2.3.5-cp314-cp314-macosx_10_15_x86_64.whl", hash = "sha256:d68ee7674c6dc0105693db91a0e8576296ffab14f09db513b3ddbe0eeb7905ae", size = 155775, upload-time = "2026-03-27T14:53:12.066Z" },
+    { url = "https://files.pythonhosted.org/packages/75/68/708a1d81ec53972ff7314b2824439b63607d99a84cabc4a3c21dd4ee1f7a/isospecpy-2.3.5-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:8093d0e4437de587fb7fb8c70a9e2d2cf7482d88b7f414c0d7d1ba5de1e80a14", size = 143545, upload-time = "2026-03-27T14:53:13.675Z" },
+    { url = "https://files.pythonhosted.org/packages/54/93/ec2c9a87d12898228fc8b84f908dddf5fc5c2d54550b4b805828e674f57f/isospecpy-2.3.5-cp314-cp314-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:a94f8562b8e7c3eb2665acf8bcda0593a16d2ef5d5bf3795e18d6c3a5872bffe", size = 145920, upload-time = "2026-03-27T14:53:15.002Z" },
+    { url = "https://files.pythonhosted.org/packages/7e/27/b96e21091d129e34b4a0b09930e570d5f382a7c7c24e384ac88d5c116306/isospecpy-2.3.5-cp314-cp314-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:354a733230fe264ec2e673ae86bb3fbc675aa032b2b330eeb5c6b957c0047559", size = 152092, upload-time = "2026-03-27T14:53:16.323Z" },
+    { url = "https://files.pythonhosted.org/packages/d4/20/9392a76d12e53ce2d3f77b443dff4630e2343dbac545202aed2f528d151f/isospecpy-2.3.5-cp314-cp314-musllinux_1_2_aarch64.whl", hash = "sha256:9ea6b7ef8189e496ce4d4439a5e47f8d7f8c662a2f0a412430d016d9a7a20765", size = 1126667, upload-time = "2026-03-27T14:53:17.828Z" },
+    { url = "https://files.pythonhosted.org/packages/00/f3/05be8a896d282c002cd875d20614f165af16cb916258f9f39d6390068773/isospecpy-2.3.5-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:abd3817c18c3bb4f86b705d4f857fe0abdfd226de989aa79bbb91fac8bc7f57f", size = 1184620, upload-time = "2026-03-27T14:53:19.34Z" },
+    { url = "https://files.pythonhosted.org/packages/76/22/712ff6b6221fd494ef3a85fe14e5de3426b660a2f52b3a65a8eab4a5270b/isospecpy-2.3.5-cp314-cp314-win32.whl", hash = "sha256:8c01bea92d072f0af02f389ce6d60ce5f90143b025d33da81aef448463ebefe0", size = 120603, upload-time = "2026-03-27T14:53:21.065Z" },
+    { url = "https://files.pythonhosted.org/packages/b0/0b/b82557f03b5189fac13658fdbabbd2e5d84772e3ca3daab94e88abe3ea43/isospecpy-2.3.5-cp314-cp314-win_amd64.whl", hash = "sha256:b7cb91d65a68e6f32e11347974c407866819d5bc510eda6a19e16ca13ef13235", size = 129244, upload-time = "2026-03-27T14:53:23.133Z" },
+    { url = "https://files.pythonhosted.org/packages/b3/17/7ef6d7f5c8abee57c1f0157ef97d818c730e19ada7ac2e9da250a6092677/isospecpy-2.3.5-cp314-cp314-win_arm64.whl", hash = "sha256:e1c46f749ee01d1d541308fb39c8bf957f8af30bf80e343f3a7a384f08315e54", size = 119934, upload-time = "2026-03-27T14:53:24.384Z" },
+    { url = "https://files.pythonhosted.org/packages/32/be/f136437d059c3f965f513495e59d3ad51c00f3b5e31bb42ae6ec14f3d4cc/isospecpy-2.3.5-cp314-cp314t-macosx_10_15_x86_64.whl", hash = "sha256:8ae04734d90d54db512dbba8360e40e9c1dcc30607d92da20cda842a8db2158c", size = 155777, upload-time = "2026-03-27T14:53:25.725Z" },
+    { url = "https://files.pythonhosted.org/packages/be/c8/7af4081a3a339a7ad41687e5bd28cfc9e3d1dfae933016bbac7b3d09ae5b/isospecpy-2.3.5-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:12e0c66fbcab03ddcc628fd10ac4e3c1993cdbc752f0d5879e6a59879d37d9ba", size = 143547, upload-time = "2026-03-27T14:53:27.064Z" },
+    { url = "https://files.pythonhosted.org/packages/e3/2e/355d5a236562da669acecd54410e62a0ecafb822025e25c721be65bdd080/isospecpy-2.3.5-cp314-cp314t-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:b3ed3a01ad3d6f6bc68dca42ef55d8b44a9d69c21e502ed87a5f12f2a59dde0f", size = 145922, upload-time = "2026-03-27T14:53:28.33Z" },
+    { url = "https://files.pythonhosted.org/packages/25/82/a787ef3fc43ee5c1f55b742bc98b25710ccbc7520f2ad444e4bfd82f2f78/isospecpy-2.3.5-cp314-cp314t-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:5a4cd2e3bba93c873951582d1fe26cd5ac6250f337845f701bef5c1ec11309a4", size = 152093, upload-time = "2026-03-27T14:53:29.634Z" },
+    { url = "https://files.pythonhosted.org/packages/42/0a/75c8300dcc2418a7ef46dd0566daec3226018f372f8fcbc20a9331aff8d8/isospecpy-2.3.5-cp314-cp314t-musllinux_1_2_aarch64.whl", hash = "sha256:814522280489390a382c9ce425d7d128301cfd0c90528a011b44495da3525895", size = 1126670, upload-time = "2026-03-27T14:53:31.294Z" },
+    { url = "https://files.pythonhosted.org/packages/06/c6/7445d4198eba8bf9a4167e95c77c43a98b83286084bc08cf1ee80b57fce5/isospecpy-2.3.5-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:d526a9118370e8c878e3756048e497045a7b14dffa20fe4a048500b7d3cefead", size = 1184622, upload-time = "2026-03-27T14:53:32.79Z" },
+    { url = "https://files.pythonhosted.org/packages/51/fa/dc540c31c97bcf7653c90fec1cce61ec63d6d92fcf2d0b673630ad6720b0/isospecpy-2.3.5-cp314-cp314t-win32.whl", hash = "sha256:c5e68ff979312172134dd192f6d220f10eda8bf30557ea4f8c34a9bccc946401", size = 120604, upload-time = "2026-03-27T14:53:34.773Z" },
+    { url = "https://files.pythonhosted.org/packages/ba/18/bb8ca27abb752b2ed06c472dad85e66e1121360a4f09ecc0a4513f9efb2f/isospecpy-2.3.5-cp314-cp314t-win_amd64.whl", hash = "sha256:18c092484ecc135cdf138983ee3d52d8d0fdb93c5b32c89277a4df92ad4b6af0", size = 129244, upload-time = "2026-03-27T14:53:36.289Z" },
+    { url = "https://files.pythonhosted.org/packages/be/a4/f78a4f63f4808544194df1efff51f7939c350672fef42c16770ee360a76e/isospecpy-2.3.5-cp314-cp314t-win_arm64.whl", hash = "sha256:b21070d54da207fa6a2ad29f4afd556a5ec01a1b67ef917a5ea45feb705f32c4", size = 119937, upload-time = "2026-03-27T14:53:37.655Z" },
+]
+
+[[package]]
 name = "jedi"
 version = "0.19.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1233,6 +1271,7 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "ipykernel" },
+    { name = "isospecpy" },
     { name = "joblib" },
     { name = "matplotlib" },
     { name = "numpy" },
@@ -1245,6 +1284,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "ipykernel", specifier = ">=6.30.1" },
+    { name = "isospecpy", specifier = ">=2.3.5" },
     { name = "joblib", specifier = ">=1.5.2" },
     { name = "matplotlib", specifier = ">=3.10.6" },
     { name = "numpy", specifier = ">=2.3.2" },

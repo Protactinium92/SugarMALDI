@@ -67,7 +67,8 @@ if __name__=="__main__":
        
         if "monomers_list" not in st.session_state:
             st.session_state.monomers_list = None
-        monomers_list = ff.monomer_selection()
+            st.session_state.monomers_df = None
+        monomers_list, monomers_df = ff.monomer_selection()
 
         if (st.session_state.monomers_list is not None and     # 1 Check the 1st launch
             monomers_list and                                  # 2 chek if not empty (warning in the function)
@@ -147,6 +148,7 @@ if __name__=="__main__":
                     zip_buffer, peak_dict = sp_ana.execute_process(
                         spectra,
                         monomers_list,
+                        monomers_df,
                         rm_threshold,
                         window,
                         dist_min,
@@ -164,6 +166,7 @@ if __name__=="__main__":
                     st.session_state.dist_min = dist_min
                     st.session_state.rm_threshold = rm_threshold
                     st.session_state.monomers_list = monomers_list
+                    st.session_state.monomers_df = monomers_df
                     st.session_state.prominence = prominence
 
                     # Clear logs

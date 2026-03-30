@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "ipykernel>=6.30.1",
+    "isospecpy>=2.3.5",
     "joblib>=1.5.2",
     "matplotlib>=3.10.6",
     "numpy>=2.3.2",

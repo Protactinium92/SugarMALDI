@@ -48,18 +48,32 @@ import shutil
 import zipfile
 import gc
 import logging
+import IsoSpecPy as iso
 
 from io import BytesIO
 from pathlib import Path
 from typing import Dict, Union, Optional, Tuple, List
 from numpy.typing import NDArray
 from scipy.signal import find_peaks as fp
+from scipy.spatial import distance
+from scipy.stats import pearsonr,  wasserstein_distance
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
+
 
 # --- Configuration ---
 TEMP_DIR = Path(tempfile.mkdtemp())  # Temporate files
 SCALE = 1_000_000  # 1e6 to convert float mass in int
+
+ADDUCTS = {
+    "H+": {"H": 1},
+    "Na+": {"Na": 1},
+    "K+": {"K": 1},
+    "NH4+": {"N": 1, "H": 4},
+}
+
+LABEL_3AQ = {"C": 9, "H": 8, "N": 2}
 
 
 def find_workers():
@@ -315,7 +329,7 @@ def _process_window(args: Tuple[NDArray[np.float64], NDArray[np.float64], NDArra
     peaks: NDArray[np.int64] = find_all_peaks(
         intensity[window_indices],  # Intensity values for current window
         local_interval,             # Average spacing between m/z values in this window
-        distance=dist_min,           # Minimum required distance between peaks
+        distance=dist_min,          # Minimum required distance between peaks
         prominence=prominence       # Minimum height difference between a peak and its neighbors
     )
 
@@ -476,21 +490,352 @@ def calcul_offset(rm_threshold: float, real_mass: float) -> Tuple[float, float]:
     return th_min, th_max
 
 
+def calculate_brut_formula(
+    oligo_df: Dict[str, int],
+    monomer_df: pl.DataFrame,
+    adduct: Optional[str] = None,
+    use_label_3aq: bool = True
+) -> str:
+    """
+    Compute brute formula from monomer composition using vectorized Polars.
+
+    Parameters
+    ----------
+    oligo_df : pl.DataFrame
+        One-row DataFrame containing monomer counts in columns matching monomer_df "Notation"
+    monomer_df : pl.DataFrame
+        Columns: ["Notation", "C", "H", "O", ...]
+    adduct : str, optional
+        Adduct type ("H", "Na", "K", "NH4", ...)
+    use_label_3aq : bool
+        Add 3AQ label if True
+
+    Returns
+    -------
+    str
+        Brute formula (e.g. "C30H52O21Na1")
+    """
+    
+    elements = monomer_df.columns[3:]  # Skip "Notation"
+    totals = {elem: 0 for elem in elements}
+    total_monomers = 0
+
+    for row in monomer_df.iter_rows():
+        mono_name = row[1]
+        count = oligo_df[mono_name].item()  # Monomer repitition
+        if count == 0:
+            continue
+        total_monomers += count
+        atom_values = row[3:]
+        for elem, val in zip(elements, atom_values):
+            totals[elem] += val * count
+
+    # Add the label
+    if use_label_3aq:
+        for elem, count in LABEL_3AQ.items():
+            totals[elem] = totals.get(elem, 0) + count
+            total_monomers += 1
+    
+    # Condensation reaction
+    if total_monomers > 1:
+        n_loss = total_monomers - 1
+        totals["H"] = totals.get("H", 0) - 2 * n_loss
+        totals["O"] = totals.get("O", 0) - 1 * n_loss
+    
+    # Add adduct
+    if adduct is not None:
+        if adduct not in ADDUCTS:
+            raise ValueError(f"Unknown adduct: {adduct}")
+
+        for elem, count in ADDUCTS[adduct].items():
+            totals[elem] = totals.get(elem, 0) + count
+
+    # Build Formula
+    # Ordre chimique standard
+    priority_order = ["C", "H", "N", "O", "S", "P"]
+    other_elements = sorted([e for e in totals.keys() if e not in priority_order])
+
+    ordered_elements = priority_order + other_elements
+
+    formula_parts = [
+        f"{elem}{int(totals[elem])}"
+        for elem in ordered_elements
+        if elem in totals and totals[elem] > 0
+    ]
+
+    return "".join(formula_parts)
+
+
+@lru_cache(maxsize=1000)
+def get_theoretical_spectrum(
+    formula: str,
+    iso_threshold: float = 0.0001,
+) -> pl.DataFrame:
+    """
+    Génère le spectre isotopique théorique pour une formule brute + adduct.
+    The theoritical spectrum is saved in the cache
+    Args:
+        formula: Formule brute (ex: "C29H47N3O13").
+        iso_threshold: Seuil de probabilité pour filtrer les isotopologues (défaut: 0.01%).
+    Returns:
+        LazyFrame avec colonnes ["mz_theo", "prob_theo", "prob_theo_norm"].
+    """
+    sp = iso.IsoThreshold(formula=formula, threshold=iso_threshold)
+
+    return pl.LazyFrame({
+        "mz_theo": sp.masses,
+        "prob_theo": sp.probs,
+        "prob_theo_norm": sp.probs / max(sp.probs) if sp.probs else [0.0]
+    })
+
+
+def _normalize(vec: np.ndarray) -> np.ndarray:
+    """Normalize a vector to sum = 1."""
+    s = np.sum(vec)
+    return vec / s if s > 0 else vec
+
+
+def _build_aligned_vectors(
+    exp_mz: np.ndarray,
+    exp_int: np.ndarray,
+    theo_mz: np.ndarray,
+    theo_prob: np.ndarray,
+    tolerance: float,
+    N: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Build aligned isotopic vectors (experimental vs theoretical).
+    """
+    aligned_exp = []
+    aligned_theo = []
+
+    for mz_theo, prob_theo in zip(theo_mz[:N], theo_prob[:N]):
+        th_min, th_max = calcul_offset(tolerance, mz_theo)
+
+        mask = (exp_mz >= mz_theo - th_min) & (exp_mz <= mz_theo + th_max)
+
+        if np.any(mask):
+            # closest peak (better than max)
+            idx = np.argmin(np.abs(exp_mz[mask] - mz_theo))
+            matched_int = exp_int[mask][idx]
+        else:
+            matched_int = 0.0
+
+        aligned_exp.append(matched_int)
+        aligned_theo.append(prob_theo)
+
+    vec_exp = np.array(aligned_exp)
+    vec_theo = np.array(aligned_theo)
+
+    return _normalize(vec_exp), _normalize(vec_theo)
+
+
+# ======================
+# SCORING FUNCTIONS
+# ======================
+
+def score_cosine(vec_exp: np.ndarray, vec_theo: np.ndarray) -> float:
+    if np.any(vec_exp) and np.any(vec_theo):
+        return 1 - distance.cosine(vec_exp, vec_theo)
+    return 0.0
+
+
+def score_pearson(vec_exp: np.ndarray, vec_theo: np.ndarray) -> float:
+    if len(vec_exp) > 1 and np.std(vec_exp) > 0 and np.std(vec_theo) > 0:
+        return pearsonr(vec_exp, vec_theo)[0]
+    return 0.0
+
+
+def score_chi2(vec_exp: np.ndarray, vec_theo: np.ndarray) -> float:
+    denom = vec_theo + 1e-12
+    chi2 = np.sum((vec_exp - vec_theo) ** 2 / denom)
+    return 1 / (1 + chi2)
+
+
+def score_kl(vec_exp: np.ndarray, vec_theo: np.ndarray) -> float:
+    kl = np.sum(vec_theo * np.log((vec_theo + 1e-12) / (vec_exp + 1e-12)))
+    return 1 / (1 + kl)
+
+
+def score_emd(vec_exp: np.ndarray, vec_theo: np.ndarray) -> float:
+    emd = wasserstein_distance(vec_exp, vec_theo)
+    return 1 / (1 + emd)
+
+
+def score_hybrid(vec_exp: np.ndarray, vec_theo: np.ndarray) -> float:
+    """
+    Recommended default score for isotopic pattern matching.
+    Combines coverage + cosine similarity.
+    """
+    cosine = score_cosine(vec_exp, vec_theo)
+
+    coverage = np.sum(vec_exp > 0) / len(vec_theo)
+
+    penalty = np.sum(vec_exp[vec_theo < 1e-6])
+
+    return 0.5 * cosine + 0.4 * coverage - 0.3 * penalty
+
+
+def calculate_isotopic_score(
+    peaks_exp,
+    spectrum_theo,
+    tolerance: float,
+    N: int = 4,
+    scoring_method: str = "hybrid",
+) -> float:
+    """
+    Compute isotopic pattern score between experimental and theoretical spectra.
+
+    Parameters
+    ----------
+    peaks_exp : DataFrame or LazyFrame
+        Experimental peaks with columns ["mz_int", "Intensity_norm"].
+    spectrum_theo : DataFrame or LazyFrame
+        Theoretical isotopic spectrum with ["mz_int", "prob_theo_norm"].
+    tolerance : float
+        m/z tolerance (ppm or Da depending on calcul_offset).
+    N : int, optional
+        Number of isotopes to consider (default = 4).
+    scoring_method : str, optional
+        One of ["cosine", "pearson", "chi2", "kl", "wasserstein", "hybrid"].
+
+    Returns
+    -------
+    float
+        Score between 0 and 1 (higher = better match).
+    """
+
+    # Convert to numpy
+    exp_mz = peaks_exp["mz_int"].to_numpy()
+    exp_int = peaks_exp["Intensity_norm"].to_numpy()
+
+    theo_mz = spectrum_theo["mz_int"].to_numpy()
+    theo_prob = spectrum_theo["prob_theo_norm"].to_numpy()
+
+    # Build aligned vectors
+    vec_exp, vec_theo = _build_aligned_vectors(
+        exp_mz, exp_int, theo_mz, theo_prob, tolerance, N
+    )
+
+    # Select scoring method
+    scoring_functions = {
+        "cosine": score_cosine,
+        "pearson": score_pearson,
+        "chi2": score_chi2,
+        "kl": score_kl,
+        "wasserstein": score_emd,
+        "hybrid": score_hybrid,
+    }
+
+    if scoring_method not in scoring_functions:
+        raise ValueError(f"Unknown scoring method: {scoring_method}")
+
+    return scoring_functions[scoring_method](vec_exp, vec_theo)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def match_oligos(
     peaks: pl.LazyFrame,
     library: pl.LazyFrame,
     threshold: int,
+    monomer_df: pl.DataFrame,
+    top_n: int = 4, 
+    use_label_3aq: bool = True
 ) -> pl.LazyFrame:
     """
     Match each mass in a spectrum to oligomers in a reference library.
     Returns a LazyFrame with matches, including:
-    - All original library columns (except temporary ones)
-    - Added columns: 'query_mass', 'Adduct', 'mass_diff'
+    - All original library columns
+    - Added columns: 'query_mass', 'Adduct', 'Delta_M', 'Formula'
 
     Args:
-        peaks: LazyFrame of detected peaks including the m/z oif the spectrum
+        peaks: LazyFrame of detected peaks including the m/z of the spectrum
         library: LazyFrame of the reference oligosaccharides
-        threshold: Mass accuracy tolerence for matching: abs((theory-real)/theory) in "ppm"
+        threshold: Mass accuracy tolerance for matching in ppm
+        monomer_df: DataFrame with monomer compositions
+        use_label_3aq: Add 3AQ label if True
 
     Returns:
         pl.LazyFrame:  
@@ -508,13 +853,15 @@ def match_oligos(
         lf = peaks,
         mz_col="m/z",
         new_col="mz_int"
+    ).with_columns(
+        (pl.col("Intensity") / pl.col("Intensity").max()).alias("Intensity_norm")
     )
 
     mass_list = peaks.select('mz_int').collect().to_numpy()
     intensity_list = peaks.select('Intensity').collect().to_numpy()
     matched_oligos = []
 
-    # Loop for each mass select the closest reference oligo
+    # Loop: for each mass select the closest reference oligo
     for mass, intensity in zip(mass_list, intensity_list):
 
         # --- Step 1: Filter candidates ---
@@ -540,10 +887,15 @@ def match_oligos(
         )
 
         # --- Step 3: Find best match ---
-        best_match = (
+        # Find the top_n best matches, this strategy allow best compromise between
+        # performance and precision. The top_n will be analyze with isotop for a better
+        # precison
+        best_matches = (
             candidates_with_diff
-            .with_columns(pl.min_horizontal("diff_H", "diff_Na", "diff_K").alias("Delta_M"))  # Find the Minimum ratio between the adducts
-            .sort("Delta_M").head(1)  # Select 1 line of the library for the query mass
+            # Find the Minimum ratio between the adducts
+            .with_columns(pl.min_horizontal("diff_H", "diff_Na", "diff_K").alias("Delta_M"))
+            # Select 1 line of the library for the query mass
+            .sort("Delta_M").head(top_n)
             # Add the corresponding best adduct in the lazyframe of the mass 
             .with_columns(
                 pl.when(pl.col("diff_H") == pl.col("Delta_M")).then(pl.lit("H+"))
@@ -557,6 +909,27 @@ def match_oligos(
             ])
         )
 
+        # --- Step 4: Compute iso_score ---
+        scored_candidates = []       
+        for candidate_row in best_matches.collect().iter_rows(named=True):
+            formula = calculate_brut_formula(
+                oligo_df=candidate_row,
+                monomer_df=monomer_df,
+                adduct=candidate_row.get('Adduct', None),
+                use_label_3aq=use_label_3aq
+            )
+
+            spectrum_theo = get_theoretical_spectrum(candidate_row["Formula"])
+            spectrum_theo = normalize_mz_column(
+                lf=spectrum_theo,
+                mz_col="mz_theo",
+                new_col="mz_int"
+            )
+
+
+
+        best_match = best_match.with_columns(pl.lit(formula).alias("Formula"))
+
         matched_oligos.append(best_match)
     
     # Concatenate all matches for this spectrum
@@ -568,6 +941,7 @@ def match_oligos(
             "query_mass": pl.Int64,
             "Adduct": pl.Utf8,
             "Delta_M": pl.Float64,
+            "Formula": pl.Utf8,
             #"Recurrence": pl.Utf8,
             "Identifications":pl.Utf8
         })
@@ -795,7 +1169,7 @@ def combine_lf(
     """
     
     # Keep only necessary columns for the join
-    cols_to_keep_1 = [join_on, "Identifications", "Delta_M"]
+    cols_to_keep_1 = [join_on, "Identifications", "Formula", "Delta_M"]
     cols_to_keep_2 = ["m/z", join_on, "Intensity"]
     
     try:
@@ -819,6 +1193,7 @@ def combine_lf(
 def execute_process(
     spectra_dict: Dict[str, pl.LazyFrame],
     monomers_list: List[str],
+    monomer_df: pl.DataFrame,
     rm_threshold: int = 5,
     window: int = 10,
     dist_min: int = 15,
@@ -831,6 +1206,7 @@ def execute_process(
     Args:
         spectra_dict: Dictionary of LazyFrames (key = sample name)
         monomers_list: List of monomers used for oligo selection
+        monomer_df: DataFrame with monomer compositions
         rm_threshold: Mass accuracy threshold (default: 5.0)
         window: Window for peak detection (default: 10)
         dist_min: Minimum distance between peaks (default: 0.5)
@@ -872,7 +1248,12 @@ def execute_process(
             # 2. Library comparison
             logger.info(f"[INFO] {spectrum_name} -> Library reference comparison")
             #match = compare_to_library(peaks_lazy, monomers_list, ratio_max=rm_threshold)
-            match = match_oligos(peaks_lazy, ref_oligo_df, rm_threshold)
+            match = match_oligos(
+                peaks=peaks_lazy, 
+                library=ref_oligo_df,
+                threshold=rm_threshold,
+                monomer_df=monomer_df,
+                use_label_3aq=True)
 
             # 3. Oligonucleotide name compilation
             logger.info(f"[INFO] {spectrum_name} -> Name atttribution")
@@ -918,6 +1299,5 @@ def cleanup() -> None:
     shutil.rmtree(TEMP_DIR)
 
 
-if __name__ == "__main__":
-    
+if __name__ == "__main__": 
    pass

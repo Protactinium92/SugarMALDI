@@ -122,7 +122,7 @@ def upload_files(delimiter: str =",") -> pl.DataFrame:
     return spectra
 
 
-def monomer_selection() -> List[str]:
+def monomer_selection() ->Tuple[List[str], pl.DataFrame]:
     """
     Interactive monomer selection interface for MALDI spectra analysis.
 
@@ -158,11 +158,8 @@ def monomer_selection() -> List[str]:
     )
 
     # Process selection
-    monomers_list = (
-        edited_df
-        .filter(pl.col("Selection"))["Notation"]
-        .to_list()
-    )
+    selected_df = edited_df.filter(pl.col("Selection"))
+    monomers_list = (selected_df["Notation"].to_list())
 
     if not monomers_list:
         st.warning("⚠️Please select at least one monomer")
@@ -170,7 +167,7 @@ def monomer_selection() -> List[str]:
         badges = " ".join([f":blue-badge[{m}]" for m in monomers_list])
         st.markdown(badges)
     del monomers, edited_df
-    return monomers_list
+    return monomers_list, selected_df
 
 
 @st.cache_data
