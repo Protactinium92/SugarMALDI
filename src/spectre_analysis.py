@@ -522,7 +522,7 @@ def calculate_brut_formula(
 
     for row in monomer_df.iter_rows():
         mono_name = row[1]
-        count = oligo_df[mono_name].item()  # Monomer repitition
+        count = oligo_df[mono_name]  # Monomer repitition
         if count == 0:
             continue
         total_monomers += count
@@ -582,10 +582,12 @@ def get_theoretical_spectrum(
     """
     sp = iso.IsoThreshold(formula=formula, threshold=iso_threshold)
 
+    probs = np.fromiter(sp.probs, dtype=float)
+
     return pl.LazyFrame({
-        "mz_theo": sp.masses,
-        "prob_theo": sp.probs,
-        "prob_theo_norm": sp.probs / max(sp.probs) if sp.probs else [0.0]
+        "mz_theo": np.fromiter(sp.masses, dtype=float),
+        "prob_theo": probs,
+        "prob_theo_norm": probs / max(probs) if probs.size > 0 else np.array([0.0])
     })
 
 
@@ -706,11 +708,13 @@ def calculate_isotopic_score(
     """
 
     # Convert to numpy
-    exp_mz = peaks_exp["mz_int"].to_numpy()
-    exp_int = peaks_exp["Intensity_norm"].to_numpy()
+    peaks_np = peaks_exp.select(["mz_int", "Intensity_norm"]).collect().to_numpy()
+    exp_mz = peaks_np[:, 0]
+    exp_int = peaks_np[:, 1]
 
-    theo_mz = spectrum_theo["mz_int"].to_numpy()
-    theo_prob = spectrum_theo["prob_theo_norm"].to_numpy()
+    spectrum_theo_np = spectrum_theo.select(["mz_int", "prob_theo_norm"]).collect().to_numpy()
+    theo_mz = spectrum_theo_np[:, 0]
+    theo_prob = spectrum_theo_np[:, 1]
 
     # Build aligned vectors
     vec_exp, vec_theo = _build_aligned_vectors(
@@ -733,96 +737,15 @@ def calculate_isotopic_score(
     return scoring_functions[scoring_method](vec_exp, vec_theo)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 def match_oligos(
     peaks: pl.LazyFrame,
     library: pl.LazyFrame,
     threshold: int,
     monomer_df: pl.DataFrame,
     top_n: int = 4, 
-    use_label_3aq: bool = True
+    use_label_3aq: bool = True,
+    number_isotope = 4,
+    scoring_method = "hybrid"
 ) -> pl.LazyFrame:
     """
     Match each mass in a spectrum to oligomers in a reference library.
@@ -857,8 +780,9 @@ def match_oligos(
         (pl.col("Intensity") / pl.col("Intensity").max()).alias("Intensity_norm")
     )
 
-    mass_list = peaks.select('mz_int').collect().to_numpy()
-    intensity_list = peaks.select('Intensity').collect().to_numpy()
+    peaks_np = peaks.select(["mz_int", "Intensity"]).collect().to_numpy()
+    mass_list = peaks_np[:, 0]
+    intensity_list = peaks_np[:, 1]
     matched_oligos = []
 
     # Loop: for each mass select the closest reference oligo
@@ -910,8 +834,11 @@ def match_oligos(
         )
 
         # --- Step 4: Compute iso_score ---
-        scored_candidates = []       
+        scored_candidates = []
+        # collect is acceptable here because top_n is small       
         for candidate_row in best_matches.collect().iter_rows(named=True):
+            
+            # 1. Compute formula
             formula = calculate_brut_formula(
                 oligo_df=candidate_row,
                 monomer_df=monomer_df,
@@ -919,22 +846,40 @@ def match_oligos(
                 use_label_3aq=use_label_3aq
             )
 
-            spectrum_theo = get_theoretical_spectrum(candidate_row["Formula"])
+            # 2. Theoretical spectrum
+            spectrum_theo = get_theoretical_spectrum(formula)
+
             spectrum_theo = normalize_mz_column(
                 lf=spectrum_theo,
                 mz_col="mz_theo",
                 new_col="mz_int"
             )
 
+            # 3. Compute isotopic score
+            iso_score = calculate_isotopic_score(
+                peaks_exp=peaks,              
+                spectrum_theo=spectrum_theo,      
+                tolerance=threshold,
+                N=number_isotope,                              
+                scoring_method=scoring_method          
+            )
+
+            # 4. Store result
+            candidate_row["iso_score"] = iso_score
+            candidate_row["Formula"] = formula
+
+            scored_candidates.append(candidate_row)
 
 
-        best_match = best_match.with_columns(pl.lit(formula).alias("Formula"))
+        # --- Step 5: Select best candidate ---
+        best_match = max(scored_candidates, key=lambda x: x["iso_score"], default=None)
 
-        matched_oligos.append(best_match)
+        if best_match is not None:
+            matched_oligos.append(best_match)
     
     # Concatenate all matches for this spectrum
     if matched_oligos:
-        return pl.concat(matched_oligos)
+        return pl.DataFrame(matched_oligos).lazy()
     else:  # If there is no information ==> creation of an empty lazyframe for the following code
         return pl.LazyFrame(schema={
             "Neutral_unlabeled_mass": pl.Int64,
@@ -1169,7 +1114,7 @@ def combine_lf(
     """
     
     # Keep only necessary columns for the join
-    cols_to_keep_1 = [join_on, "Identifications", "Formula", "Delta_M"]
+    cols_to_keep_1 = [join_on, "Identifications", "Formula", "Delta_M", "iso_score"]
     cols_to_keep_2 = ["m/z", join_on, "Intensity"]
     
     try:
