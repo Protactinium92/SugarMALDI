@@ -377,7 +377,8 @@ SCORING_HELP = {
         "cosine": """
     ### Cosine similarity
     - Compare the angle between intensity vectors
-    - Range: 0 → 1 (1 = identical patterns)  
+    - Range: 0 → 1
+    - Goal: 1 = perfect match, 0 = no similarity  
     ✔ Robust to scaling  
     ✔ Fast and stable  
     """,
@@ -385,7 +386,8 @@ SCORING_HELP = {
         "pearson": """
     ### Pearson correlation
     - Measures linear correlation between patterns
-    - Range: -1 → 1 (1 = perfect correlation)  
+    - Range: -1 → 1 (1 = perfect correlation) 
+    - Goal: 1 = identical patterns in shape, 0 = no correlation, -1 = inverse correlation   
     ✔ Sensitive to pattern shape  
     ✖ Unstable with few peaks  
     """,
@@ -393,7 +395,8 @@ SCORING_HELP = {
         "chi2": """
     ### Chi-square distance
     - Measures deviation between distributions
-    - Range: 0 → 1 (1 = identical)  
+    - Range: 0 → ∞ (1 / (1 + χ²) used as score → 0 → 1)
+    - Goal: 1 = identical patterns, 0 = large deviations  
     ✔ Penalizes large errors strongly  
     ✔ Good mismatch detector  
     ✖ Sensitive to noise  
@@ -401,15 +404,18 @@ SCORING_HELP = {
 
         "kl": """
     ### Kullback-Leibler divergence
-    - Measures information loss between distributions  
+    - Measures information loss between distributions 
+    - Range: 0 → ∞ (1 / (1 + KL) used as score → 0 → 1)
+    - Goal: 1 = identical distributions, 0 = large information loss  
     ✔ Very discriminative  
     ✖ Penalizes missing peaks strongly  
-    ✖ Needs proper normalization  
     """,
 
         "wasserstein": """
     ### Wasserstein distance (Earth Mover’s Distance)
     - Measures distance between distributions  
+    - Range: 0 → ∞ (1 / (1 + W) used as score → 0 → 1)
+    - Goal: 1 = identical distributions, 0 = large distance  
     ✔ Robust to small m/z shifts  
     ✔ Good for noisy spectra  
     ✖ Less sensitive to intensity differences  
@@ -417,7 +423,9 @@ SCORING_HELP = {
 
         "hybrid": """
     ### Hybrid score
-    - Combines multiple metrics (cosine + coverage + penalty)  
+    - Combines multiple metrics (0.5 × cosine + 0.4 × coverage - 0.3 × penalty)
+    - Range: approximately 0 → 1
+    - Goal: 1 = best overall isotopic match, 0 = poor match 
     ✔ Most robust  
     ✔ Best for automatic selection  
     """
