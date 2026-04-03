@@ -65,14 +65,12 @@ from functools import lru_cache
 # --- Configuration ---
 TEMP_DIR = Path(tempfile.mkdtemp())  # Temporate files
 SCALE = 1_000_000  # 1e6 to convert float mass in int
-
 ADDUCTS = {
     "H+": {"H": 1},
     "Na+": {"Na": 1},
     "K+": {"K": 1},
     "NH4+": {"N": 1, "H": 4},
 }
-
 LABEL_3AQ = {"C": 9, "H": 8, "N": 2}
 
 
@@ -742,10 +740,9 @@ def match_oligos(
     library: pl.LazyFrame,
     threshold: int,
     monomer_df: pl.DataFrame,
-    top_n: int = 4, 
     use_label_3aq: bool = True,
-    number_isotope = 4,
-    scoring_method = "hybrid"
+    number_isotope: int = 4,
+    scoring_method: str = "hybrid"
 ) -> pl.LazyFrame:
     """
     Match each mass in a spectrum to oligomers in a reference library.
@@ -819,7 +816,7 @@ def match_oligos(
             # Find the Minimum ratio between the adducts
             .with_columns(pl.min_horizontal("diff_H", "diff_Na", "diff_K").alias("Delta_M"))
             # Select 1 line of the library for the query mass
-            .sort("Delta_M").head(top_n)
+            .sort("Delta_M").head(number_isotope)
             # Add the corresponding best adduct in the lazyframe of the mass 
             .with_columns(
                 pl.when(pl.col("diff_H") == pl.col("Delta_M")).then(pl.lit("H+"))
@@ -887,6 +884,7 @@ def match_oligos(
             "Adduct": pl.Utf8,
             "Delta_M": pl.Float64,
             "Formula": pl.Utf8,
+            "iso_score": pl.Float64,
             #"Recurrence": pl.Utf8,
             "Identifications":pl.Utf8
         })
@@ -1143,6 +1141,8 @@ def execute_process(
     window: int = 10,
     dist_min: int = 15,
     prominence: float = 1e5,
+    number_isotope: int = 4,
+    scoring_method: str = "hybrid",
     progress=None
 ) -> Tuple[BytesIO, Dict[str, pl.LazyFrame]]:
     """
@@ -1156,6 +1156,8 @@ def execute_process(
         window: Window for peak detection (default: 10)
         dist_min: Minimum distance between peaks (default: 0.5)
         prominence: Minimum height difference between peak and its neighboring samples (default: 2e5).
+        number_isotope: Number of theoretical isotopic peaks considered when computing the isotopic similarity score
+        scoring_method: Method used to compute the similarity between experimental and theoretical isotopic patterns.        
         progress: Use to communicate with streamlit progress bar
         
     Returns:
@@ -1198,7 +1200,9 @@ def execute_process(
                 library=ref_oligo_df,
                 threshold=rm_threshold,
                 monomer_df=monomer_df,
-                use_label_3aq=True)
+                use_label_3aq=True,
+                number_isotope = number_isotope,
+                scoring_method = scoring_method)
 
             # 3. Oligonucleotide name compilation
             logger.info(f"[INFO] {spectrum_name} -> Name atttribution")

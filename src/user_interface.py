@@ -47,7 +47,6 @@ import streamlit as st
 import polars as pl
 import plotly.graph_objects as go
 import atexit  # Clean closure of tempory files
-import logging
 
 import front_functions as ff
 import spectre_analysis as sp_ana
@@ -89,46 +88,57 @@ if __name__=="__main__":
             st.session_state.prominence = 3e5  # Float 
         if 'analysis_results' not in st.session_state:
             st.session_state.analysis_results = None
+        if "number_iso" not in st.session_state:
+            st.session_state.number_iso = 5
+        if "iso_score" not in st.session_state:
+            st.session_state.iso_score = None
         
+        # Parameter window
         with st.expander("⚙️ Advanced options for peak detection", expanded=False):
             st.subheader("Detection parameters")
-            col1, col2 = st.columns([1,1])
+            col1, col2, col3 = st.columns([1,1,1])
             with col1:
                 window = st.number_input("Sub-window for peak detection (Da)", value=st.session_state.window, step=1)
-                prominence = st.number_input("Prominence", value=st.session_state.prominence, step=0.1e5,
-                                              help="Minimum height difference between peak and its neighbores")
             with col2:
                 dist_min = st.number_input("Minimum m/z distance between peaks", value=st.session_state.dist_min, step=1)
-            st.subheader("Match peaks parameters")
-            col3, col4 = st.columns([1,1])
             with col3:
+                prominence = st.number_input("Prominence", value=st.session_state.prominence, step=0.1e5,
+                                              help="Minimum height difference between peak and its neighbores")
+            col1, col2 = st.columns([1, 2])
+            with col1:
+                st.subheader("🎯 Match peaks parameter")
                 rm_threshold = st.number_input('Mass accuracy threshold (ΔM in ppm)', value=st.session_state.rm_threshold, step=1,
-                                               help=
-                                                    r"""
-            **Mass Accuracy (ΔM)**:
-            Mass Measurement Accuracy / Error, calculated as (1):
+                                               help=ff.help_rm_threshold())
+            with col2:
+                st.subheader("🧬 Isotope scoring")
 
-            $$\Delta M \ (\mathrm{ppm}) = \left( \frac{|M_{\mathrm{exp}} - M_{\mathrm{theo}}|}{M_{\mathrm{theo}}} \right) \times 10^6$$
+                subcol1, subcol2 = st.columns(2)
 
-            - **$M_{\mathrm{exp}}$**: Experimentally measured mass.
-            - **$M_{\mathrm{theo}}$**: Expected theoretical mass.
-            - **Typical threshold**: 5 ppm for MALDI-TOF.
+                with subcol1:
+                    number_isotope = st.number_input(
+                        "Number of isotopes",
+                        value=st.session_state.number_iso,
+                        step=1,
+                        help="Number of isotopic peaks used in scoring"
+                    )
 
-            *Example*: If ΔM = 10 ppm and $M_{\mathrm{theo}}$ = 1000 Da,
-            the tolerated deviation is **±0.01 Da**.
+                with subcol2:
+                    method_iso_score = st.selectbox(
+                        "Scoring method",
+                        options=list(ff.SCORING_HELP.keys()),
+                        index=5,
+                        help=ff.help_method_score()
+                    )
 
-            *Note*: Lower ΔM = stricter peak matching.
-
-            **Reference:**
-
-            (1) Brenton, A.G.; Godfrey, A.R. *J. Am. Soc. Mass Spectrom.* **2010**, *21*(11), 1821-1835.
-            [DOI:10.1016/j.jasms.2010.06.006](https://www.sciencedirect.com/science/article/pii/S1044030510004022)
-            """)
-        
+            with st.expander(f"💡 Details method {method_iso_score}"):
+                st.markdown(ff.SCORING_HELP[method_iso_score])
+                    
             # Detect changes and warn the user
             if (((window != st.session_state.window) or
                 (dist_min != st.session_state.dist_min) or
-                (rm_threshold != st.session_state.rm_threshold)) and
+                (rm_threshold != st.session_state.rm_threshold) or 
+                (number_isotope != st.session_state.number_iso) or
+                (method_iso_score != st.session_state.iso_score))and
                 (st.session_state.analysis_results != None)):
                 st.warning("⚠️ Warning: Parameter(s) changed. Please re-run the analysis to apply the new settings.")
 
@@ -153,6 +163,8 @@ if __name__=="__main__":
                         window,
                         dist_min,
                         prominence,
+                        number_isotope,
+                        method_iso_score,
                         progress
                     )
                     st.session_state.peak_dict = {
@@ -160,14 +172,16 @@ if __name__=="__main__":
                         for spectrum_name, peaks_lf in peak_dict.items()
                     }
                     # Update session state with new values
-                    st.session_state.analysis_results = zip_buffer
                     # For warning messages
+                    st.session_state.analysis_results = zip_buffer
                     st.session_state.window = window
                     st.session_state.dist_min = dist_min
                     st.session_state.rm_threshold = rm_threshold
                     st.session_state.monomers_list = monomers_list
                     st.session_state.monomers_df = monomers_df
                     st.session_state.prominence = prominence
+                    st.session_state.number_iso = number_isotope
+                    st.session_state.iso_score = method_iso_score
 
                     # Clear logs
                     root_logger.removeHandler(handler)
@@ -206,7 +220,13 @@ if __name__=="__main__":
             
             # Show peak table
             st.write("### **Identified peaks**")
-            st.write("*Delta_M in ppm, m/z in datlton, query_mass in ppm*")
+            col1, col2 = st.columns([1,2])
+            with col1:
+                st.write("*Delta_M in ppm, m/z in datlton, query_mass in ppm*")
+            with col2:
+                badges = " ".join([f":blue-badge[{m}]" for m in monomers_list])
+                badges = badges + f" :orange-badge[{method_iso_score}]"
+                st.markdown(f"Information selections: {badges}")
             st.dataframe(peak_lf
                          .filter(pl.col("Identifications").is_not_null())
                          .sort(pl.col("Intensity"), descending=False)

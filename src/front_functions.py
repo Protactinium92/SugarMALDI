@@ -338,6 +338,91 @@ def define_x_y(
     return x, y
 
 
+def help_rm_threshold():
+    return r"""
+            **Mass Accuracy (ΔM)**:
+            Mass Measurement Accuracy / Error, calculated as (1):
+
+            $$\Delta M \ (\mathrm{ppm}) = \left( \frac{|M_{\mathrm{exp}} - M_{\mathrm{theo}}|}{M_{\mathrm{theo}}} \right) \times 10^6$$
+
+            - **$M_{\mathrm{exp}}$**: Experimentally measured mass.
+            - **$M_{\mathrm{theo}}$**: Expected theoretical mass.
+            - **Typical threshold**: 5 ppm for MALDI-TOF.
+
+            *Example*: If ΔM = 10 ppm and $M_{\mathrm{theo}}$ = 1000 Da,
+            the tolerated deviation is **±0.01 Da**.
+
+            *Note*: Lower ΔM = stricter peak matching.
+
+            **Reference:**
+
+            (1) Brenton, A.G.; Godfrey, A.R. *J. Am. Soc. Mass Spectrom.* **2010**, *21*(11), 1821-1835.
+            [DOI:10.1016/j.jasms.2010.06.006](https://www.sciencedirect.com/science/article/pii/S1044030510004022)
+            """
+
+
+def help_method_score():
+    return r"""
+        Compare experimental vs theoretical isotopic patterns.  
+        
+        - cosine: fast, robust
+        - pearson: pattern correlation
+        - chi2: penalizes differences
+        - kl: highly discriminative
+        - wasserstein: robust to shifts
+        - hybrid: best overall (recommended, default)
+    """
+
+SCORING_HELP = {
+        "cosine": """
+    ### Cosine similarity
+    - Compare the angle between intensity vectors
+    - Range: 0 → 1 (1 = identical patterns)  
+    ✔ Robust to scaling  
+    ✔ Fast and stable  
+    """,
+
+        "pearson": """
+    ### Pearson correlation
+    - Measures linear correlation between patterns
+    - Range: -1 → 1 (1 = perfect correlation)  
+    ✔ Sensitive to pattern shape  
+    ✖ Unstable with few peaks  
+    """,
+
+        "chi2": """
+    ### Chi-square distance
+    - Measures deviation between distributions
+    - Range: 0 → 1 (1 = identical)  
+    ✔ Penalizes large errors strongly  
+    ✔ Good mismatch detector  
+    ✖ Sensitive to noise  
+    """,
+
+        "kl": """
+    ### Kullback-Leibler divergence
+    - Measures information loss between distributions  
+    ✔ Very discriminative  
+    ✖ Penalizes missing peaks strongly  
+    ✖ Needs proper normalization  
+    """,
+
+        "wasserstein": """
+    ### Wasserstein distance (Earth Mover’s Distance)
+    - Measures distance between distributions  
+    ✔ Robust to small m/z shifts  
+    ✔ Good for noisy spectra  
+    ✖ Less sensitive to intensity differences  
+    """,
+
+        "hybrid": """
+    ### Hybrid score
+    - Combines multiple metrics (cosine + coverage + penalty)  
+    ✔ Most robust  
+    ✔ Best for automatic selection  
+    """
+}
+
 class StreamlitHandler(logging.Handler):
     """
     A custom logging handler that outputs log messages to a Streamlit placeholder.
