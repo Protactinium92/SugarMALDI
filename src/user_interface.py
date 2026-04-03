@@ -95,7 +95,7 @@ if __name__=="__main__":
         
         # Parameter window
         with st.expander("⚙️ Advanced options for peak detection", expanded=False):
-            st.subheader("Detection parameters")
+            st.subheader("🔎 Detection parameters")
             col1, col2, col3 = st.columns([1,1,1])
             with col1:
                 window = st.number_input("Sub-window for peak detection (Da)", value=st.session_state.window, step=1)
