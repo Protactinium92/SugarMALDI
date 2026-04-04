@@ -741,6 +741,7 @@ def match_oligos(
     threshold: int,
     monomer_df: pl.DataFrame,
     use_label_3aq: bool = True,
+    top_n: int = 4,
     number_isotope: int = 4,
     scoring_method: str = "hybrid"
 ) -> pl.LazyFrame:
@@ -816,7 +817,7 @@ def match_oligos(
             # Find the Minimum ratio between the adducts
             .with_columns(pl.min_horizontal("diff_H", "diff_Na", "diff_K").alias("Delta_M"))
             # Select 1 line of the library for the query mass
-            .sort("Delta_M").head(number_isotope)
+            .sort("Delta_M").head(top_n)
             # Add the corresponding best adduct in the lazyframe of the mass 
             .with_columns(
                 pl.when(pl.col("diff_H") == pl.col("Delta_M")).then(pl.lit("H+"))
@@ -1141,6 +1142,7 @@ def execute_process(
     window: int = 10,
     dist_min: int = 15,
     prominence: float = 1e5,
+    number_candidate: int = 4,
     number_isotope: int = 4,
     scoring_method: str = "hybrid",
     progress=None
@@ -1156,6 +1158,7 @@ def execute_process(
         window: Window for peak detection (default: 10)
         dist_min: Minimum distance between peaks (default: 0.5)
         prominence: Minimum height difference between peak and its neighboring samples (default: 2e5).
+        number_candidate: Number of candidate for the isotope selection
         number_isotope: Number of theoretical isotopic peaks considered when computing the isotopic similarity score
         scoring_method: Method used to compute the similarity between experimental and theoretical isotopic patterns.        
         progress: Use to communicate with streamlit progress bar
@@ -1201,6 +1204,7 @@ def execute_process(
                 threshold=rm_threshold,
                 monomer_df=monomer_df,
                 use_label_3aq=True,
+                top_n= number_candidate, 
                 number_isotope = number_isotope,
                 scoring_method = scoring_method)
 

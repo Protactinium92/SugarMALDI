@@ -88,6 +88,8 @@ if __name__=="__main__":
             st.session_state.prominence = 3e5  # Float 
         if 'analysis_results' not in st.session_state:
             st.session_state.analysis_results = None
+        if 'number_candidate' not in st.session_state:
+            st.session_state.number_candidate = 4
         if "number_iso" not in st.session_state:
             st.session_state.number_iso = 5
         if "iso_score" not in st.session_state:
@@ -98,7 +100,7 @@ if __name__=="__main__":
         
         # Parameter window
         with st.expander("⚙️ Advanced options for peak detection", expanded=False):
-            st.subheader("🔎 Detection parameters")
+            st.subheader("Detection parameters 🔎")
             col1, col2, col3 = st.columns([1,1,1])
             with col1:
                 window = st.number_input("Sub-window for peak detection (Da)", value=st.session_state.window, step=1)
@@ -107,13 +109,23 @@ if __name__=="__main__":
             with col3:
                 prominence = st.number_input("Prominence", value=st.session_state.prominence, step=0.1e5,
                                               help="Minimum height difference between peak and its neighbores")
-            col1, col2 = st.columns([1, 2])
+            col1, col2 = st.columns([1, 1])
             with col1:
-                st.subheader("🎯 Match peaks parameter")
-                rm_threshold = st.number_input('Mass accuracy threshold (ΔM in ppm)', value=st.session_state.rm_threshold, step=1,
-                                               help=ff.help_rm_threshold())
+                st.subheader("Match peaks parameter 🎯")
+                subcol1, subcol2 = st.columns(2)
+                with subcol1:
+                    rm_threshold = st.number_input('Mass accuracy threshold (ΔM in ppm)', value=st.session_state.rm_threshold, step=1,
+                                                help=ff.help_rm_threshold())
+                with subcol2:
+                    number_candidate = st.number_input(
+                        "Number of best mass matches selection",
+                        value=st.session_state.number_candidate,
+                        step=1,
+                        min_value=1,
+                        help="Number of top candidate oligosaccharides selected based on mass difference before isotopic scoring."
+                    )
             with col2:
-                st.subheader("🧬 Isotope scoring")
+                st.subheader("Isotope scoring 🧬")
 
                 subcol1, subcol2 = st.columns(2)
 
@@ -166,6 +178,7 @@ if __name__=="__main__":
                         window,
                         dist_min,
                         prominence,
+                        number_candidate,
                         number_isotope,
                         method_iso_score,
                         progress
@@ -183,6 +196,7 @@ if __name__=="__main__":
                     st.session_state.monomers_list = monomers_list
                     st.session_state.monomers_df = monomers_df
                     st.session_state.prominence = prominence
+                    st.session_state.number_candidate = number_candidate
                     st.session_state.number_iso = number_isotope
                     st.session_state.iso_score = method_iso_score
 
