@@ -92,6 +92,9 @@ if __name__=="__main__":
             st.session_state.number_iso = 5
         if "iso_score" not in st.session_state:
             st.session_state.iso_score = None
+        if "scoring_expander_open" not in st.session_state:
+            st.session_state.scoring_expander_open = False
+            
         
         # Parameter window
         with st.expander("⚙️ Advanced options for peak detection", expanded=False):
@@ -130,8 +133,8 @@ if __name__=="__main__":
                         help=ff.help_method_score()
                     )
 
-            with st.expander(f"💡 Details method {method_iso_score}"):
-                st.markdown(ff.SCORING_HELP[method_iso_score])
+            with st.expander(f"💡 Details method"):
+                 st.markdown(ff.SCORING_HELP[method_iso_score])
                     
             # Detect changes and warn the user
             if (((window != st.session_state.window) or
