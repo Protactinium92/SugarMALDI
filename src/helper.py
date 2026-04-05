@@ -70,7 +70,7 @@ with:
 - $I_i^{\mathrm{exp}}$    : normalized intensity of the $i$-th experimental isotope  
 - $I_i^{\mathrm{theo}}$   : normalized intensity of the $i$-th theoretical isotope  
 - $n$                     : number of isotopes considered
-- \epsilon$ is a small constant to avoid division by zero.
+- \epsilon$               : small constant to avoid division by zero.
 """,
         """
 ### Chi-square distance
@@ -99,7 +99,7 @@ P_i = \frac{I_i^{\mathrm{exp}}}{\sum_{j=1}^{n} I_j^{\mathrm{exp}}}$
 - $I_i^{\mathrm{exp}}$    : normalized intensity of the $i$-th experimental isotope  
 - $I_i^{\mathrm{theo}}$   : normalized intensity of the $i$-th theoretical isotope  
 - $n$                     : number of isotopes considered
-- $\epsilon$ : small constant to avoid log(0)
+- $\epsilon$              : small constant to avoid log(0)
 """,
         """
 ### Kullback-Leibler (KL) divergence
