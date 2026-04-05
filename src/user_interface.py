@@ -110,7 +110,7 @@ if __name__=="__main__":
             with col2:
                 dist_min = st.number_input("Minimum m/z distance between peaks", value=st.session_state.dist_min, step=1,
                                            min_value=0,
-                                           help=helper.minium_distance())
+                                           help=helper.minimum_distance())
             with col3:
                 prominence = st.number_input("Prominence", value=st.session_state.prominence, step=0.1e5,
                                              min_value=0.0,
@@ -130,7 +130,7 @@ if __name__=="__main__":
                         value=st.session_state.number_candidate,
                         step=1,
                         min_value=1,
-                        help="Number of top candidate oligosaccharides selected based on mass difference before isotopic scoring."
+                        help=helper.number_candidate()
                     )
             with col2:
                 st.subheader("Isotope scoring 🧬")
@@ -142,7 +142,7 @@ if __name__=="__main__":
                         "Number of isotopes",
                         value=st.session_state.number_iso,
                         step=1,
-                        help="Number of isotopic peaks used in scoring"
+                        help=helper.number_isotopes()
                     )
 
                 with subcol2:
@@ -154,7 +154,11 @@ if __name__=="__main__":
                     )
 
             with st.expander(f"💡 Details method"):
-                 st.markdown(helper.SCORING_HELP[method_iso_score])
+                 col1, col2 = st.columns([1,1], vertical_alignment="top")
+                 with col1:
+                    st.markdown(helper.SCORING_HELP[method_iso_score][1])
+                 with col2:
+                    st.markdown(helper.SCORING_HELP[method_iso_score][0])
                     
             # Detect changes and warn the user
             if (((window != st.session_state.window) or

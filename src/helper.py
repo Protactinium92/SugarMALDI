@@ -8,126 +8,264 @@ import plotly.graph_objects as go
 from scipy.signal import find_peaks
 
 SCORING_HELP = {
-        "cosine": """
-    ### Cosine similarity
-    - Compare the angle between intensity vectors
-    - Range: 0 → 1
-    - Goal: 1 = perfect match, 0 = no similarity  
-    ✔ Robust to scaling  
-    ✔ Fast and stable  
-    """,
+            "cosine": [
+        r"""
+$$
+S_{cosine} = \frac{\sum_{i=1}^{n} I_i^{\mathrm{exp}} \cdot I_i^{\mathrm{theo}}}
+{\sqrt{\sum_{i=1}^{n} (I_i^{\mathrm{exp}})^2} \cdot \sqrt{\sum_{i=1}^{n} (I_i^{\mathrm{theo}})^2}}
+$$
 
-        "pearson": """
-    ### Pearson correlation
-    - Measures linear correlation between patterns
-    - Range: -1 → 1 (1 = perfect correlation) 
-    - Goal: 1 = identical patterns in shape, 0 = no correlation, -1 = inverse correlation   
-    ✔ Sensitive to pattern shape  
-    ✖ Unstable with few peaks  
-    """,
+with:  
 
-        "chi2": """
-    ### Chi-square distance
-    - Measures deviation between distributions
-    - Range: 0 → ∞ (1 / (1 + χ²) used as score → 0 → 1)
-    - Goal: 1 = identical patterns, 0 = large deviations  
-    ✔ Penalizes large errors strongly  
-    ✔ Good mismatch detector  
-    ✖ Sensitive to noise  
-    """,
+- $I_i^{\mathrm{exp}}$    : normalized intensity of the $i$-th experimental isotope  
+- $I_i^{\mathrm{theo}}$   : normalized intensity of the $i$-th theoretical isotope  
+- $n$                     : number of isotopes considered
+""",
+        """
+### Cosine similarity
 
-        "kl": """
-    ### Kullback-Leibler divergence
-    - Measures information loss between distributions 
-    - Range: 0 → ∞ (1 / (1 + KL) used as score → 0 → 1)
-    - Goal: 1 = identical distributions, 0 = large information loss  
-    ✔ Very discriminative  
-    ✖ Penalizes missing peaks strongly  
-    """,
+- Compares the angle between intensity vectors.
+- Range: 0 → 1  
+- Goal: 1 = perfect match, 0 = no similarity  
+✔ Robust to scaling  
+✔ Fast and stable  
+"""
+    ],
 
-        "wasserstein": """
-    ### Wasserstein distance (Earth Mover’s Distance)
-    - Measures distance between distributions  
-    - Range: 0 → ∞ (1 / (1 + W) used as score → 0 → 1)
-    - Goal: 1 = identical distributions, 0 = large distance  
-    ✔ Robust to small m/z shifts  
-    ✔ Good for noisy spectra  
-    ✖ Less sensitive to intensity differences  
-    """,
+    "pearson": [
+        r"""
+$$
+S_{pearson} = \frac{\sum_{i=1}^{n} (I_i^{\mathrm{exp}} - \bar{I}^{\mathrm{exp}})(I_i^{\mathrm{theo}} - \bar{I}^{\mathrm{theo}})}
+{\sqrt{\sum_{i=1}^{n} (I_i^{\mathrm{exp}} - \bar{I}^{\mathrm{exp}})^2} \cdot \sqrt{\sum_{i=1}^{n} (I_i^{\mathrm{theo}} - \bar{I}^{\mathrm{theo}})^2}}
+$$
 
-        "hybrid": """
-    ### Hybrid score
-    - Combines multiple metrics (0.5 × cosine + 0.4 × coverage - 0.3 × penalty)
-    - Range: approximately 0 → 1
-    - Goal: 1 = best overall isotopic match, 0 = poor match 
-    ✔ Most robust  
-    ✔ Best for automatic selection  
-    """
+with:    
+$\bar{I}^{\mathrm{exp}} = \frac{1}{n} \sum_{i=1}^{n} I_i^{\mathrm{exp}} ,\quad
+\bar{I}^{\mathrm{theo}} = \frac{1}{n} \sum_{i=1}^{n} I_i^{\mathrm{theo}}$
+
+- $I_i^{\mathrm{exp}}$    : normalized intensity of the $i$-th experimental isotope  
+- $I_i^{\mathrm{theo}}$   : normalized intensity of the $i$-th theoretical isotope  
+- $n$                     : number of isotopes considered
+
+""",
+        """
+### Pearson correlation
+
+- Measures linear correlation between patterns.
+- Range: -1 → 1  
+- Goal: 1 = identical shapes, 0 = no correlation, -1 = inverse correlation  
+✔ Sensitive to pattern shape  
+✖ Unstable with few peaks  
+"""
+    ],
+
+    "chi2": [
+        r"""
+$$
+\chi^2 = \sum_{i=1}^{n} \frac{(I_i^{\mathrm{exp}} - I_i^{\mathrm{theo}})^2}{I_i^{\mathrm{theo}} + \epsilon} \quad \text{then}
+\quad S_{\chi^2} = \frac{1}{1 + \chi^2}
+$$
+with:
+
+- $I_i^{\mathrm{exp}}$    : normalized intensity of the $i$-th experimental isotope  
+- $I_i^{\mathrm{theo}}$   : normalized intensity of the $i$-th theoretical isotope  
+- $n$                     : number of isotopes considered
+- \epsilon$ is a small constant to avoid division by zero.
+""",
+        """
+### Chi-square distance
+
+- Measures deviation between experimental and theoretical intensities.
+- Range: 0 → ∞ (score transformed as $1/(1+\chi^2)$ → 0 → 1)
+- Goal: 1 = identical patterns, 0 = large deviations  
+✔ Penalizes large errors strongly  
+✔ Good mismatch detector  
+✖ Sensitive to noise  
+"""
+    ],
+
+    "KL": [
+        r"""
+$$
+D_{\mathrm{KL}}(Q \parallel P) = \sum_{i=1}^{n} Q_i \log \frac{Q_i}{P_i + \epsilon} \quad \text{then}
+\quad S_\mathrm{KL} = \frac{1}{1 + D_\mathrm{KL}}
+$$
+
+with:
+
+$Q_i = \frac{I_i^{\mathrm{theo}}}{\sum_{j=1}^{n} I_j^{\mathrm{theo}}} , \quad
+P_i = \frac{I_i^{\mathrm{exp}}}{\sum_{j=1}^{n} I_j^{\mathrm{exp}}}$
+
+- $I_i^{\mathrm{exp}}$    : normalized intensity of the $i$-th experimental isotope  
+- $I_i^{\mathrm{theo}}$   : normalized intensity of the $i$-th theoretical isotope  
+- $n$                     : number of isotopes considered
+- $\epsilon$ : small constant to avoid log(0)
+""",
+        """
+### Kullback-Leibler (KL) divergence
+
+- Measures information loss between distributions.  
+- Range: 0 → ∞ (score transformed as $1/(1+KL)$ → 0 → 1)
+- Goal: 1 = identical distributions, 0 = large information loss  
+✔ Very discriminative  
+✖ Penalizes missing peaks strongly  
+"""
+    ],
+
+    "wasserstein": [
+        r"""
+$$
+W_1(P,Q) = \min_{\gamma \in \Gamma} \sum_{i,j} \gamma_{ij} | m_i^{\mathrm{exp}} - m_j^{\mathrm{theo}} | \quad \text{then}
+\quad S_\mathrm{W} = \frac{1}{1 + W_1}
+$$
+
+where:
+
+$m_i^{\mathrm{exp}}$ : m/z of the $i$-th experimental isotope  
+
+$m_j^{\mathrm{theo}}$ : m/z of the $j$-th theoretical isotope  
+
+$\Gamma$ : set of valid transport plans  
+
+$\gamma_{ij}$ : fraction of “mass” transported from $m_i^{\mathrm{exp}}$ to $m_j^{\mathrm{theo}}$
+""",
+        """
+### Wasserstein distance (Earth Mover's Distance)
+
+- Measures the minimal “cost” to transform the experimental distribution into the theoretical one.
+- Range: 0 → ∞ (score transformed as $1/(1+W)$ → 0 → 1)
+- Goal: 1 = identical distributions, 0 = large distance  
+✔ Robust to small m/z shifts  
+✔ Good for noisy spectra  
+✖ Less sensitive to intensity differences  
+"""
+    ],
+    "hybrid": [
+        r"""
+$$
+S_\mathrm{hybrid} = 0.5 \cdot \text{Cosine} + 0.4 \cdot \text{Coverage} - 0.3 \cdot \text{Penalty}
+$$
+
+where:
+
+**Cosine** : cosine similarity between experimental and theoretical isotope intensities  
+
+**Coverage** : fraction of matched isotopic peaks
+$$
+\text{Coverage} = \frac{\sum_{i=1}^{N} \mathbf{1}_{\{I_i^{\mathrm{exp}} > 0\}}}{N}
+$$
+$N$ : number of theoretical isotopes considered  
+$\mathbf{1}_{\{I_i^{\mathrm{exp}} > 0\}}$ : indicator function, 1 if the $i$-th theoretical isotope has a corresponding experimental peak, 0 otherwise  
+
+**Penalty** : penalizes missing critical isotopes, e.g. monoisotopic peak
+$$
+\text{Penalty} = \sum_{i=1}^{N} \mathbf{1}_{\{I_i^{\mathrm{exp}} < \epsilon\}}
+$$
+$\epsilon$ : small intensity threshold to consider a peak as “detected”
+""",
+        """
+### Hybrid score
+
+- Combines multiple metrics (cosine similarity, coverage, penalty)
+- Range: approximately 0 → 1
+- Goal: 1 = best overall isotopic match, 0 = poor match  
+✔ Most robust  
+✔ Best for automatic candidate ranking  
+"""
+    ]
 }
 
 
-def window():
+def window() -> str:
     return r"""
-            **Definition**: Size of the moving window (in Daltons) used to detect local maxima (peaks) in the spectrum.  
-            **Recommendation**: 500 Da  
-            **Impact**: A smaller window increases sensitivity to small peaks but may detect noise.  
-            """
+    **Definition**: Size of the m/z window (in Da) used to segment the spectrum into independent regions for processing.  
+    **Recommendation**: Adjust to ensure sufficient data points per window (typically ≥100 points).  
+    **Impact**: Smaller windows improve local peak detection and parallel efficiency but may suffer from edge effects
+    and reduced statistical robustness; larger windows provide more stable peak detection but reduce parallelization efficiency
+    and may smooth local spectral features.
+    """
 
-def minium_distance():
+
+def minimum_distance() -> str:
     return r"""
-            **Definition**: Minimum distance (in m/z units) required between two adjacent peaks to be considered distinct.  
-            **Recommendation**: 1 m/z
-            *Note: The function can not accept a value lower than 1 m/z*
-             """
+    **Definition**: Minimum separation (in m/z units) required between two peaks to be considered distinct.  
+    **Impact**: Smaller values increase peak resolution and allow detection of closely spaced ions but may introduce noise,
+    whereas larger values reduce false positives and computational load but may merge or discard nearby peaks.
+    """
 
-def rm_threshold():
+
+def rm_threshold() -> str:
     return r"""
-            **Mass Accuracy (ΔM)**:
-            Mass Measurement Accuracy / Error, calculated as (1):
+    **Definition**: Mass Measurement Accuracy / Error, calculated as (1):
 
-            $$\Delta M \ (\mathrm{ppm}) = \left( \frac{|M_{\mathrm{exp}} - M_{\mathrm{theo}}|}{M_{\mathrm{theo}}} \right) \times 10^6$$
+    $$\Delta M \ (\mathrm{ppm}) = \left( \frac{|M_{\mathrm{exp}} - M_{\mathrm{theo}}|}{M_{\mathrm{theo}}} \right) \times 10^6$$
 
-            - **$M_{\mathrm{exp}}$**: Experimentally measured mass.
-            - **$M_{\mathrm{theo}}$**: Expected theoretical mass.
-            - **Typical threshold**: 5 ppm for MALDI-TOF.
+    - **$M_{\mathrm{exp}}$**: Experimentally measured mass.
+    - **$M_{\mathrm{theo}}$**: Expected theoretical mass.
+    - **Typical threshold**: 5 ppm for MALDI-TOF.
 
-            *Example*: If ΔM = 10 ppm and $M_{\mathrm{theo}}$ = 1000 Da,
-            the tolerated deviation is **±0.01 Da**.
+    *Example*: If ΔM = 10 ppm and $M_{\mathrm{theo}}$ = 1000 Da,
+    the tolerated deviation is **±0.01 Da**.
 
-            *Note*: Lower ΔM = stricter peak matching.
+    **Impact**: Lower thresholds enforce stricter mass filtering, increasing identification confidence but potentially excluding
+    true candidates due to mass measurement errors or calibration drift; higher thresholds improve sensitivity and candidate recall
+    but increase ambiguity and downstream computational cost..
 
-            **Reference:**
+    **Reference:**
 
-            (1) Brenton, A.G.; Godfrey, A.R. *J. Am. Soc. Mass Spectrom.* **2010**, *21*(11), 1821-1835.
-            [DOI:10.1016/j.jasms.2010.06.006](https://www.sciencedirect.com/science/article/pii/S1044030510004022)
-            """
+    (1) Brenton, A.G.; Godfrey, A.R. *J. Am. Soc. Mass Spectrom.* **2010**, *21*(11), 1821-1835.
+    [DOI:10.1016/j.jasms.2010.06.006](https://www.sciencedirect.com/science/article/pii/S1044030510004022)
+    """
 
-def prominence():
+def prominence() -> str:
     return r"""
-            **Definition**: Minimum vertical distance (in intensity units) between a peak and the lowest contour line encircling it without crossing any higher terrain.  
-            **Purpose**: Filters out "shoulder peaks" or noise that are not significantly taller than surrounding data points.  
+    **Definition**: Minimum intensity difference between a peak apex and its surrounding baseline (local minima).  
+    **Recommendation**: Dataset-dependent; often set between 1-10% of the base peak intensity.  
+    **Impact**: Lower values increase sensitivity to low-abundance and shoulder peaks but may introduce noise,
+    whereas higher values restrict detection to dominant signals, improving robustness but potentially missing minor species.
+    """
 
-            **How it works**:  
 
-            - A peak is only retained if its height exceeds the highest of its two adjacent valleys by at least this value.  
-            - Example: If `prominence=5e5`, a peak with intensity 1,000,000 must have valleys ≤ 500,000 on both sides to be detected.  
+def number_candidate() -> str:
+    return r"""
+    **Definition**: Number of top candidate oligosaccharides retained after mass filtering (ΔM) and prior to isotopic pattern scoring.  
+    **Impact**: Increasing this value improves the probability of retaining the correct candidate in ambiguous regions,
+    but increases computational cost; decreasing it accelerates processing but risks excluding relevant candidates.
+    """
 
-            **Typical values**:  
 
-            - **Low prominence (1e4–1e5)**: Detects minor peaks (risk of noise).  
-            - **Moderate prominence (1e5–5e5)**: Balances sensitivity and specificity (recommended for MALDI-TOF).  
-            - **High prominence (>5e5)**: Only major peaks (may miss low-abundance signals).  
+def number_isotopes() -> str:
+    return r"""
+    **Definition**: Number of isotopic peaks (e.g., M, M+1, M+2, ...) included in the isotopic envelope used for scoring.  
+    **Impact**: Considering more isotopic peaks improves discrimination by better representing the theoretical isotopic distribution,
+    but increases sensitivity to noise and computational cost; fewer peaks reduce complexity but may limit resolving power between candidates.
+    """
 
-            **Tip**: Start with 10% of your highest peak intensity, then adjust based on visual inspection of the spectrum.
-            """
+
+def method_score() -> str:
+    return r"""
+    **Definition**: Metric used to compare experimental and theoretical isotopic envelopes.  
+    
+    **Options**:  
+    - cosine: Fast and robust similarity metric.  
+    - pearson: Measures linear correlation between intensity profiles.  
+    - chi2: Emphasizes deviations in peak intensities.  
+    - kl: Divergence-based metric, highly sensitive to distribution differences.  
+    - wasserstein: Distance-based metric, robust to small m/z shifts.  
+    - hybrid: Combination of multiple metrics for improved robustness (recommended, default).  
+    
+    **Impact**: The selected metric determines sensitivity to intensity variations, noise, and peak misalignment,
+    directly influencing identification confidence and computational performance.
+    """
+
 
 def display_full_demo_spectrum():
     # Generate m/z axis
     np.random.seed(42)
     x = np.linspace(50, 1050, 8000)
-
+    dx = np.mean(np.diff(x))
+    
     n_peaks = 50
-
     # Regular spacing
     base_positions = np.linspace(100, 1000, n_peaks)
 
@@ -158,6 +296,15 @@ def display_full_demo_spectrum():
 
     col1, col2 = st.columns(2)
     with col1:
+        distance = st.slider(
+            "Minimum m/z distance between peaks",
+            min_value=0,
+            max_value=500,
+            value=50,
+            step=1,
+        )
+        distance_points = max(1, int((distance / dx)))
+    with col2:
         prominence =  st.slider(
             "Prominence (intensity units)",
             min_value=0.0,
@@ -165,18 +312,9 @@ def display_full_demo_spectrum():
             value=1.0e5,
             step=0.1e5,
         )
-    with col2:
-        distance = st.slider(
-            "Minimum m/z distance between peaks",
-            min_value=0,
-            max_value=500,
-            value=50,
-            step=1,
-            help="Minimum horizontal distance (in m/z units) between adjacent peaks."
-        )
   
     # Peak detection
-    peaks, _ = find_peaks(y, prominence=prominence, distance=distance)
+    peaks, _ = find_peaks(y, prominence=prominence, distance=distance_points)
 
     # Plot with Plotly
     fig = go.Figure()
@@ -201,7 +339,8 @@ def display_full_demo_spectrum():
         xaxis_title="m/z or Time",
         yaxis_title="Intensity",
         template="plotly_white",
-        margin=dict(l=40, r=20, t=40, b=0)
+        margin=dict(l=40, r=20, t=40, b=0),
+        showlegend=False
     )
     return fig, peaks
 
@@ -322,10 +461,10 @@ def display_easy_schema() -> str:
     # Controls
     col1, col2 = st.columns(2)
     with col1:
-        prominence = st.slider("Prominence", 0.0, 2e6, 3e5, step=5e4)
-    with col2:
-        distance = st.slider("Distance (m/z)", 0, 100, 10)
+        distance = st.slider("Minimum m/z distance between peaks", 0, 100, 10)
         distance_points = max(1, int((distance / dx)))
+    with col2:
+        prominence = st.slider("Prominence (intensity units)", 0.0, 2e6, 3e5, step=5e4)
 
     detected, _ = find_peaks(y, prominence=prominence, distance=distance_points)
 
@@ -458,21 +597,10 @@ def display_peak_detection() -> None:
         st.markdown("""
         ### Interpretation
         - **Prominence** controls how much a peak stands out from surrounding noise.
+                    A peak is only retained if its height exceeds the highest of its two adjacent valleys by at least this value
         - **Distance** enforces a minimum spacing between detected peaks.
         
         Try increasing prominence to remove small peaks, or increasing distance to merge close peaks.
         """)
         st.markdown(instruction)
 
-
-def method_score():
-    return r"""
-            Compare experimental vs theoretical isotopic patterns.  
-            
-            - cosine: fast, robust
-            - pearson: pattern correlation
-            - chi2: penalizes differences
-            - kl: highly discriminative
-            - wasserstein: robust to shifts
-            - hybrid: best overall (recommended, default)
-        """
