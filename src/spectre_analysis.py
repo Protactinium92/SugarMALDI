@@ -34,11 +34,7 @@ Dependencies:
     numpy>=1.24        # Numerical operations
 """
 
-
 __author__  = "Pierre-Alexandre HO"
-__date__    = "2025-09-02"
-__version__ = "1.0"
-
 
 import os
 import polars as pl

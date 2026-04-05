@@ -50,6 +50,7 @@ import atexit  # Clean closure of tempory files
 
 import front_functions as ff
 import spectre_analysis as sp_ana
+import helper
 
 
 if __name__=="__main__":
@@ -81,7 +82,7 @@ if __name__=="__main__":
         if 'window' not in st.session_state:
             st.session_state.window = 500
         if 'dist_min' not in st.session_state:
-            st.session_state.dist_min = 0
+            st.session_state.dist_min = 1
         if 'rm_threshold' not in st.session_state:
             st.session_state.rm_threshold = 5
         if 'prominence' not in st.session_state:
@@ -103,19 +104,26 @@ if __name__=="__main__":
             st.subheader("Detection parameters 🔎")
             col1, col2, col3 = st.columns([1,1,1])
             with col1:
-                window = st.number_input("Sub-window for peak detection (Da)", value=st.session_state.window, step=1)
+                window = st.number_input("Sub-window for peak detection (Da)", value=st.session_state.window, step=1,
+                                         min_value=100, max_value=2000,
+                                         help=helper.window())
             with col2:
-                dist_min = st.number_input("Minimum m/z distance between peaks", value=st.session_state.dist_min, step=1)
+                dist_min = st.number_input("Minimum m/z distance between peaks", value=st.session_state.dist_min, step=1,
+                                           min_value=1,
+                                           help=helper.minium_distance())
             with col3:
                 prominence = st.number_input("Prominence", value=st.session_state.prominence, step=0.1e5,
-                                              help="Minimum height difference between peak and its neighbores")
+                                             min_value=0.0,
+                                              help=helper.prominence())
+            with st.expander(f"💡 Peak Detection Demo"):
+                 helper.display_peak_detection()
             col1, col2 = st.columns([1, 1])
             with col1:
                 st.subheader("Match peaks parameter 🎯")
                 subcol1, subcol2 = st.columns(2)
                 with subcol1:
                     rm_threshold = st.number_input('Mass accuracy threshold (ΔM in ppm)', value=st.session_state.rm_threshold, step=1,
-                                                help=ff.help_rm_threshold())
+                                                help=helper.rm_threshold())
                 with subcol2:
                     number_candidate = st.number_input(
                         "Number of best mass matches selection",
@@ -140,13 +148,13 @@ if __name__=="__main__":
                 with subcol2:
                     method_iso_score = st.selectbox(
                         "Scoring method",
-                        options=list(ff.SCORING_HELP.keys()),
+                        options=list(helper.SCORING_HELP.keys()),
                         index=5,
-                        help=ff.help_method_score()
+                        help=helper.method_score()
                     )
 
             with st.expander(f"💡 Details method"):
-                 st.markdown(ff.SCORING_HELP[method_iso_score])
+                 st.markdown(helper.SCORING_HELP[method_iso_score])
                     
             # Detect changes and warn the user
             if (((window != st.session_state.window) or
