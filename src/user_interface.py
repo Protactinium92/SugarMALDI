@@ -109,7 +109,7 @@ if __name__=="__main__":
                                          help=helper.window())
             with col2:
                 dist_min = st.number_input("Minimum m/z distance between peaks", value=st.session_state.dist_min, step=1,
-                                           min_value=1,
+                                           min_value=0,
                                            help=helper.minium_distance())
             with col3:
                 prominence = st.number_input("Prominence", value=st.session_state.prominence, step=0.1e5,

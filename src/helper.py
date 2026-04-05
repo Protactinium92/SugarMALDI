@@ -324,7 +324,7 @@ def display_easy_schema() -> str:
     with col1:
         prominence = st.slider("Prominence", 0.0, 2e6, 3e5, step=5e4)
     with col2:
-        distance = st.slider("Distance (m/z)", 1, 100, 10)
+        distance = st.slider("Distance (m/z)", 0, 100, 10)
         distance_points = max(1, int((distance / dx)))
 
     detected, _ = find_peaks(y, prominence=prominence, distance=distance_points)
