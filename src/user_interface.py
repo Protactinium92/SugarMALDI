@@ -81,12 +81,14 @@ if __name__=="__main__":
         # Allowed to generate a warning if the user change them
         if 'window' not in st.session_state:
             st.session_state.window = 500
-        if 'dist_min' not in st.session_state:
-            st.session_state.dist_min = 1
-        if 'rm_threshold' not in st.session_state:
-            st.session_state.rm_threshold = 5
         if 'prominence' not in st.session_state:
             st.session_state.prominence = 3e5  # Float 
+        if 'dist_min' not in st.session_state:
+            st.session_state.dist_min = 0
+        if 'height_min' not in st.session_state:
+            st.session_state.height_min = 5e5
+        if 'rm_threshold' not in st.session_state:
+            st.session_state.rm_threshold = 5
         if 'analysis_results' not in st.session_state:
             st.session_state.analysis_results = None
         if 'number_candidate' not in st.session_state:
@@ -101,20 +103,28 @@ if __name__=="__main__":
         
         # Parameter window
         with st.expander("⚙️ Advanced options for peak detection", expanded=False):
+            # Window parameter only for debuging in expert mode
+            window = st.session_state.window
+            # Use only for segmentation and performance
+            # Uncomment bellow for use it in the UI
+            # window = st.number_input("Sub-window for peak detection (Da)", value=st.session_state.window, step=1,
+            #                          min_value=100, max_value=2000,
+            #                          help=helper.window())
             st.subheader("Detection parameters 🔎")
             col1, col2, col3 = st.columns([1,1,1])
             with col1:
-                window = st.number_input("Sub-window for peak detection (Da)", value=st.session_state.window, step=1,
-                                         min_value=100, max_value=2000,
-                                         help=helper.window())
+                prominence = st.number_input("Prominence", value=st.session_state.prominence, step=0.1e5,
+                                min_value=0.0,
+                                help=helper.prominence())
             with col2:
+                height_min = st.number_input("Minimum height of a peak", value=st.session_state.height_min, step=0.1e5,
+                                           min_value=0.0,
+                                           help=helper.peak_height())
+            with col3:
                 dist_min = st.number_input("Minimum m/z distance between peaks", value=st.session_state.dist_min, step=1,
                                            min_value=0,
                                            help=helper.minimum_distance())
-            with col3:
-                prominence = st.number_input("Prominence", value=st.session_state.prominence, step=0.1e5,
-                                             min_value=0.0,
-                                              help=helper.prominence())
+
             with st.expander(f"💡 Peak Detection Demo"):
                  helper.display_peak_detection()
             col1, col2 = st.columns([1, 1])
@@ -162,8 +172,11 @@ if __name__=="__main__":
                     
             # Detect changes and warn the user
             if (((window != st.session_state.window) or
+                (prominence != st.session_state.prominence) or
+                (height_min != st.session_state.height_min) or 
                 (dist_min != st.session_state.dist_min) or
-                (rm_threshold != st.session_state.rm_threshold) or 
+                (rm_threshold != st.session_state.rm_threshold) or  
+                (number_candidate != st.session_state.number_candidate) or
                 (number_isotope != st.session_state.number_iso) or
                 (method_iso_score != st.session_state.iso_score))and
                 (st.session_state.analysis_results != None)):
@@ -188,8 +201,9 @@ if __name__=="__main__":
                         monomers_df,
                         rm_threshold,
                         window,
-                        dist_min,
                         prominence,
+                        height_min,
+                        dist_min,
                         number_candidate,
                         number_isotope,
                         method_iso_score,
@@ -203,11 +217,12 @@ if __name__=="__main__":
                     # For warning messages
                     st.session_state.analysis_results = zip_buffer
                     st.session_state.window = window
+                    st.session_state.prominence = prominence
+                    st.session_state.height_min = height_min
                     st.session_state.dist_min = dist_min
                     st.session_state.rm_threshold = rm_threshold
                     st.session_state.monomers_list = monomers_list
                     st.session_state.monomers_df = monomers_df
-                    st.session_state.prominence = prominence
                     st.session_state.number_candidate = number_candidate
                     st.session_state.number_iso = number_isotope
                     st.session_state.iso_score = method_iso_score

@@ -281,7 +281,7 @@ def find_all_peaks(intensity: NDArray[np.float64],
         raise RuntimeError(f"Peak detection failed: {str(e)}") from e
 
 
-def _process_window(args: Tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.int64], float, int, float]
+def _process_window(args: Tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.int64], float, float, float, int ]
                     ) -> List[int]:
     """
     Processes a single window of MALDI spectrum data to extract peak indices.
@@ -296,8 +296,8 @@ def _process_window(args: Tuple[NDArray[np.float64], NDArray[np.float64], NDArra
             - intensity: Array of intensity values for the entire spectrum
             - window_indices: Indices of data points belonging to current window
             - local_interval: Average m/z interval in current window (accounts for irregular spacing)
-            - dist_min: Minimum distance between peaks in m/z units
             - prominence: Minimum height difference between peak and its neighboring samples
+            - dist_min: Minimum distance between peaks in m/z units
 
     Returns:
         List[int]: Global indices of detected peaks in the original spectrum data.
@@ -312,8 +312,9 @@ def _process_window(args: Tuple[NDArray[np.float64], NDArray[np.float64], NDArra
     intensity: NDArray[np.float64] = args[1]
     window_indices: NDArray[np.int64] = args[2]
     local_interval: float = args[3]
-    dist_min: int = args[4]
-    prominence: float = args[5]
+    prominence: float = args[4]
+    height_min: float = args[5]
+    dist_min: int = args[6]
 
     # Skip processing if window contains insufficient data points
     if len(window_indices) < 2:
@@ -323,8 +324,9 @@ def _process_window(args: Tuple[NDArray[np.float64], NDArray[np.float64], NDArra
     peaks: NDArray[np.int64] = find_all_peaks(
         intensity[window_indices],  # Intensity values for current window
         local_interval,             # Average spacing between m/z values in this window
+        prominence=prominence,       # Minimum height difference between a peak and its neighbors
+        height=height_min,           # Minimum height from the intensity axis (0)
         distance=dist_min,          # Minimum required distance between peaks
-        prominence=prominence       # Minimum height difference between a peak and its neighbors
     )
 
     return window_indices[peaks].tolist()
@@ -335,8 +337,9 @@ def extract_peaks_all_windows(
         mz_col_name: str,
         intensity_col_name: str,
         step: float,
-        dist_min: int,
         prominence: float,
+        height_min: float,
+        dist_min: int,
         n_workers: int
 ) -> pl.LazyFrame:
     """
@@ -413,8 +416,9 @@ def extract_peaks_all_windows(
             intensity,         # Full intensity array (shared across all workers)
             window_indices,    # Indices specific to this window
             local_interval,    # Calculated spacing for this window
+            prominence,
+            height_min,
             dist_min,          # Minimum peak distance parameter
-            prominence
         ))
 
     # Execute peak detection in parallel
@@ -436,8 +440,9 @@ def extract_peaks_all_windows(
 def extract_and_detect_peaks(
     spectrum_data: pl.LazyFrame,
     window: int,
-    dist_min: int,
     prominence: float,
+    height_min: float, 
+    dist_min: int,
     n_workers: int
 ) -> pl.LazyFrame:
     """
@@ -458,7 +463,7 @@ def extract_and_detect_peaks(
     col_names = spectrum_data.collect_schema().names()
     mz_col, intensity_col = col_names[0], col_names[1]
     spectrum_peaks = extract_peaks_all_windows(
-        spectrum_data, mz_col, intensity_col, window, dist_min, prominence, n_workers
+        spectrum_data, mz_col, intensity_col, window, prominence, height_min, dist_min,  n_workers
     )
 
     return spectrum_peaks
@@ -1136,8 +1141,9 @@ def execute_process(
     monomer_df: pl.DataFrame,
     rm_threshold: int = 5,
     window: int = 10,
-    dist_min: int = 15,
     prominence: float = 1e5,
+    height_min: float = 1e4,
+    dist_min: int = 15,
     number_candidate: int = 4,
     number_isotope: int = 4,
     scoring_method: str = "hybrid",
@@ -1186,8 +1192,9 @@ def execute_process(
             peaks_lazy = extract_and_detect_peaks(
                 spectrum_data,
                 window=window,
-                dist_min=dist_min,
                 prominence=prominence,
+                height_min=height_min,
+                dist_min=dist_min,
                 n_workers=n_workers
             )
 

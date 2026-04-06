@@ -220,9 +220,18 @@ def rm_threshold() -> str:
 def prominence() -> str:
     return r"""
     **Definition**: Minimum intensity difference between a peak apex and its surrounding baseline (local minima).  
-    **Recommendation**: Dataset-dependent; often set between 1-10% of the base peak intensity.  
     **Impact**: Lower values increase sensitivity to low-abundance and shoulder peaks but may introduce noise,
     whereas higher values restrict detection to dominant signals, improving robustness but potentially missing minor species.
+    """
+
+
+def peak_height() -> str:
+    return r"""
+    **Definition**: Minimum intensity required for a peak to be detected from intensity axis (0).  
+    **Impact**: Lower values increase sensitivity to low-abundance signals but may detect noise and artefacts,
+    whereas higher values restrict detection to dominant peaks, improving robustness but potentially missing minor species.  
+    **Note**: If the prominence threshold is set higher than the height threshold, the height criterion becomes effectively redundant,
+    as only peaks exceeding the prominence constraint will be retained.  
     """
 
 
@@ -294,27 +303,35 @@ def display_full_demo_spectrum():
     y += noise + baseline
 
 
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     with col1:
+        prominence =  st.slider(
+            "Prominence",
+            min_value=0.0,
+            max_value=2e6,
+            value=1.0e5,
+            step=0.1e5,
+        )
+    with col2:
+        height_min = st.slider(
+            "Minimum height",
+            min_value=0.0,
+            max_value=10e6,
+            value=1.0e5,
+            step=0.1e5,
+        )
+    with col3:
         distance = st.slider(
-            "Minimum m/z distance between peaks",
+            "Minimum m/z distance",
             min_value=0,
             max_value=500,
             value=50,
             step=1,
         )
         distance_points = max(1, int((distance / dx)))
-    with col2:
-        prominence =  st.slider(
-            "Prominence (intensity units)",
-            min_value=0.0,
-            max_value=2e6,
-            value=1.0e5,
-            step=0.1e5,
-        )
   
     # Peak detection
-    peaks, _ = find_peaks(y, prominence=prominence, distance=distance_points)
+    peaks, _ = find_peaks(y, prominence=prominence, distance=distance_points, height=height_min)
 
     # Plot with Plotly
     fig = go.Figure()
@@ -432,22 +449,22 @@ def display_easy_schema() -> str:
     # Create signal
     # 3 peaks (controlled)
     x = np.linspace(0, 100, 2000)
-    peaks_pos = [30, 50, 70]
-    heights = [6e5, 2e6, 10e5]
-    widths = [3, 4, 3]
+    peaks_pos = [15, 30, 50, 70]
+    heights = [3e5, 6e5, 2e6, 10e5]
+    widths = [2, 3, 4, 3]
 
     y = np.zeros_like(x)
     for p, h, w in zip(peaks_pos, heights, widths):
         y += h * np.exp(-(x - p) ** 2 / (2 * w ** 2))
     # === Vallée entre pic 1 et pic 2 ===
-    valley_center = (peaks_pos[0] + peaks_pos[1]) / 2
-    valley_width = peaks_pos[1] - peaks_pos[0]
+    valley_center = (peaks_pos[1] + peaks_pos[2]) / 2
+    valley_width = peaks_pos[2] - peaks_pos[1]
 
     # Offset maximum de la vallée
     valley_offset_max = 2e5
 
     # Créer une gaussienne inversée pour la vallée
-    valley_mask = (x > peaks_pos[0]) & (x < peaks_pos[1])
+    valley_mask = (x > peaks_pos[1]) & (x < peaks_pos[2])
     valley_x = x[valley_mask]
     valley_offset = valley_offset_max * np.exp(-((valley_x - valley_center) ** 2) / (2 * (valley_width/4) ** 2))
 
@@ -459,14 +476,16 @@ def display_easy_schema() -> str:
     dx = np.mean(np.diff(x))
 
     # Controls
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     with col1:
-        distance = st.slider("Minimum m/z distance between peaks", 0, 100, 10)
-        distance_points = max(1, int((distance / dx)))
+        prominence = st.slider("Prominence", 0.0, 2e6, 3e5, step=5e4)
     with col2:
-        prominence = st.slider("Prominence (intensity units)", 0.0, 2e6, 3e5, step=5e4)
+        height_min = st.slider("Minimum height", 0.0, 2e6, 3e5, step=5e4)
+    with col3:
+        distance = st.slider("Minimum m/z distance", 0, 100, 10)
+        distance_points = max(1, int((distance / dx)))
 
-    detected, _ = find_peaks(y, prominence=prominence, distance=distance_points)
+    detected, _ = find_peaks(y, prominence=prominence, distance=distance_points, height=height_min)
 
     fig = go.Figure()
 
@@ -496,27 +515,47 @@ def display_easy_schema() -> str:
         height=prominence,
         color="orange"
     )
-    # === Detect valley between pic 2 and pic 3 ===
-    valley_2_3_mask = (x > peaks_pos[1]) & (x < peaks_pos[2])
-    valley_2_3_x = x[valley_2_3_mask]
-    valley_2_3_y = y[valley_2_3_mask]
+    # === Detect valley between pic 3 and pic 4 ===
+    valley_3_4_mask = (x > peaks_pos[2]) & (x < peaks_pos[3])
+    valley_3_4_x = x[valley_3_4_mask]
+    valley_3_4_y = y[valley_3_4_mask]
 
     # Find the lowest point of the valley
-    valley_2_3_idx = np.argmin(valley_2_3_y)
-    valley_2_3_x_pos = valley_2_3_x[valley_2_3_idx]
-    valley_2_3_y_pos = valley_2_3_y[valley_2_3_idx]
+    valley_2_3_idx = np.argmin(valley_3_4_y)
+    valley_3_4_x_pos = valley_3_4_x[valley_2_3_idx]
+    valley_3_4_y_pos = valley_3_4_y[valley_2_3_idx]
 
     add_double_arrow_with_lines(
         fig=fig,
-        x_pos=valley_2_3_x_pos,
-        y_base=valley_2_3_y_pos,
+        x_pos=valley_3_4_x_pos,
+        y_base=valley_3_4_y_pos,
         height=prominence,
         color="orange"
     )
 
+    # === Dynamic height horizontal line ===
+    fig.add_shape(
+        type="line",
+        x0=min(x),
+        x1=max(x),
+        y0=height_min,
+        y1=height_min,
+        line=dict(color="purple", dash="dash")
+    )
+    fig.add_shape(
+        type="rect",
+        x0=min(x),
+        x1=max(x),
+        y0=0,
+        y1=height_min,
+        fillcolor="gray",
+        opacity=0.2,
+        line_width=0
+    )
+
     # === Dynamic Distance Arrow ===
-    peak_x = peaks_pos[1]
-    peak_y = heights[1]
+    peak_x = peaks_pos[2]
+    peak_y = heights[2]
     left_arrow_x = peak_x
     right_arrow_x = (peak_x + distance)
 
@@ -567,7 +606,9 @@ def display_easy_schema() -> str:
         "### How to read this schema\n"
         "- 🔴 Detected peaks = pass prominence & distance\n"
         "- 🟠 Vertical arrow = Prominence of main peak\n"
+        "- 🟣 Horizontal line = Minimum peak height\n"
         "- 🟢 Horizontal arrow = Minimum distance constraint around main peak\n"
+        "- ⬜ Rejected zone (distance constraint)\n"
     )
 
     return explanation
@@ -581,7 +622,7 @@ def display_peak_detection() -> None:
     of `prominence` and `distance` parameters from scipy.signal.find_peaks.
     """
 
-    col1, col2 = st.columns([1,2])
+    col1, col2 = st.columns([1,1])
 
     with col2:
         tab1, tab2 = st.tabs(["🔍 Illustration", "📊 Full demo spectrum"])
@@ -596,8 +637,9 @@ def display_peak_detection() -> None:
     with col1:
         st.markdown("""
         ### Interpretation
-        - **Prominence** controls how much a peak stands out from surrounding noise.
-                    A peak is only retained if its height exceeds the highest of its two adjacent valleys by at least this value
+        - **Prominence**  (intensity units) controls how much a peak stands out from surrounding noise.
+                    A peak is only retained if its height exceeds the highest of its two adjacent valleys by at least this value.
+        - **Height**  (intensity units) minimum intensity of a peak. The height is measured from 0 to the maximum of the peak. If prominence > height, height becomes redundant.  
         - **Distance** enforces a minimum spacing between detected peaks.
         
         Try increasing prominence to remove small peaks, or increasing distance to merge close peaks.
