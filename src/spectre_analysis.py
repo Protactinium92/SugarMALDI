@@ -725,7 +725,7 @@ def calculate_isotopic_score(
         "cosine": score_cosine,
         "pearson": score_pearson,
         "chi2": score_chi2,
-        "kl": score_kl,
+        "KL": score_kl,
         "wasserstein": score_emd,
         "hybrid": score_hybrid,
     }
