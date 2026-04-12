@@ -77,7 +77,12 @@ def choose_delimiter() -> str:
     
     col1, col2 = st.columns([0.25, 0.75])
     with col1:
-        st.write("Select delimiter file:") 
+        st.markdown("""
+            <div style="line-height:1.2">
+                Select delimiter file:<br>
+                ⚠️ <span style='color:red; font-style:italic;'>TO DO before uploading files</span>
+            </div>
+        """, unsafe_allow_html=True)
     with col2:
         option = st.selectbox(
             label="Select file delimiter", 
@@ -102,11 +107,22 @@ def upload_files(delimiter: str =",") -> pl.DataFrame:
     Raises:
         ValueError: Propagates any error from `sp_ana.parse_spectra` (e.g., invalid file format).
     """
+   
+    st.markdown("#### Choose MS spectra")
     uploaded_files = st.file_uploader(
-        "Choose MS spectra",
-        type=['csv'],
+        "",
+        type=['csv', "tsv", 'txt'],
         accept_multiple_files=True
     )
+
+    css = '''
+    <style>
+    div[data-testid="stFileUploader"] {
+        margin-top: -40px;
+    }
+    </style>
+    '''
+    st.markdown(css, unsafe_allow_html=True)   
 
     spectra = None  # Initialize as None (no files uploaded by default)
 

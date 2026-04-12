@@ -187,7 +187,7 @@ if __name__=="__main__":
         st.subheader("Process and Download")
         if monomers_list:
             
-            if st.button("🔍 Spectra analysis"):
+            if st.button("🔍 Spectra analysis", use_container_width=True):
                 with st.spinner('🔄 Treatment ongoing...'):
 
                     # --- Logger Streamlit ---
@@ -264,9 +264,16 @@ if __name__=="__main__":
             
             # Show peak table
             st.write("### **Identified peaks**")
-            col1, col2 = st.columns([1,2])
+            col1, col2 = st.columns([1,1])
             with col1:
-                st.write("*Delta_M in ppm, m/z in datlton, query_mass in ppm*")
+                    st.markdown("""
+                        <div>
+                            <span style='font-style: italic;'>
+                                Delta_M in ppm, m/z in dalton, query_mass in ppm<br>
+                                Note: The formula and the mass contain the adduit and the label 3-AQ
+                            </span>
+                        </div>
+                    """, unsafe_allow_html=True)
             with col2:
                 badges = " ".join([f":blue-badge[{m}]" for m in monomers_list])
                 badges = badges + f" :orange-badge[{method_iso_score}]"
