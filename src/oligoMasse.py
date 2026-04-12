@@ -13,9 +13,7 @@
     The label used is the 3-AQ, which is involved in a condensation reaction with the reducing end
     of the oligosaccharide.
 
-    Adduct mass are added at the end of the process.
-
-    
+    Adduct mass are added at the end of the process.    
 """
 
 __author__  = "Pierre-Alexandre HO"
