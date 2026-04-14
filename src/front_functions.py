@@ -34,7 +34,7 @@ __date__    = "2026-01-14"
 __version__ = "1.0"
 
 import streamlit as st
-import spectre_analysis as sp_ana
+import spectrum_analysis as sp_ana
 import polars as pl
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
