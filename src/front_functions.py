@@ -80,7 +80,7 @@ def choose_delimiter() -> str:
         st.markdown("""
             <div style="line-height:1.2">
                 Select delimiter file:<br>
-                ⚠️ <span style='color:red; font-style:italic;'>TO DO before uploading files</span>
+                ⚠️ <span style='color:red; font-style:italic;'>TO Change before uploading files</span>
             </div>
         """, unsafe_allow_html=True)
     with col2:
@@ -110,9 +110,10 @@ def upload_files(delimiter: str =",") -> pl.DataFrame:
    
     st.markdown("#### Choose MS spectra")
     uploaded_files = st.file_uploader(
-        "",
+        label="spectrum_uploader",
+        label_visibility="collapsed",
         type=['csv', "tsv", 'txt'],
-        accept_multiple_files=True
+        accept_multiple_files=True,
     )
 
     css = '''
