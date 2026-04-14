@@ -1,5 +1,5 @@
 """
-Streamlit-based user interface for MALDI-TOF spectra analysis and visualization.
+Streamlit-based user interface for MALDI-MS spectra analysis and visualization.
 
 This application provides an interactive frontend for:
 - Uploading and processing MALDI spectra (CSV files with 'm/z' and 'Intensity' columns)

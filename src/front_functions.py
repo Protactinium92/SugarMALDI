@@ -2,7 +2,7 @@
 Frontend utility functions for the SugarMALDI Streamlit application.
 
 This module contains all Streamlit-specific functions for:
-- Data visualization of MALDI-TOF spectra (m/z vs Intensity)
+- Data visualization of MALDI-MS spectra (m/z vs Intensity)
 - User interaction handling
 - Cached operations for performance optimization
 
@@ -80,7 +80,7 @@ def choose_delimiter() -> str:
         st.markdown("""
             <div style="line-height:1.2">
                 Select delimiter file:<br>
-                ⚠️ <span style='color:red; font-style:italic;'>TO DO before uploading files</span>
+                ⚠️ <span style='color:red; font-style:italic;'>TO Change before uploading files</span>
             </div>
         """, unsafe_allow_html=True)
     with col2:
@@ -110,9 +110,10 @@ def upload_files(delimiter: str =",") -> pl.DataFrame:
    
     st.markdown("#### Choose MS spectra")
     uploaded_files = st.file_uploader(
-        "",
+        label="spectrum_uploader",
+        label_visibility="collapsed",
         type=['csv', "tsv", 'txt'],
-        accept_multiple_files=True
+        accept_multiple_files=True,
     )
 
     css = '''
@@ -226,7 +227,7 @@ def build_plotly_figure(
     y_max: float = 1e6,
 ) -> go.Figure:
     """
-    Builds an interactive Plotly figure for MALDI-TOF spectra visualization with background image,
+    Builds an interactive Plotly figure for MALDI-MS spectra visualization with background image,
     differentiated identified/unidentified peaks.
 
     Args:
@@ -470,3 +471,9 @@ class StreamlitProgress:
         """Remove the progress display from the Streamlit interface."""
         self.progress_bar.empty()
         self.text.empty()
+
+if __name__ == "__main__":
+    print(
+        "This module is not designed to be run standalone.\n"
+        "It should be imported in `app.py` to provide utility functions.\n"
+    )

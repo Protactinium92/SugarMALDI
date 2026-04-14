@@ -72,7 +72,7 @@ with:
 - $n$                     : number of isotopes considered
 - \epsilon$               : small constant to avoid division by zero.
 """,
-        """
+        r"""
 ### Chi-square distance
 
 - Measures deviation between experimental and theoretical intensities.
@@ -202,7 +202,7 @@ def rm_threshold() -> str:
 
     - **$M_{\mathrm{exp}}$**: Experimentally measured mass.
     - **$M_{\mathrm{theo}}$**: Expected theoretical mass.
-    - **Typical threshold**: 5 ppm for MALDI-TOF.
+    - **Typical threshold**: 5 ppm for MALDI-MS.
 
     *Example*: If ΔM = 10 ppm and $M_{\mathrm{theo}}$ = 1000 Da,
     the tolerated deviation is **±0.01 Da**.
@@ -645,4 +645,11 @@ def display_peak_detection() -> None:
         Try increasing prominence to remove small peaks, or increasing distance to merge close peaks.
         """)
         st.markdown(instruction)
+
+
+if __name__ == "__main__":
+    print(
+        "This module is not designed to be run standalone.\n"
+        "It should be imported in `app.py` to provide utility functions.\n"
+    )
 
