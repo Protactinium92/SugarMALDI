@@ -1,24 +1,18 @@
 """
-    Generate a set of theoretical masses for oligosaccharides composed of hexoses and pentoses.
+    Generate a set of theoretical masses for oligosaccharides composed of different oligosccharides.
 
-    These masses are intended for mass spectrometric analysis, where the oligosaccharides 
-    are derivatized and adducts may be added during the measurement.
+    These masses are intended for mass spectrometric analysis
 
     General formula for the oligosaccharides:
-        x Pentose + y Hexose → Oligosaccharide + (x + y - 1) H2O
+        x A + y B → Oligosaccharide + (x + y - 1) H2O
 
     The corresponding mass-to-charge ratio (m/z) is given by:
-        m/z = x·m(Pentose) + y·m(Hexose) - (x + y - 1)·m(H2O)
-
-    The label used is the 3-AQ, which is involved in a condensation reaction with the reducing end
-    of the oligosaccharide.
-
-    Adduct mass are added at the end of the process.    
+        m/z = x·m(A) + y·m(B) - (x + y - 1)·m(H2O)
 """
 
 __author__  = "Pierre-Alexandre HO"
 __date__    = "2025-09-02"
-__version__ = "1.0"
+__version__ = "2.0"
 
 # import
 import polars as pl
@@ -28,9 +22,10 @@ from pathlib import Path
 # Constant
 
 MONOISOTOPIC_MASS = {'C': 12.000000, 'H': 1.007825, 'O': 15.994915, 'N': 14.003074}
-ADDUCT_MASS = {'H+': 1.007276, 'Na+': 22.989221, 'K+': 38.963158}
 WATER = {'H': 2, 'O': 1}
+ADDUCT_MASS = {'H+': 1.007276, 'Na+': 22.989221, 'K+': 38.963158}
 LABEL_3AQ = {'C': 9, 'H': 8, 'N': 2}
+NAME_COLUMN_MASS_OLIGO = "Neutral_unlabeled_mass"  # Mass without adduct and label 
 
 
 def csv_to_df(file: str, sep: str):
@@ -201,9 +196,9 @@ def generate_oligo_combinations(
                 count += 1
 
     # Create Polars DataFrame and filter by mass threshold
-    columns = monomers_list + ["Neutral_unlabeled_mass"]
+    columns = monomers_list + [NAME_COLUMN_MASS_OLIGO]
     df = pl.DataFrame(results, schema=columns,  orient="row").lazy()
-    df = df.filter((pl.col("Neutral_unlabeled_mass") <= max_mass))
+    df = df.filter((pl.col(NAME_COLUMN_MASS_OLIGO) <= max_mass))
 
     return df
 
@@ -211,7 +206,8 @@ def generate_oligo_combinations(
 def add_adduct_columns(
     df: Union[pl.DataFrame, pl.LazyFrame],
     adduct_masses: Dict[str, float],
-    mass_column_name: str = "Neutral_unlabeled_mass"
+    label_dict: Dict[str, float],
+    mass_column_name: str = NAME_COLUMN_MASS_OLIGO
 ) -> pl.LazyFrame:
     """
     Add columns for each adduct's total mass to a Polars DataFrame of oligomer combinations.
@@ -221,6 +217,7 @@ def add_adduct_columns(
         df: Polars DataFrame containing oligomer combinations and their base mass.
             Must include a column with the base mass (default: "masse").
         adduct_masses: Dictionary mapping adduct names to their masses (e.g., {"[M+H]+": 1.007, "[M+Na]+": 22.99}).
+        label_dict: Dictionary of the label composition with the atom_name: count
         mass_column: Name of the column containing the base mass (default: "Neutral_unlabeled_mass").
 
     Returns:
@@ -229,7 +226,7 @@ def add_adduct_columns(
     """
     df_lazy = ensure_lazy(df)
 
-    label_mass = calc_mass_mol(LABEL_3AQ)
+    label_mass = calc_mass_mol(label_dict)
     water = calc_mass_mol(WATER)
     # Build all adduct columns in one call using list comprehension
     adduct_columns = [
@@ -265,8 +262,9 @@ def add_column_id(df: pl.LazyFrame, monomers: List[str]) -> pl.LazyFrame:
 
 def get_duplicate(
     df: Union[pl.DataFrame, pl.LazyFrame],
+    columns_to_check: List[str],
     id_col: str = "column_id",
-    columns_to_check: List[str] | None = None) -> List[str]:
+    ) -> List[str]:
     """
     Returns a set of `id_col` values corresponding to rows that contain 
     at least one value that appears more than once in any of the specified columns.
@@ -276,14 +274,11 @@ def get_duplicate(
     Args:
         df (pl.DataFrame): The Polars DataFrame to analyze.
         id_col (str, optional): The name of the unique identifier column. Defaults to "column_id".
-        columns_to_check (List[str] | None, optional): List of columns to check for duplicated values.
-            If None, use the key of ADDUCT_MASS dict.
+        columns_to_check (List[str]): List of columns to check for duplicated values.
 
     Returns:
         List[str]: A list of `id_col` values for rows containing duplicated values.
     """
-    if columns_to_check is None:
-        columns_to_check = [f'labeled_mass_{key}' for key in list(ADDUCT_MASS.keys())]
 
     # Convert to lazy frame
     df_lazy = ensure_lazy(df)
@@ -348,21 +343,27 @@ def reduce_row(
         .filter(~pl.col("column_id").is_in(duplicate_ids))
         .with_columns(pl.lit("Unique").alias("Recurrence"))
     )
+    print(f"Nombre de lignes uniques : {unique.collect().height}")  # Debug
 
     # Keep only first occurrence of duplicate rows
     duplicate = (
         combinations_df
         .filter(pl.col("column_id").is_in(duplicate_ids))
         .unique(
-            subset=[f"labeled_mass_{key}" for key in ADDUCT_MASS.keys()],
+            # subset=[f"labeled_mass_{key}" for key in ADDUCT_MASS.keys()],
+            subset=[NAME_COLUMN_MASS_OLIGO],
             keep="first",
             maintain_order=True,
         )
         .with_columns(pl.lit("Shared").alias("Recurrence"))
     )
+    print(f"Nombre de lignes dupliquées (après unique) : {duplicate.collect().height}")  # Debug
 
     # Concatenate both
-    return pl.concat([unique, duplicate])
+    # return pl.concat([unique, duplicate])
+    result = pl.concat([unique, duplicate])
+    print(f"Nombre total de lignes après concaténation : {result.collect().height}")  # Debug
+    return result
 
 
 def write_pl_df_to_csv(
@@ -415,7 +416,8 @@ if __name__ == "__main__":
     print(f'Generation of combination please wait')
     combinations_df = (
         generate_oligo_combinations(monomers_df, monomers_list, spectrum_threshold)
-        .pipe(add_adduct_columns, ADDUCT_MASS)
+        # Remove adduct and label in the main library => Will be compute directly in the soft
+        # .pipe(add_adduct_columns, ADDUCT_MASS)
         .pipe(add_column_id, monomers_list)
     )
 
@@ -424,13 +426,15 @@ if __name__ == "__main__":
 
     # Duplicate treatment
     print(f'Calculation of mass duplicates please wait')
-    duplicate_ids = get_duplicate(combinations_df)
-    print(f'Size of cobination: {size_combination:,} include {len(duplicate_ids):,} lines with '
+    duplicate_ids = get_duplicate(combinations_df, columns_to_check=[NAME_COLUMN_MASS_OLIGO])
+    print(f'Size of combination: {size_combination:,} include {len(duplicate_ids):,} lines with '
           'at least one mass identic to another one in the table')
 
-    # Clean dataframe
-    print(f'Datacuration please wait')
-    final_oligomers = reduce_row(combinations_df, duplicate_ids).collect()
-    print(f"Final size of the database: {len(final_oligomers):,} * {len(ADDUCT_MASS)} mass")
-    write_pl_df_to_csv(final_oligomers, Path("data/oligo_combinations_clean.csv"))
+    try:
+        print('Datacuration please wait')
+        final_oligomers = reduce_row(combinations_df, duplicate_ids).collect()
+        print(f"Size of the library without duplicate: {len(final_oligomers):,} mass")
+        write_pl_df_to_csv(final_oligomers, Path("data/oligo_combinations_no_duplicate.csv"))
+    except Exception as e:
+        print(f"Erreur : {e}")
 
