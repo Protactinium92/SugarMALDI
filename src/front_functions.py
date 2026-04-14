@@ -471,3 +471,9 @@ class StreamlitProgress:
         """Remove the progress display from the Streamlit interface."""
         self.progress_bar.empty()
         self.text.empty()
+
+if __name__ == "__main__":
+    print(
+        "This module is not designed to be run standalone.\n"
+        "It should be imported in `app.py` to provide utility functions.\n"
+    )
