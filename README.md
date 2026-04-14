@@ -9,11 +9,7 @@ A Spectra Analysis Tool (Draft)
 Access the app via Streamlit:  
 *(add your deployed link here if available)*
 
----
-
 ## Try it on your machine  
-
----
 
 ### Installation  
 
@@ -23,8 +19,6 @@ Access the app via Streamlit:
 git clone https://github.com/Protactinium92/SugarMALDI.git
 cd SugarMALDI
 ```
-
----
 
 #### Option 1 — Installation with uv (recommended 🚀)
 
@@ -40,12 +34,11 @@ Or (Linux / Mac):
 curl -Ls https://astral.sh/uv/install.sh | sh
 ```
 
-More information on [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://docs.astral.sh/uv/getting-started/installation/#pypi)
-
-> uv is a fast Python package and project manager that can replace pip, virtualenv, and more. :contentReference[oaicite:0]{index=0}  
 
 
----
+> uv is a fast Python package and project manager that can replace pip, virtualenv, and more.
+> More information on [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://docs.astral.sh/uv/)  
+
 
 ##### Install the project
 
@@ -56,8 +49,6 @@ uv sync
 This will:
 - create a virtual environment automatically  
 - install all dependencies from `pyproject.toml`  
-
----
 
 #### Option 2 — Standard installation (pip + venv)
 
@@ -87,11 +78,9 @@ Install the project
 pip install .
 ```
 
----
-
 ### Run the app  
 
-With UV:
+Directly with UV:
 ```bash
 uv run streamlit run src/app.py
 ```
@@ -102,14 +91,22 @@ Or in virtual environnment:
 streamlit run src/app.py
 ```
 
----
+## Important information:
+
+Before starting the first analysis please create the oligosacaride library by running this command:
+```bash
+# UV:
+uv run src/oligoMasse.py
+
+# In virtual envioronnement
+src/oligoMasse.py
+```
 
 ## Project structure  
 
 - `pyproject.toml` → dependency and project configuration  
 - `app.py` → main Streamlit application  
 
----
 
 ## Notes  
 
@@ -117,7 +114,6 @@ streamlit run src/app.py
 - Recommended Python version: **>= 3.9**  
 
 
----
 
 ## Contributing  
 
