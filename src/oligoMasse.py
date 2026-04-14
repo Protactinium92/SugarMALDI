@@ -311,61 +311,6 @@ def get_duplicate(
     return duplicate_ids
 
 
-def reduce_row(
-    combinations_df: pl.DataFrame | pl.LazyFrame,
-    duplicate_ids: list[str],
-) -> pl.DataFrame | pl.LazyFrame:
-    """
-    Clean the dataframe by:
-      - keeping all rows whose `column_id` is not duplicated,
-      - keeping only the first occurrence of rows whose `column_id` belongs 
-        to the duplicated set (based on identical masses).
-
-    Args:
-        combinations_df (pl.DataFrame | pl.LazyFrame): 
-            Input DataFrame containing oligomer combinations.
-        duplicate_ids (list[str]): 
-            List of `column_id` values that correspond to duplicated masses.
-
-    Returns:
-        pl.DataFrame | pl.LazyFrame:
-            Cleaned DataFrame with:
-              - a new column 'Duplicate' tagging each row as "Unique" or "Shared",
-              - one row per duplicated mass group (first occurrence only).
-    """
-
-    # Convert to lazy frame
-    combinations_df = ensure_lazy(combinations_df)
-
-    # Keep all unique rows
-    unique = (
-        combinations_df
-        .filter(~pl.col("column_id").is_in(duplicate_ids))
-        .with_columns(pl.lit("Unique").alias("Recurrence"))
-    )
-    print(f"Nombre de lignes uniques : {unique.collect().height}")  # Debug
-
-    # Keep only first occurrence of duplicate rows
-    duplicate = (
-        combinations_df
-        .filter(pl.col("column_id").is_in(duplicate_ids))
-        .unique(
-            # subset=[f"labeled_mass_{key}" for key in ADDUCT_MASS.keys()],
-            subset=[NAME_COLUMN_MASS_OLIGO],
-            keep="first",
-            maintain_order=True,
-        )
-        .with_columns(pl.lit("Shared").alias("Recurrence"))
-    )
-    print(f"Nombre de lignes dupliquées (après unique) : {duplicate.collect().height}")  # Debug
-
-    # Concatenate both
-    # return pl.concat([unique, duplicate])
-    result = pl.concat([unique, duplicate])
-    print(f"Nombre total de lignes après concaténation : {result.collect().height}")  # Debug
-    return result
-
-
 def write_pl_df_to_csv(
     df: Union[pl.DataFrame, pl.LazyFrame],
     output_path: str,
@@ -425,16 +370,6 @@ if __name__ == "__main__":
     write_pl_df_to_csv(combinations_df, Path("data/oligo_combinations.csv"))
 
     # Duplicate treatment
-    print(f'Calculation of mass duplicates please wait')
     duplicate_ids = get_duplicate(combinations_df, columns_to_check=[NAME_COLUMN_MASS_OLIGO])
     print(f'Size of combination: {size_combination:,} include {len(duplicate_ids):,} lines with '
           'at least one mass identic to another one in the table')
-
-    try:
-        print('Datacuration please wait')
-        final_oligomers = reduce_row(combinations_df, duplicate_ids).collect()
-        print(f"Size of the library without duplicate: {len(final_oligomers):,} mass")
-        write_pl_df_to_csv(final_oligomers, Path("data/oligo_combinations_no_duplicate.csv"))
-    except Exception as e:
-        print(f"Erreur : {e}")
-
