@@ -49,7 +49,7 @@ import plotly.graph_objects as go
 import atexit  # Clean closure of tempory files
 
 import front_functions as ff
-import spectre_analysis as sp_ana
+import spectrum_analysis as sp_ana
 import helper
 
 
