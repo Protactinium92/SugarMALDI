@@ -44,6 +44,7 @@ import logging
 
 from pathlib import Path
 from typing import Dict, Union, Tuple, List
+from oligoMass import ADDUCT_MASS, LABEL_3AQ
 
 
 def display_logo() -> None:
@@ -108,7 +109,7 @@ def upload_files(delimiter: str =",") -> pl.DataFrame:
         ValueError: Propagates any error from `sp_ana.parse_spectra` (e.g., invalid file format).
     """
    
-    st.markdown("#### Choose MS spectra")
+    st.markdown("##### Choose MS spectra")
     uploaded_files = st.file_uploader(
         label="spectrum_uploader",
         label_visibility="collapsed",
@@ -119,7 +120,7 @@ def upload_files(delimiter: str =",") -> pl.DataFrame:
     css = '''
     <style>
     div[data-testid="stFileUploader"] {
-        margin-top: -40px;
+        margin-top: -10px;
     }
     </style>
     '''
@@ -147,7 +148,7 @@ def monomer_selection() ->Tuple[List[str], pl.DataFrame]:
         List[str]: List of selected monomer notations (empty if none selected).
                   Returns all monomers if selection is not implemented yet.
     """
-    st.subheader("Monomer(s) Selection")
+    st.markdown("#### Monomer(s) Selection")
 
     with st.expander("💬 **Information & Guidelines**", expanded=False):
         st.write("Here will be the guidlines for the selection of monomers.")
@@ -185,6 +186,123 @@ def monomer_selection() ->Tuple[List[str], pl.DataFrame]:
         st.markdown(badges)
     del monomers, edited_df
     return monomers_list, selected_df
+
+
+import streamlit as st
+import re
+from typing import Dict, Tuple
+
+
+def parse_formula(formula: str) -> Dict[str, int]:
+    """
+    Convert a chemical formula into a dictionary.
+    
+    Example:
+        "NH4" -> {"N": 1, "H": 4}
+    """
+    pattern = r"([A-Z][a-z]*)(\d*)"
+    matches = re.findall(pattern, formula)
+    
+    composition = {}
+    for element, count in matches:
+        composition[element] = composition.get(element, 0) + int(count or 1)
+    
+    return composition
+
+
+def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
+
+    on_adduct = st.toggle("Use custom adduct (By default H+ Na+ & K+)")
+
+    if on_adduct:
+        # ---------------------------
+        # Init session state
+        # ---------------------------
+        if "adducts" not in st.session_state:
+            st.session_state.adducts = []
+
+        # ---------------------------
+        # Ensure at least 1 line
+        # ---------------------------
+        if len(st.session_state.adducts) == 0:
+            st.session_state.adducts.append({
+                "name": "",
+                "mass": 0.000000,
+                "formula": ""
+            })
+
+        # ---------------------------
+        # Dynamic fields
+        # ---------------------------
+        for i, adduct in enumerate(st.session_state.adducts):
+            st.markdown(f"Adduct {i+1}")
+
+            col1, col2, col3, col_delete = st.columns([2, 2, 2, 1])
+
+            adduct["name"] = col1.text_input(
+                "Name",
+                value=adduct["name"],
+                key=f"name_{i}"
+            )
+
+            adduct["mass"] = col2.number_input(
+                "Mass",
+                value=adduct["mass"],
+                format="%.6f",
+                key=f"mass_{i}"
+            )
+
+            adduct["formula"] = col3.text_input(
+                "Composition",
+                value=adduct["formula"],
+                key=f"formula_{i}",
+                placeholder="NH4, without  charge",
+            )
+
+            if len(st.session_state.adducts) > 1:
+                if col_delete.button("❌", key=f"delete_{i}"):
+                    st.session_state.adducts.pop(i)
+                    st.rerun()
+            
+        if st.button("➕ Add Adduct", key=f"add_{i}"):
+            st.session_state.adducts.insert(i + 1, {
+                "name": "",
+                "mass": 0.0,
+                "formula": ""
+            })
+            st.rerun()
+
+        # ---------------------------
+        # Build dictionaries
+        # ---------------------------
+        adduct_mass = {}
+        adduct_compo = {}
+
+        for adduct in st.session_state.adducts:
+            name = adduct["name"]
+            mass = adduct["mass"]
+            formula = adduct["formula"]
+
+            if name and formula:
+                adduct_mass[name] = mass
+                adduct_compo[name] = parse_formula(formula)
+
+
+    else:
+        adduct_mass = ADDUCT_MASS
+        adduct_compo = sp_ana.ADDUCTS
+
+    return adduct_mass, adduct_compo
+
+
+
+
+
+
+
+
+
+
 
 
 @st.cache_data

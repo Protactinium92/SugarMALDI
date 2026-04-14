@@ -64,7 +64,10 @@ if __name__=="__main__":
     if spectra is not None and len(spectra) > 0:
 
         st.session_state.spectra_list = list(spectra.keys())
-       
+
+        st.markdown("---")
+        st.subheader("Chemical Configuration")
+
         if "monomers_list" not in st.session_state:
             st.session_state.monomers_list = None
             st.session_state.monomers_df = None
@@ -75,7 +78,14 @@ if __name__=="__main__":
             monomers_list != st.session_state.monomers_list):  # 3 check if the list changes
             st.warning("⚠️ Warning: List of monomers changes. Please re-run the analysis to apply the new settings.")
 
+        st.markdown("##### Adduct & Label Selection")
+        adduct_mass, adduct_compo = ff.adduct_selection()
+        on_label = st.toggle("Use custum label (By default 3-AQ)")
         
+
+        st.markdown("---")
+        st.subheader("Process and Download")
+
         # Initialize session state for parameters if not already set
         # Default values, used for the first run
         # Allowed to generate a warning if the user change them
@@ -99,9 +109,7 @@ if __name__=="__main__":
             st.session_state.iso_score = None
         if "scoring_expander_open" not in st.session_state:
             st.session_state.scoring_expander_open = False
-            
         
-        # Parameter window
         with st.expander("⚙️ Advanced options for peak detection", expanded=False):
             # Window parameter only for debuging in expert mode
             window = st.session_state.window
@@ -182,9 +190,6 @@ if __name__=="__main__":
                 (st.session_state.analysis_results != None)):
                 st.warning("⚠️ Warning: Parameter(s) changed. Please re-run the analysis to apply the new settings.")
 
-
-        st.markdown("---")
-        st.subheader("Process and Download")
         if monomers_list:
             
             if st.button("🔍 Spectra analysis", use_container_width=True):
