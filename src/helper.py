@@ -202,7 +202,7 @@ def rm_threshold() -> str:
 
     - **$M_{\mathrm{exp}}$**: Experimentally measured mass.
     - **$M_{\mathrm{theo}}$**: Expected theoretical mass.
-    - **Typical threshold**: 5 ppm for MALDI-TOF.
+    - **Typical threshold**: 5 ppm for MALDI-MS.
 
     *Example*: If ΔM = 10 ppm and $M_{\mathrm{theo}}$ = 1000 Da,
     the tolerated deviation is **±0.01 Da**.
