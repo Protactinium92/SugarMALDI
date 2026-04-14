@@ -1,5 +1,5 @@
 """
-MALDI-TOF spectra analysis pipeline for oligosaccharide characterization.
+MALDI-MS spectra analysis pipeline for oligosaccharide characterization.
 
 This module provides core functionality for:
 - Data processing of high-resolution mass spectrometry spectra (~2M data points)
@@ -173,7 +173,7 @@ def normalize_mz_column(
     """
     Normalizes the m/z column by scaling and converting to integer values.
 
-    This function is designed for MALDI-TOF spectra preprocessing. It scales the m/z values
+    This function is designed for MALDI-MS spectra preprocessing. It scales the m/z values
     by a fixed factor and rounds them to the nearest integer, which is useful for
     binning or reducing floating-point precision issues in downstream analysis.
 
@@ -246,7 +246,7 @@ def find_all_peaks(intensity: NDArray[np.float64],
         interval: Average interval between m/z values in the same units as the distance parameter.
                   Used to convert real-world distance (m/z units) to array indices.
         prominence: Required prominence of peaks (minimum height difference between peak
-                    and its neighboring samples). Default is 2e5, suitable for MALDI-TOF data.
+                    and its neighboring samples). Default is 2e5, suitable for MALDI-MS data.
         height: Required height of peaks. Can be a single value or an array of values.
                 If None, no height threshold is applied.
         distance: Minimum distance between peaks in m/z units. Converted to array indices
@@ -343,7 +343,7 @@ def extract_peaks_all_windows(
         n_workers: int
 ) -> pl.LazyFrame:
     """
-    Extracts peaks from MALDI-TOF spectrum data using parallel window processing.
+    Extracts peaks from MALDI-MS spectrum data using parallel window processing.
 
     This function divides the spectrum into windows of specified size (step) and processes
     each window in parallel to identify peaks. It's optimized for large datasets (millions

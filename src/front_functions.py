@@ -2,7 +2,7 @@
 Frontend utility functions for the SugarMALDI Streamlit application.
 
 This module contains all Streamlit-specific functions for:
-- Data visualization of MALDI-TOF spectra (m/z vs Intensity)
+- Data visualization of MALDI-MS spectra (m/z vs Intensity)
 - User interaction handling
 - Cached operations for performance optimization
 
@@ -227,7 +227,7 @@ def build_plotly_figure(
     y_max: float = 1e6,
 ) -> go.Figure:
     """
-    Builds an interactive Plotly figure for MALDI-TOF spectra visualization with background image,
+    Builds an interactive Plotly figure for MALDI-MS spectra visualization with background image,
     differentiated identified/unidentified peaks.
 
     Args:
