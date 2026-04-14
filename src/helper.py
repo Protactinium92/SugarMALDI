@@ -72,7 +72,7 @@ with:
 - $n$                     : number of isotopes considered
 - \epsilon$               : small constant to avoid division by zero.
 """,
-        """
+        r"""
 ### Chi-square distance
 
 - Measures deviation between experimental and theoretical intensities.
@@ -645,4 +645,11 @@ def display_peak_detection() -> None:
         Try increasing prominence to remove small peaks, or increasing distance to merge close peaks.
         """)
         st.markdown(instruction)
+
+
+if __name__ == "__main__":
+    print(
+        "This module is not designed to be run standalone.\n"
+        "It should be imported in `app.py` to provide utility functions.\n"
+    )
 
