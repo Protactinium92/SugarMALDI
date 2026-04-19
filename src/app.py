@@ -79,9 +79,21 @@ if __name__=="__main__":
             st.warning("⚠️ Warning: List of monomers changes. Please re-run the analysis to apply the new settings.")
 
         st.markdown("##### Adduct & Label Selection")
-        adduct_mass, adduct_compo = ff.adduct_selection()
-        on_label = st.toggle("Use custum label (By default 3-AQ)")
+
+        adduct_container = st.container(border=True)
+        with adduct_container:
+            ff.adduct_selection()
+            adduct_mass = st.session_state.get("adduct_mass", {})
+            adduct_compo = st.session_state.get("adduct_compo", {})
         
+        label_container = st.container(border=True)
+        with label_container:
+            on_label = st.toggle("Use custum label (By default 3-AQ)")
+        
+        badges_adduct = " ".join(
+            [f":green-badge[{name}: {mass}]" for name, mass in adduct_mass.items()]
+        )
+        st.markdown(badges_adduct)
 
         st.markdown("---")
         st.subheader("Process and Download")

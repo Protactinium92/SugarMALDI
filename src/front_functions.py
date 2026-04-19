@@ -41,6 +41,8 @@ import plotly.graph_objects as go
 import io, base64
 import numpy as np
 import logging
+import re
+import uuid
 
 from pathlib import Path
 from typing import Dict, Union, Tuple, List
@@ -188,11 +190,6 @@ def monomer_selection() ->Tuple[List[str], pl.DataFrame]:
     return monomers_list, selected_df
 
 
-import streamlit as st
-import re
-from typing import Dict, Tuple
-
-
 def parse_formula(formula: str) -> Dict[str, int]:
     """
     Convert a chemical formula into a dictionary.
@@ -210,92 +207,120 @@ def parse_formula(formula: str) -> Dict[str, int]:
     return composition
 
 
+def _init_adducts_state() -> None:
+    """Initialize session state for adducts."""
+    if "adducts" not in st.session_state:
+        st.session_state.adducts = [
+            {
+                "id": str(uuid.uuid4()),  # Unique ID
+                "name": "",
+                "mass": 0.0,
+                "formula": "",
+            }
+        ]
+
+
+def _add_adduct() -> None:
+    """Add a new empty adduct."""
+    st.session_state.adducts.append(
+        {
+            "id": str(uuid.uuid4()),
+            "name": "",
+            "mass": 0.0,
+            "formula": "",
+        }
+    )
+
+
+def _delete_adduct(adduct_id: str) -> None:
+    """Delete an adduct by its unique ID."""
+    if len(st.session_state.adducts) > 1:
+        st.session_state.adducts = [
+            a for a in st.session_state.adducts if a["id"] != adduct_id
+        ]
+
+
+def build_adduct_dicts(adducts: List[dict]) -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
+    """Build mass and composition dictionaries from adduct list."""
+    
+    adduct_mass: Dict[str, float] = {}
+    adduct_compo: Dict[str, Dict[str, int]] = {}
+
+    for adduct in adducts:
+        name = adduct["name"]
+        mass = adduct["mass"]
+        formula = adduct["formula"]
+
+        if name and formula:
+            adduct_mass[name] = mass
+            adduct_compo[name] = parse_formula(formula)
+
+    return adduct_mass, adduct_compo
+
+
 def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
+    """
+    Render adduct selection UI and return mass + composition dicts.
+    """
 
     on_adduct = st.toggle("Use custom adduct (By default H+ Na+ & K+)")
 
     if on_adduct:
-        # ---------------------------
-        # Init session state
-        # ---------------------------
-        if "adducts" not in st.session_state:
-            st.session_state.adducts = []
-
-        # ---------------------------
-        # Ensure at least 1 line
-        # ---------------------------
-        if len(st.session_state.adducts) == 0:
-            st.session_state.adducts.append({
-                "name": "",
-                "mass": 0.000000,
-                "formula": ""
-            })
-
-        # ---------------------------
-        # Dynamic fields
-        # ---------------------------
+        
+        _init_adducts_state()
+       
         for i, adduct in enumerate(st.session_state.adducts):
             st.markdown(f"Adduct {i+1}")
 
-            col1, col2, col3, col_delete = st.columns([2, 2, 2, 1])
+            col1, col2, col3, col_delete = st.columns([2, 2, 4, 0.5],
+                                                    vertical_alignment="bottom")
 
             adduct["name"] = col1.text_input(
                 "Name",
                 value=adduct["name"],
-                key=f"name_{i}"
+                key=f"name_{adduct['id']}"
             )
 
             adduct["mass"] = col2.number_input(
-                "Mass",
+                "m/z",
                 value=adduct["mass"],
                 format="%.6f",
-                key=f"mass_{i}"
+                key=f"mass_{adduct['id']}"
             )
 
             adduct["formula"] = col3.text_input(
                 "Composition",
                 value=adduct["formula"],
-                key=f"formula_{i}",
-                placeholder="NH4, without  charge",
+                key=f"formula_{adduct['id']}",
+                placeholder="e.g. NH4, without  charge",
             )
 
-            if len(st.session_state.adducts) > 1:
-                if col_delete.button("❌", key=f"delete_{i}"):
-                    st.session_state.adducts.pop(i)
-                    st.rerun()
-            
-        if st.button("➕ Add Adduct", key=f"add_{i}"):
-            st.session_state.adducts.insert(i + 1, {
-                "name": "",
-                "mass": 0.0,
-                "formula": ""
-            })
-            st.rerun()
+            col_delete.button(
+                label = "❌" if len(st.session_state.adducts) > 1 else "—",
+                key=f"delete_{adduct['id']}",
+                width=40,
+                on_click=_delete_adduct,
+                args=(adduct["id"],),
+                disabled=(len(adduct) == 1)
+            )
 
-        # ---------------------------
-        # Build dictionaries
-        # ---------------------------
-        adduct_mass = {}
-        adduct_compo = {}
+        st.button(
+            "➕ Add Adduct",
+            on_click=_add_adduct,
+        )
 
-        for adduct in st.session_state.adducts:
-            name = adduct["name"]
-            mass = adduct["mass"]
-            formula = adduct["formula"]
-
-            if name and formula:
-                adduct_mass[name] = mass
-                adduct_compo[name] = parse_formula(formula)
-
+        adduct_mass, adduct_compo = build_adduct_dicts(st.session_state.adducts)
 
     else:
         adduct_mass = ADDUCT_MASS
         adduct_compo = sp_ana.ADDUCTS
 
-    return adduct_mass, adduct_compo
+    st.session_state.adduct_mass = adduct_mass
+    st.session_state.adduct_compo = adduct_compo
 
 
-
+# TODO: Veréifier composition si ligne remplie
+# TODO: Mettre warining si Aucun addcut implémenté ==> Fait sans la sélection
 
 
 
