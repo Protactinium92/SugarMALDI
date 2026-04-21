@@ -312,28 +312,67 @@ def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
         for i, adduct in enumerate(st.session_state.adducts):
             st.markdown(f"Adduct {i+1}")
 
-            col1, col2, col3, col_delete = st.columns([2, 2, 4, 0.5],
+            col_name, col_mass, col_formula, col_delete = st.columns([2, 2, 4, 0.5],
                                                     vertical_alignment="bottom")
 
-            adduct["name"] = col1.text_input(
+            adduct["name"] = col_name.text_input(
                 "Name",
                 value=adduct["name"],
                 key=f"name_{adduct['id']}"
             )
 
-            adduct["mass"] = col2.number_input(
+            adduct["mass"] = col_mass.number_input(
                 "m/z",
                 value=adduct["mass"],
                 format="%.6f",
                 key=f"mass_{adduct['id']}"
             )
 
-            adduct["formula"] = col3.text_input(
-                "Composition",
-                value=adduct["formula"],
-                key=f"formula_{adduct['id']}",
-                placeholder="e.g. NH4, without  charge",
+
+            with col_formula:
+                #st.markdown("Use a brut formula different from name")
+                sub_col_box, sub_col_formula = st.columns([0.05, 1],
+                                                          vertical_alignment="bottom") 
+
+            # label libre (au-dessus, stylable)
+            sub_col_box.markdown(
+                """
+                <div style="
+                    white-space: nowrap;
+                    font-size: 0.9rem;
+                    line-height: 2.3;
+                    margin-bottom: 0.5rem;
+                ">
+                    Use a brut formula different from name
+                </div>
+                """,
+                unsafe_allow_html=True
             )
+
+            use_formula = sub_col_box.checkbox(
+                "Use Formula",
+                key=f"use_formula_{adduct['id']}",
+                label_visibility="collapsed",
+                value=False
+            )
+            if use_formula:
+                adduct["formula"] = sub_col_formula.text_input(
+                    "formula",
+                    value=adduct["formula"],
+                    key=f"formula_{adduct['id']}",
+                    placeholder="e.g. NH4",
+                    label_visibility="collapsed",
+                )
+            else:
+                adduct["formula"] = adduct["name"]
+                sub_col_formula.text_input(
+                    "formula",
+                    value=adduct["formula"],
+                    key=f"formula_{adduct['id']}_disabled",
+                    placeholder="e.g. NH4",
+                    disabled=True,
+                    label_visibility="collapsed"
+                )
 
             col_delete.button(
                 label = "❌" if len(st.session_state.adducts) > 1 else "—",
