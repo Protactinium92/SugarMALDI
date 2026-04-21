@@ -90,8 +90,9 @@ if __name__=="__main__":
         with label_container:
             on_label = st.toggle("Use custum label (By default 3-AQ)")
         
+        # TODO: Put warnings
         badges_adduct = " ".join(
-            [f":green-badge[{name}: {mass}]" for name, mass in adduct_mass.items()]
+            [f":green-badge[{name}: {mass:.6f}]" for name, mass in adduct_mass.items()]
         )
         st.markdown(badges_adduct)
 
@@ -202,7 +203,7 @@ if __name__=="__main__":
                 (st.session_state.analysis_results != None)):
                 st.warning("⚠️ Warning: Parameter(s) changed. Please re-run the analysis to apply the new settings.")
 
-        if monomers_list:
+        if monomers_list and adduct_mass:
             
             if st.button("🔍 Spectra analysis", use_container_width=True):
                 with st.spinner('🔄 Treatment ongoing...'):

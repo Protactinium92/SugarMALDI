@@ -258,6 +258,46 @@ def build_adduct_dicts(adducts: List[dict]) -> Tuple[Dict[str, float], Dict[str,
     return adduct_mass, adduct_compo
 
 
+def validate_adducts(adducts: List[dict]) -> Tuple[List[dict], List[int], bool]:
+    """
+    Validate adduct list.
+
+    Returns
+    -------
+    valid_adducts : list
+        Fully valid adducts
+    error_indices : list
+        Indices of invalid rows
+    has_any_input : bool
+        True if at least one field is filled somewhere
+    """
+
+    valid_adducts = []
+    error_indices = []
+    has_any_input = False
+
+    for i, adduct in enumerate(adducts):
+        name = adduct["name"]
+        mass = adduct["mass"]
+        formula = adduct["formula"]
+
+        is_empty = (not name) and (not formula) and (mass == 0.0)
+        is_full = name and formula and (mass != 0.0)
+
+        if not is_empty:
+            has_any_input = True
+
+        if is_empty:
+            continue
+
+        if is_full:
+            valid_adducts.append(adduct)
+        else:
+            error_indices.append(i)
+
+    return valid_adducts, error_indices, has_any_input
+
+
 def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
     """
     Render adduct selection UI and return mass + composition dicts.
@@ -309,7 +349,15 @@ def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
             on_click=_add_adduct,
         )
 
-        adduct_mass, adduct_compo = build_adduct_dicts(st.session_state.adducts)
+        valid_adducts, error_indices, has_any_input = validate_adducts(st.session_state.adducts)
+        
+        if error_indices:
+            st.error("❌ Some adducts are incomplete")
+
+        elif not has_any_input:
+            st.error("⚠️ Please fill at least one adduct")
+
+        adduct_mass, adduct_compo = build_adduct_dicts(valid_adducts)
 
     else:
         adduct_mass = ADDUCT_MASS
@@ -317,10 +365,6 @@ def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
 
     st.session_state.adduct_mass = adduct_mass
     st.session_state.adduct_compo = adduct_compo
-
-
-# TODO: Veréifier composition si ligne remplie
-# TODO: Mettre warining si Aucun addcut implémenté ==> Fait sans la sélection
 
 
 
