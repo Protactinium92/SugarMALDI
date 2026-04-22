@@ -406,6 +406,28 @@ def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
     st.session_state.adduct_compo = adduct_compo
 
 
+def label_selection():
+    on_label = st.toggle("Use custum label (By default 3-AQ)")
+
+    if on_label:
+        col_name, col_formula = st.columns([1,3])
+
+        label_name = col_name.text_input(
+            label="Name",
+            key="label_name",
+        )
+
+        label_formula = col_formula.text_input(
+            label="Brut or Semi-developped Fomrula",
+            key="label_formule",
+            placeholder="e.g. CH4O or CH3-OH"
+        )
+
+        return label_name, label_formula, parse_formula(label_formula)
+    
+    else:
+        return "3-AQ", "C9H8N2", LABEL_3AQ
+
 
 
 

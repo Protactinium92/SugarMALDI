@@ -88,13 +88,18 @@ if __name__=="__main__":
         
         label_container = st.container(border=True)
         with label_container:
-            on_label = st.toggle("Use custum label (By default 3-AQ)")
+            label_name, label_formula, label_dict = ff.label_selection()
         
         # TODO: Put warnings
         badges_adduct = " ".join(
             [f":green-badge[{name}: {mass:.6f}]" for name, mass in adduct_mass.items()]
         )
-        st.markdown(badges_adduct)
+        badges_label = (
+            f":red-badge[{label_name}: {label_formula}]"
+            if label_name and label_formula
+            else ""
+        )
+        st.markdown(badges_adduct + badges_label)
 
         st.markdown("---")
         st.subheader("Process and Download")
@@ -148,6 +153,7 @@ if __name__=="__main__":
 
             with st.expander(f"💡 Peak Detection Demo"):
                  helper.display_peak_detection()
+
             col1, col2 = st.columns([1, 1])
             with col1:
                 st.subheader("Match peaks parameter 🎯")
@@ -203,7 +209,7 @@ if __name__=="__main__":
                 (st.session_state.analysis_results != None)):
                 st.warning("⚠️ Warning: Parameter(s) changed. Please re-run the analysis to apply the new settings.")
 
-        if monomers_list and adduct_mass:
+        if monomers_list and adduct_mass and label_dict:
             
             if st.button("🔍 Spectra analysis", use_container_width=True):
                 with st.spinner('🔄 Treatment ongoing...'):
