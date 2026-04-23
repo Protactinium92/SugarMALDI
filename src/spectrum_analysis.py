@@ -45,6 +45,7 @@ import zipfile
 import gc
 import logging
 import IsoSpecPy as iso
+import load_file as load
 
 from io import BytesIO
 from pathlib import Path
@@ -941,6 +942,11 @@ def adjust_library(
         .collect().lazy()
     )
 
+def add_adduct_label(ref_oligo_df):
+    
+    
+    pass
+
 
 def compile_oligo_name(match_peaks: pl.LazyFrame, monomers: List[str]) -> Dict[str, pl.LazyFrame]:
     """
@@ -1180,6 +1186,7 @@ def execute_process(
         logger.info("[INFO] Initialization")
         ref_oligo_path = Path(__file__).parents[1]/"data"/"oligo_combinations.csv"
         ref_oligo_df = adjust_library(ref_oligo_path, monomers_list)
+        ref_oligo_df = add_adduct_label(ref_oligo_df)
 
         file_paths, peaks_dict = {}, {}
         for i, (spectrum_name, spectrum_data) in enumerate(spectra_dict.items(), start=1):    

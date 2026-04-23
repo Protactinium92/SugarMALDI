@@ -18,10 +18,10 @@ __version__ = "2.0"
 import polars as pl
 from typing import Dict, List, Set, Union, Tuple
 from pathlib import Path
+import load_file as load
 
 # Constant
 
-MONOISOTOPIC_MASS = {'C': 12.000000, 'H': 1.007825, 'O': 15.994915, 'N': 14.003074}
 WATER = {'H': 2, 'O': 1}
 ADDUCT_MASS = {'H+': 1.007276, 'Na+': 22.989221, 'K+': 38.963158}
 LABEL_3AQ = {'C': 9, 'H': 8, 'N': 2}
@@ -32,7 +32,7 @@ def csv_to_df(file: str, sep: str):
     return pl.read_csv(file, separator = sep)
 
 
-def calc_mass_mol(mol: Dict[str, int]) -> float:
+def calc_mass_mol(mol: Dict[str, int], monoisototpic_mass: Dict[str, float]) -> float:
     """
     Calculate the molecular mass of a molecule (mol) from its atomic composition.
 
@@ -44,11 +44,12 @@ def calc_mass_mol(mol: Dict[str, int]) -> float:
     Returns:
         Molecular mass of the molecule, in atomic mass units (u).
     """
-    return sum(MONOISOTOPIC_MASS[elem] * mol[elem] for elem in mol)
+    return sum(monoisototpic_mass[elem] * mol[elem] for elem in mol)
 
 
 def calculate_molecular_mass(
     df: pl.DataFrame,
+    monoisototpic_mass:Dict[str, float],
     ignore_columns: List[str] = None
 ) -> pl.DataFrame:
     """
@@ -80,7 +81,7 @@ def calculate_molecular_mass(
     # and check if every atoms are include in MONOISOTOPIC_MASS
     atom_cols = [col for col in df.columns if col not in ignore_columns]
     
-    missing_atoms = set(atom_cols) - set(MONOISOTOPIC_MASS.keys())
+    missing_atoms = set(atom_cols) - set(monoisototpic_mass.keys())
     if missing_atoms:
         raise ValueError(
             f"Missing monoisotopic mass for atoms: {missing_atoms}. "
@@ -90,13 +91,16 @@ def calculate_molecular_mass(
     # Build the expression to sum (count * mass) for each atom
     mass_expr = pl.lit(0.0)  # initialisation of the column
     for col in atom_cols:
-        mass_expr += pl.col(col) * MONOISOTOPIC_MASS[col]
+        mass_expr += pl.col(col) * monoisototpic_mass[col]
 
     # Add the 'mass' column to the DataFrame
     return df.with_columns(mass_expr.alias("mass"))
 
 
-def calc_oligo_mass(monomer_combination: List[int], monomer_masses: Dict[str, float]) -> float:
+def calc_oligo_mass(monomer_combination: List[int],
+                    monomer_masses: Dict[str, float],
+                    monoisototpic_mass:Dict[str, float]
+                    ) -> float:
     """
     Calculate the total mass of an oligomer from a given combination of monomers,
     accounting for water loss during polymerization (one water molecule lost per bond).
@@ -114,7 +118,7 @@ def calc_oligo_mass(monomer_combination: List[int], monomer_masses: Dict[str, fl
     )
     total_monomers = sum(monomer_combination)
     if total_monomers > 0:
-        mass -= (total_monomers - 1) * calc_mass_mol(WATER)
+        mass -= (total_monomers - 1) * calc_mass_mol(WATER, monoisototpic_mass)
     return round(mass, 6)
 
 
@@ -185,7 +189,7 @@ def generate_oligo_combinations(
                 new_combination[index] = count
 
                 # Calculate partial mass (automatically accounts for water loss)
-                partial_mass = calc_oligo_mass(new_combination, monomer_masses)
+                partial_mass = calc_oligo_mass(new_combination, monomer_masses, monoisototpic_mass)
 
                 # Prune if partial mass exceeds threshold
                 if partial_mass >= max_mass:
@@ -351,9 +355,10 @@ def write_pl_df_to_csv(
 if __name__ == "__main__":
     spectrum_threshold = [500, 4000]  # Min / Maximum limit of the MS
     
+    monoisototpic_mass = load.element_mass()
     # Monomers treatement
     monomers_df = csv_to_df(Path("data/monomers.csv"), sep =";")
-    monomers_df = calculate_molecular_mass(monomers_df)
+    monomers_df = calculate_molecular_mass(monomers_df, monoisototpic_mass)
     print(monomers_df)
     monomers_list = list(monomers_df["Notation"])
 
