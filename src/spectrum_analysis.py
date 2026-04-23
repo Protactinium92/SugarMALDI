@@ -39,13 +39,13 @@ __author__  = "Pierre-Alexandre HO"
 import os
 import polars as pl
 import numpy as np
-import tempfile
 import shutil
 import zipfile
 import gc
 import logging
 import IsoSpecPy as iso
 import load_file as load
+import config as cf
 
 from io import BytesIO
 from pathlib import Path
@@ -57,17 +57,6 @@ from scipy.stats import pearsonr,  wasserstein_distance
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
-
-
-# --- Configuration ---
-TEMP_DIR = Path(tempfile.mkdtemp())  # Temporate files
-SCALE = 1_000_000  # 1e6 to convert float mass in int
-ADDUCTS = {
-    "H+": {"H": 1},
-    "Na+": {"Na": 1},
-    "K+": {"K": 1},
-}
-LABEL_3AQ = {"C": 9, "H": 8, "N": 2}
 
 
 def find_workers():
@@ -189,7 +178,7 @@ def normalize_mz_column(
     """
     mz = pl.col(mz_col).cast(pl.Float64)  # Ensure float64 before scaling
     return lf.with_columns(
-        (mz * SCALE).round().cast(pl.Int64).alias(new_col)
+        (mz * cf.SCALE).round().cast(pl.Int64).alias(new_col)
     )
 
 
@@ -531,7 +520,7 @@ def calculate_brut_formula(
 
     # Add the label
     if use_label_3aq:
-        for elem, count in LABEL_3AQ.items():
+        for elem, count in cf.LABEL_3AQ.items():
             totals[elem] = totals.get(elem, 0) + count
             total_monomers += 1
     
@@ -543,10 +532,10 @@ def calculate_brut_formula(
     
     # Add adduct
     if adduct is not None:
-        if adduct not in ADDUCTS:
+        if adduct not in cf.ADDUCTS:
             raise ValueError(f"Unknown adduct: {adduct}")
 
-        for elem, count in ADDUCTS[adduct].items():
+        for elem, count in cf.ADDUCTS[adduct].items():
             totals[elem] = totals.get(elem, 0) + count
 
     # Build Formula
@@ -1008,7 +997,7 @@ def save_dataframe_to_temp(file_name:str, lf: pl.DataFrame) -> Path:
     
     # Generate output path and save
     file_name = f'peak_{file_name}.csv'
-    file_path = TEMP_DIR / file_name
+    file_path = cf.TEMP_DIR / file_name
     df.write_csv(file_path)
 
     return file_path
@@ -1258,7 +1247,7 @@ def execute_process(
 
 def cleanup() -> None:
     """Remove the temporary directory and all its contents."""
-    shutil.rmtree(TEMP_DIR)
+    shutil.rmtree(cf.TEMP_DIR)
 
 
 if __name__ == "__main__":

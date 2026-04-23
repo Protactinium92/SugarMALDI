@@ -16,16 +16,11 @@ __version__ = "2.0"
 
 # import
 import polars as pl
-from typing import Dict, List, Set, Union, Tuple
-from pathlib import Path
 import load_file as load
+import config as cf
+from typing import Dict, List, Union
+from pathlib import Path
 
-# Constant
-
-WATER = {'H': 2, 'O': 1}
-ADDUCT_MASS = {'H+': 1.007276, 'Na+': 22.989221, 'K+': 38.963158}
-LABEL_3AQ = {'C': 9, 'H': 8, 'N': 2}
-NAME_COLUMN_MASS_OLIGO = "Neutral_unlabeled_mass"  # Mass without adduct and label 
 
 
 def csv_to_df(file: str, sep: str):
@@ -118,7 +113,7 @@ def calc_oligo_mass(monomer_combination: List[int],
     )
     total_monomers = sum(monomer_combination)
     if total_monomers > 0:
-        mass -= (total_monomers - 1) * calc_mass_mol(WATER, monoisototpic_mass)
+        mass -= (total_monomers - 1) * calc_mass_mol(cf.WATER, monoisototpic_mass)
     return round(mass, 6)
 
 
@@ -200,9 +195,9 @@ def generate_oligo_combinations(
                 count += 1
 
     # Create Polars DataFrame and filter by mass threshold
-    columns = monomers_list + [NAME_COLUMN_MASS_OLIGO]
+    columns = monomers_list + [cf.NAME_COLUMN_MASS_OLIGO]
     df = pl.DataFrame(results, schema=columns,  orient="row").lazy()
-    df = df.filter((pl.col(NAME_COLUMN_MASS_OLIGO) <= max_mass))
+    df = df.filter((pl.col(cf.NAME_COLUMN_MASS_OLIGO) <= max_mass))
 
     return df
 
@@ -211,7 +206,7 @@ def add_adduct_columns(
     df: Union[pl.DataFrame, pl.LazyFrame],
     adduct_masses: Dict[str, float],
     label_dict: Dict[str, float],
-    mass_column_name: str = NAME_COLUMN_MASS_OLIGO
+    mass_column_name: str = cf.NAME_COLUMN_MASS_OLIGO
 ) -> pl.LazyFrame:
     """
     Add columns for each adduct's total mass to a Polars DataFrame of oligomer combinations.
@@ -231,7 +226,7 @@ def add_adduct_columns(
     df_lazy = ensure_lazy(df)
 
     label_mass = calc_mass_mol(label_dict)
-    water = calc_mass_mol(WATER)
+    water = calc_mass_mol(cf.WATER)
     # Build all adduct columns in one call using list comprehension
     adduct_columns = [
         (pl.col(mass_column_name) + label_mass - water + adduct_mass).round(6).alias(f"labeled_mass_{adduct}")
@@ -375,6 +370,6 @@ if __name__ == "__main__":
     write_pl_df_to_csv(combinations_df, Path("data/oligo_combinations.csv"))
 
     # Duplicate treatment
-    duplicate_ids = get_duplicate(combinations_df, columns_to_check=[NAME_COLUMN_MASS_OLIGO])
+    duplicate_ids = get_duplicate(combinations_df, columns_to_check=[cf.NAME_COLUMN_MASS_OLIGO])
     print(f'Size of combination: {size_combination:,} include {len(duplicate_ids):,} lines with '
           'at least one mass identic to another one in the table')
