@@ -45,8 +45,11 @@ import re
 import uuid
 
 from pathlib import Path
-from typing import Dict, Union, Tuple, List
+from typing import Dict, Union, Tuple, List, Callable, Any
 from oligoMass import ADDUCT_MASS, LABEL_3AQ
+
+
+EMPTY_VALUES = [None, "", 0, 0.0]
 
 
 def display_logo() -> None:
@@ -258,44 +261,49 @@ def build_adduct_dicts(adducts: List[dict]) -> Tuple[Dict[str, float], Dict[str,
     return adduct_mass, adduct_compo
 
 
-def validate_adducts(adducts: List[dict]) -> Tuple[List[dict], List[int], bool]:
+def validate_rows(
+    rows: List[dict],
+    required_fields: List[str],
+) -> Tuple[List[dict], List[int], bool]:
     """
-    Validate adduct list.
+    Generic row validator.
+
+    Parameters
+    ----------
+    rows : list of dict
+        Input data
+    required_fields : list of str
+        Fields that must be filled for a row to be valid
 
     Returns
     -------
-    valid_adducts : list
-        Fully valid adducts
+    valid_rows : list
     error_indices : list
-        Indices of invalid rows
     has_any_input : bool
-        True if at least one field is filled somewhere
     """
 
-    valid_adducts = []
+    valid_rows = []
     error_indices = []
     has_any_input = False
 
-    for i, adduct in enumerate(adducts):
-        name = adduct["name"]
-        mass = adduct["mass"]
-        formula = adduct["formula"]
+    for i, row in enumerate(rows):
 
-        is_empty = (not name) and (not formula) and (mass == 0.0)
-        is_full = name and formula and (mass != 0.0)
+        values = [row.get(f) for f in required_fields]
 
-        if not is_empty:
-            has_any_input = True
-
-        if is_empty:
+        # Empty line
+        if all(v in EMPTY_VALUES for v in values):
             continue
+        
+        # At least one value somewhere
+        has_any_input = True
 
-        if is_full:
-            valid_adducts.append(adduct)
+        # True if all required fields are filled
+        if all(v not in EMPTY_VALUES for v in values):
+            valid_rows.append(row)
         else:
             error_indices.append(i)
 
-    return valid_adducts, error_indices, has_any_input
+    return valid_rows, error_indices, has_any_input
 
 
 def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
@@ -327,7 +335,6 @@ def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
                 format="%.6f",
                 key=f"mass_{adduct['id']}"
             )
-
 
             with col_formula:
                 #st.markdown("Use a brut formula different from name")
@@ -387,11 +394,13 @@ def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
             "➕ Add Adduct",
             on_click=_add_adduct,
         )
-
-        valid_adducts, error_indices, has_any_input = validate_adducts(st.session_state.adducts)
+        field = ["name", "mass", "formula"]
+        valid_adducts, error_indices, has_any_input = validate_rows(st.session_state.adducts,
+                                                                    required_fields=field)
         
         if error_indices:
-            st.error("❌ Some adducts are incomplete")
+            error_adduct = [f"Adduct {i+1}" for i in error_indices]
+            st.error(f"❌ Some adducts are incomplete {' / '.join(map(str, error_adduct))}")
 
         elif not has_any_input:
             st.error("⚠️ Please fill at least one adduct")
@@ -423,16 +432,25 @@ def label_selection():
             placeholder="e.g. CH4O or CH3-OH"
         )
 
-        return label_name, label_formula, parse_formula(label_formula)
+        rows= {"name": label_name, "formula": label_formula},
+        valid_rows, error_indices, has_any_input = validate_rows(
+            rows= rows,
+            required_fields=["name", "formula"]
+        )
+        
+        if error_indices:
+            st.error("❌ Both name and formula must be filled")
+            return None, None, None
+
+        elif not has_any_input:
+            st.error("⚠️ Please fill the fields")
+            return None, None, None
+
+        row = valid_rows[0]
+        return row["name"], row["formula"], parse_formula(row["formula"])
     
     else:
         return "3-AQ", "C9H8N2", LABEL_3AQ
-
-
-
-
-
-
 
 
 @st.cache_data
