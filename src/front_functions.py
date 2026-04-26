@@ -34,7 +34,6 @@ __date__    = "2026-01-14"
 __version__ = "1.0"
 
 import streamlit as st
-import spectrum_analysis as sp_ana
 import polars as pl
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
@@ -44,9 +43,13 @@ import logging
 import re
 import uuid
 
+import spectrum_analysis as sp_ana
+import load_file as load
+import config as cf
+
+
 from pathlib import Path
 from typing import Dict, Union, Tuple, List, Callable, Any
-from oligoMass import ADDUCT_MASS, LABEL_3AQ
 
 
 EMPTY_VALUES = [None, "", 0, 0.0]
@@ -306,6 +309,19 @@ def validate_rows(
     return valid_rows, error_indices, has_any_input
 
 
+def check_formula(dict_formula_compo: dict) -> List[str]:
+    element_mass_library = load.element_mass()
+    return [
+        element for element in dict_formula_compo.keys()
+        if element not in element_mass_library
+    ]
+
+def print_error_formula(wrong_elements: List[str]):
+    elements_str = ", ".join(wrong_elements)
+    verb = "are" if len(wrong_elements) > 1 else "is"
+    st.error(f"❌ {elements_str} {verb} not in the NIST monoisotopic library")
+
+
 def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
     """
     Render adduct selection UI and return mass + composition dicts.
@@ -397,7 +413,10 @@ def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
         field = ["name", "mass", "formula"]
         valid_adducts, error_indices, has_any_input = validate_rows(st.session_state.adducts,
                                                                     required_fields=field)
+        adduct_mass, adduct_compo = build_adduct_dicts(valid_adducts)
         
+        # Warning message
+
         if error_indices:
             error_adduct = [f"Adduct {i+1}" for i in error_indices]
             st.error(f"❌ Some adducts are incomplete {' / '.join(map(str, error_adduct))}")
@@ -405,11 +424,15 @@ def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
         elif not has_any_input:
             st.error("⚠️ Please fill at least one adduct")
 
-        adduct_mass, adduct_compo = build_adduct_dicts(valid_adducts)
-
+        for composition in adduct_compo.values():
+            wrong_elements =  check_formula(composition)
+            if wrong_elements:
+                print_error_formula(wrong_elements)
+                adduct_compo = None
+                break
     else:
-        adduct_mass = ADDUCT_MASS
-        adduct_compo = sp_ana.ADDUCTS
+        adduct_mass = cf.ADDUCT_MASS
+        adduct_compo = cf.ADDUCTS
 
     st.session_state.adduct_mass = adduct_mass
     st.session_state.adduct_compo = adduct_compo
@@ -447,10 +470,17 @@ def label_selection():
             return None, None, None
 
         row = valid_rows[0]
-        return row["name"], row["formula"], parse_formula(row["formula"])
+
+        formula = parse_formula(row["formula"])
+        wrong_elements =  check_formula(formula)
+        if wrong_elements:
+            print_error_formula(wrong_elements)
+            formula = None
+
+        return row["name"], row["formula"], formula
     
     else:
-        return "3-AQ", "C9H8N2", LABEL_3AQ
+        return "3-AQ", "C9H8N2", cf.LABEL_3AQ
 
 
 @st.cache_data
