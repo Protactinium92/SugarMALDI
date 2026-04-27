@@ -90,6 +90,7 @@ if __name__=="__main__":
         with label_container:
             label_name, label_formula, label_dict = ff.label_selection()
         
+        st.write(f"{label_dict}")
         # TODO: Put warnings
         badges_adduct = " ".join(
             [f":green-badge[{name}: {mass:.6f}]" for name, mass in adduct_mass.items()]
@@ -223,6 +224,8 @@ if __name__=="__main__":
                         spectra,
                         monomers_list,
                         monomers_df,
+                        adduct_mass,
+                        label_dict,
                         rm_threshold,
                         window,
                         prominence,

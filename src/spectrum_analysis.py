@@ -46,6 +46,7 @@ import logging
 import IsoSpecPy as iso
 
 import load_file as load
+import oligoMass as om
 import config as cf
 
 from io import BytesIO
@@ -885,6 +886,7 @@ def match_oligos(
 def adjust_library(
     library_path: Path,
     monomers_list: List[str],
+    mass_column_name: str = cf.NAME_COLUMN_MASS_OLIGO
 ) -> pl.DataFrame:
     
     """
@@ -905,9 +907,7 @@ def adjust_library(
         desired columns and lines
     """
     
-    column_selection = ["column_id"] + monomers_list + [
-        "Neutral_unlabeled_mass","labeled_mass_H+","labeled_mass_Na+","labeled_mass_K+",#"Recurrence"
-    ]
+    column_selection = ["column_id"] + monomers_list + [mass_column_name]
 
     library_oligo_unic = read_csv(library_path, sep=",")
     all_columns = library_oligo_unic.collect_schema().names()
@@ -928,14 +928,8 @@ def adjust_library(
         .select(column_selection)
         # Remove all lines where every authorized monomers = 0
         .filter(pl.any_horizontal(pl.col(m) != 0 for m in monomers_list))
-        .sort(pl.col("Neutral_unlabeled_mass"), descending=False)
-        .collect().lazy()
+        .sort(pl.col(mass_column_name), descending=False)
     )
-
-def add_adduct_label(ref_oligo_df):
-    
-    
-    pass
 
 
 def compile_oligo_name(match_peaks: pl.LazyFrame, monomers: List[str]) -> Dict[str, pl.LazyFrame]:
@@ -1134,6 +1128,8 @@ def execute_process(
     spectra_dict: Dict[str, pl.LazyFrame],
     monomers_list: List[str],
     monomer_df: pl.DataFrame,
+    adduct_mass: Dict[str, float],
+    label_dict: Dict[str, int],
     rm_threshold: int = 5,
     window: int = 10,
     prominence: float = 1e5,
@@ -1176,7 +1172,9 @@ def execute_process(
         logger.info("[INFO] Initialization")
         ref_oligo_path = Path(__file__).parents[1]/"data"/"oligo_combinations.csv"
         ref_oligo_df = adjust_library(ref_oligo_path, monomers_list)
-        ref_oligo_df = add_adduct_label(ref_oligo_df)
+        ref_oligo_df = om.add_adduct_columns(df = ref_oligo_df,
+                                             adduct_mass_dict = adduct_mass,
+                                             label_dict = label_dict)
 
         file_paths, peaks_dict = {}, {}
         for i, (spectrum_name, spectrum_data) in enumerate(spectra_dict.items(), start=1):    
