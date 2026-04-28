@@ -80,18 +80,39 @@ if __name__=="__main__":
 
         st.markdown("##### Adduct & Label Selection")
 
+        if "check_adduct_mass" not in st.session_state:
+            st.session_state.check_adduct_mass = None
+        if "check_adduct_compo" not in st.session_state:
+            st.session_state.check_adduct_compo = None
+        if "label_name" not in st.session_state:
+            st.session_state.label_name = None
+        if "label_formula" not in st.session_state:
+            st.session_state.label_formula = None
+
         adduct_container = st.container(border=True)
         with adduct_container:
             ff.adduct_selection()
             adduct_mass = st.session_state.get("adduct_mass", {})
             adduct_compo = st.session_state.get("adduct_compo", {})
+
+            if (st.session_state.check_adduct_mass is not None and
+                st.session_state.check_adduct_compo is not None and
+                (adduct_mass and adduct_compo) and
+                (adduct_mass != st.session_state.check_adduct_mass or
+                 adduct_compo != st.session_state.check_adduct_compo)):
+                st.warning("⚠️ Warning: Parameter(s) changed. Please re-run the analysis to apply the new settings.")
         
         label_container = st.container(border=True)
         with label_container:
             label_name, label_formula, label_dict = ff.label_selection()
+            
+            if (st.session_state.label_name is not None and
+                st.session_state.label_formula is not None and
+                (label_name and label_formula) and
+                (label_name != st.session_state.label_name or
+                 adduct_compo != st.session_state.label_formula)):
+                st.warning("⚠️ Warning: Parameter(s) changed. Please re-run the analysis to apply the new settings.")
         
-        st.write(f"{label_dict}")
-        # TODO: Put warnings
         badges_adduct = " ".join(
             [f":green-badge[{name}: {mass:.6f}]" for name, mass in adduct_mass.items()]
         )
@@ -215,6 +236,8 @@ if __name__=="__main__":
             if st.button("🔍 Spectra analysis", use_container_width=True):
                 with st.spinner('🔄 Treatment ongoing...'):
 
+                    #TODO: Faire un clean des caches du backend
+
                     # --- Logger Streamlit ---
                     progress = ff.StreamlitProgress(len(spectra))
                     log_placeholder = st.empty()
@@ -253,6 +276,10 @@ if __name__=="__main__":
                     st.session_state.number_candidate = number_candidate
                     st.session_state.number_iso = number_isotope
                     st.session_state.iso_score = method_iso_score
+                    st.session_state.check_adduct_mass = adduct_mass
+                    st.session_state.check_adduct_compo = adduct_compo
+                    st.session_state.label_name = label_name
+                    st.session_state.label_formula = label_formula
 
                     # Clear logs
                     root_logger.removeHandler(handler)
@@ -302,12 +329,19 @@ if __name__=="__main__":
                         </div>
                     """, unsafe_allow_html=True)
             with col2:
-                badges = " ".join([f":blue-badge[{m}]" for m in monomers_list])
-                badges = badges + f" :orange-badge[{method_iso_score}]"
+                badges_parts = [
+                    *[f":blue-badge[{m}]" for m in st.session_state.monomers_list],
+                    f":orange-badge[{st.session_state.iso_score}]",
+                    *[f":green-badge[{name}]" for name in st.session_state.check_adduct_mass],
+                    f":red-badge[{st.session_state.label_formula}]",
+                ]
+                badges = " ".join(badges_parts)
                 st.markdown(f"Information selections: {badges}")
+
             st.dataframe(peak_lf
                          .filter(pl.col("Identifications").is_not_null())
                          .sort(pl.col("Intensity"), descending=False)
+                         .drop(pl.col("query_mass"))
                          .collect())
 
 

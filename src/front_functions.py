@@ -471,13 +471,13 @@ def label_selection():
 
         row = valid_rows[0]
 
-        formula = parse_formula(row["formula"])
-        wrong_elements =  check_formula(formula)
+        compo = parse_formula(row["formula"])
+        wrong_elements =  check_formula(compo)
         if wrong_elements:
             print_error_formula(wrong_elements)
-            formula = None
+            compo = None
 
-        return row["name"], row["formula"], formula
+        return row["name"], row["formula"], compo
     
     else:
         return "3-AQ", "C9H8N2", cf.LABEL_3AQ
