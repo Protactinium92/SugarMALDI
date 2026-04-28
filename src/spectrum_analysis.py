@@ -1174,7 +1174,7 @@ def execute_process(
         ref_oligo_df = adjust_library(ref_oligo_path, monomers_list)
         ref_oligo_df = om.add_adduct_columns(df = ref_oligo_df,
                                              adduct_mass_dict = adduct_mass,
-                                             label_dict = label_dict)
+                                             label_dict = label_dict).collect().lazy()
 
         file_paths, peaks_dict = {}, {}
         for i, (spectrum_name, spectrum_data) in enumerate(spectra_dict.items(), start=1):    

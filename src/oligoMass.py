@@ -27,7 +27,7 @@ def csv_to_df(file: str, sep: str):
     return pl.read_csv(file, separator = sep)
 
 
-def calc_mass_mol(mol: Dict[str, int]) -> float:
+def calc_mass_mol(mol: Dict[str, int], monoisototpic_mass: Dict[str, float] = None) -> float:
     """
     Calculate the molecular mass of a molecule (mol) from its atomic composition.
 
@@ -39,13 +39,15 @@ def calc_mass_mol(mol: Dict[str, int]) -> float:
     Returns:
         Molecular mass of the molecule, in atomic mass units (u).
     """
-    monoisototpic_mass = load.element_mass()
+    if monoisototpic_mass is None:
+        monoisototpic_mass = load.element_mass()
     return sum(monoisototpic_mass[elem] * mol[elem] for elem in mol)
 
 
 def calculate_molecular_mass(
     df: pl.DataFrame,
-    ignore_columns: List[str] = None
+    ignore_columns: List[str] = None,
+    monoisototpic_mass: Dict[str, float] = None
 ) -> pl.DataFrame:
     """
     Calculate the molecular mass for each row in a Polars DataFrame using a global
@@ -72,7 +74,8 @@ def calculate_molecular_mass(
     if ignore_columns is None:
         ignore_columns = ["Notation", "Description"]
     
-    monoisototpic_mass = load.element_mass()
+    if monoisototpic_mass is None:
+        monoisototpic_mass = load.element_mass()
 
     # Select atoms in the df
     # and check if every atoms are include in MONOISOTOPIC_MASS
@@ -96,6 +99,7 @@ def calculate_molecular_mass(
 
 def calc_oligo_mass(monomer_combination: List[int],
                     monomer_masses: Dict[str, float],
+                    monoisototpic_mass: Dict[str, float] = None
                     ) -> float:
     """
     Calculate the total mass of an oligomer from a given combination of monomers,
@@ -108,13 +112,16 @@ def calc_oligo_mass(monomer_combination: List[int],
     Returns:
         float: Total mass of the oligomer, after subtracting water loss.
     """
+    if monoisototpic_mass is None:
+        monoisototpic_mass = load.element_mass()
+
     mass = sum(
         nb_monomer_i * monomer_masses[monomer_i]
         for nb_monomer_i, monomer_i in zip(monomer_combination, monomers_list)
     )
     total_monomers = sum(monomer_combination)
     if total_monomers > 0:
-        mass -= (total_monomers - 1) * calc_mass_mol(cf.WATER)
+        mass -= (total_monomers - 1) * calc_mass_mol(cf.WATER, monoisototpic_mass)
     return round(mass, 6)
 
 
@@ -135,6 +142,7 @@ def generate_oligo_combinations(
     monomers_df: pl.DataFrame,
     monomers_list: List[str],
     spectrum_threshold: List[int],
+    monoisototpic_mass: Dict[str, float] = None
 ) -> pl.LazyFrame:
     """
     Generate all possible oligomer combinations (with monomer counts) whose total mass does not exceed a threshold.
@@ -157,6 +165,9 @@ def generate_oligo_combinations(
     if len(spectrum_threshold) != 2:
         raise ValueError("spectrum_threshold must be a list of two floats: [min_mass, max_mass]")
     _, max_mass = spectrum_threshold
+
+    if monoisototpic_mass is None:
+        monoisototpic_mass = load.element_mass()
 
     # List to store valid combinations and their masses
     results: List[List] = []
@@ -185,7 +196,7 @@ def generate_oligo_combinations(
                 new_combination[index] = count
 
                 # Calculate partial mass (automatically accounts for water loss)
-                partial_mass = calc_oligo_mass(new_combination, monomer_masses)
+                partial_mass = calc_oligo_mass(new_combination, monomer_masses, monoisototpic_mass)
 
                 # Prune if partial mass exceeds threshold
                 if partial_mass >= max_mass:
@@ -226,6 +237,7 @@ def add_adduct_columns(
     """
     label_mass = calc_mass_mol(label_dict)
     water = calc_mass_mol(cf.WATER)
+    df_lazy = ensure_lazy(df)
     # Build all adduct columns in one call using list comprehension
     adduct_columns = [
         (pl.col(mass_column_name) + label_mass - water + adduct_mass).round(6).alias(f"labeled_mass_{adduct}")
@@ -233,7 +245,7 @@ def add_adduct_columns(
     ]
 
     # Add all columns lazily
-    return df.with_columns(adduct_columns).collect().lazy()
+    return df_lazy.with_columns(adduct_columns)
 
 
 def add_column_id(df: pl.LazyFrame, monomers: List[str]) -> pl.LazyFrame:
@@ -348,18 +360,18 @@ def write_pl_df_to_csv(
 
 if __name__ == "__main__":
     spectrum_threshold = [500, 4000]  # Min / Maximum limit of the MS
-    
+    monoisototpic_mass = load.element_mass()
     
     # Monomers treatement
     monomers_df = csv_to_df(Path("data/monomers.csv"), sep =";")
-    monomers_df = calculate_molecular_mass(monomers_df)
+    monomers_df = calculate_molecular_mass(monomers_df,  monoisototpic_mass=monoisototpic_mass)
     print(monomers_df)
     monomers_list = list(monomers_df["Notation"])
 
     # Generation of all combination
     print(f'Generation of combination please wait')
     combinations_df = (
-        generate_oligo_combinations(monomers_df, monomers_list, spectrum_threshold)
+        generate_oligo_combinations(monomers_df, monomers_list, spectrum_threshold,  monoisototpic_mass)
         # Remove adduct and label in the main library => Will be compute directly in the soft
         # .pipe(add_adduct_columns, ADDUCT_MASS)
         .pipe(add_column_id, monomers_list)
