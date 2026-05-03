@@ -86,7 +86,7 @@ if __name__=="__main__":
         if "check_adduct_compo" not in st.session_state:
             st.session_state.check_adduct_compo = None
         if "label_use" not in st.session_state:
-            st.session_state.label_use = None,
+            st.session_state.label_use = None
         if "label_name" not in st.session_state:
             st.session_state.label_name = None
         if "label_formula" not in st.session_state:
