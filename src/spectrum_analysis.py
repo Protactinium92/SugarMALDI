@@ -484,6 +484,7 @@ def calculate_brut_formula(
     oligo_df: Dict[str, int],
     monomer_df: pl.DataFrame,
     adduct: Optional[str] = None,
+    adduct_compo: dict[str, int] = cf.ADDUCTS,
     use_label_3aq: bool = True
 ) -> str:
     """
@@ -534,10 +535,10 @@ def calculate_brut_formula(
     
     # Add adduct
     if adduct is not None:
-        if adduct not in cf.ADDUCTS:
+        if adduct not in adduct_compo:
             raise ValueError(f"Unknown adduct: {adduct}")
 
-        for elem, count in cf.ADDUCTS[adduct].items():
+        for elem, count in adduct_compo[adduct].items():
             totals[elem] = totals.get(elem, 0) + count
 
     # Build Formula
@@ -732,6 +733,8 @@ def match_oligos(
     library: pl.LazyFrame,
     threshold: int,
     monomer_df: pl.DataFrame,
+    adduct_names: list,
+    adduct_compo: dict[str, float],
     use_label_3aq: bool = True,
     top_n: int = 4,
     number_isotope: int = 4,
@@ -753,9 +756,10 @@ def match_oligos(
     Returns:
         pl.LazyFrame:  
     """
-
+    adduct_list = [f'labeled_mass_{name}' for name in adduct_names]
+    adduct_norm_cols = [f"labeled_mass_{name}_int" for name in adduct_names]
     # Transform the mass in ppm and int to optimize the algorithm
-    for adduct in ['labeled_mass_H+', 'labeled_mass_Na+', 'labeled_mass_K+']:
+    for adduct in adduct_list:
         library = normalize_mz_column(
         lf = library,
         mz_col=adduct,
@@ -775,52 +779,80 @@ def match_oligos(
     intensity_list = peaks_np[:, 1]
     matched_oligos = []
 
+
+
     # Loop: for each mass select the closest reference oligo
     for mass, intensity in zip(mass_list, intensity_list):
 
         # --- Step 1: Filter candidates ---
 
         th_min, th_max = calcul_offset(threshold, mass)
-
-        candidates = library.filter(
-            (pl.col("labeled_mass_H+_int").is_between(th_min, th_max)) |
-            (pl.col("labeled_mass_Na+_int").is_between(th_min, th_max)) |
-            (pl.col("labeled_mass_K+_int").is_between(th_min, th_max))
-        )
+        
+        filter_expr = pl.any_horizontal([
+            pl.col(col).is_between(th_min, th_max)
+            for col in adduct_norm_cols
+        ])
+        candidates = library.filter(filter_expr)
 
         if candidates.select(pl.len()).collect().item() == 0:
             continue
 
         # --- Step 2: Compute the mass ratio ---
-        candidates_with_diff = candidates.with_columns(
-            pl.lit(int(mass)).cast(pl.Int64).alias("query_mass"),
-            pl.lit(float(intensity)).alias("Intensity"),
-            ((mass - pl.col("labeled_mass_H+_int"))/pl.col("labeled_mass_H+_int")*10**6).abs().alias("diff_H"),
-            ((mass - pl.col("labeled_mass_Na+_int"))/pl.col("labeled_mass_Na+_int")*10**6).abs().alias("diff_Na"),
-            ((mass  -pl.col("labeled_mass_K+_int"))/pl.col("labeled_mass_K+_int")*10**6).abs().alias("diff_K")
-        )
+        # diff_exprs = [
+        #     ((mass - pl.col(col)) / pl.col(col) * 1e6).abs().alias(f"diff_{name}")
+        #     for col, name in zip(adduct_norm_cols, adduct_names)
+        # ]
+        # candidates_with_diff = candidates.with_columns(
+        #     pl.lit(int(mass)).cast(pl.Int64).alias("query_mass"),
+        #     pl.lit(float(intensity)).alias("Intensity"),
+        #     *diff_exprs
+        # )
 
-        # --- Step 3: Find best match ---
-        # Find the top_n best matches, this strategy allow best compromise between
-        # performance and precision. The top_n will be analyze with isotop for a better
-        # precison
+        # # --- Step 3: Find best match ---
+        # # Find the top_n best matches, this strategy allow best compromise between
+        # # performance and precision. The top_n will be analyze with isotop for a better
+        # # precison
+        # diff_cols = [f"diff_{name}" for name in adduct_names]
+        # best_matches = (
+        #     candidates_with_diff
+        #     # Find the Minimum ratio between the adducts
+        #     .with_columns(pl.min_horizontal(diff_cols).alias("Delta_M"))
+        #     # Select 1 line of the library for the query mass
+        #     .sort("Delta_M").head(top_n)
+        #     # Add the corresponding best adduct in the lazyframe of the mass 
+        #     .with_columns(
+        #         pl.when(pl.col("diff_H") == pl.col("Delta_M")).then(pl.lit("H+"))
+        #         .when(pl.col("diff_Na") == pl.col("Delta_M")).then(pl.lit("Na+"))
+        #         .otherwise(pl.lit("K+")).alias("Adduct")
+        #     )
+        #     # Select relevant columns (exclude temporary ones)
+        #     .select([
+        #         pl.exclude("diff_H", "diff_Na", "diff_K"),  # Keep all original columns
+        #         #"query_mass", "Adduct", "mass_diff"
+        #     ])
+        # )
+
+        diff_exprs = [
+            ((mass - pl.col(col)) / pl.col(col) * 1e6).abs()
+            for col in adduct_norm_cols
+        ]
+       
         best_matches = (
-            candidates_with_diff
-            # Find the Minimum ratio between the adducts
-            .with_columns(pl.min_horizontal("diff_H", "diff_Na", "diff_K").alias("Delta_M"))
-            # Select 1 line of the library for the query mass
-            .sort("Delta_M").head(top_n)
-            # Add the corresponding best adduct in the lazyframe of the mass 
+            candidates
             .with_columns(
-                pl.when(pl.col("diff_H") == pl.col("Delta_M")).then(pl.lit("H+"))
-                .when(pl.col("diff_Na") == pl.col("Delta_M")).then(pl.lit("Na+"))
-                .otherwise(pl.lit("K+")).alias("Adduct")
+                pl.lit(int(mass)).cast(pl.Int64).alias("query_mass"),
+                pl.lit(float(intensity)).alias("Intensity"),
+                pl.concat_list(diff_exprs).alias("diff_values")
             )
-            # Select relevant columns (exclude temporary ones)
-            .select([
-                pl.exclude("diff_H", "diff_Na", "diff_K"),  # Keep all original columns
-                #"query_mass", "Adduct", "mass_diff"
-            ])
+            .with_columns(
+                pl.col("diff_values").list.min().alias("Delta_M"),
+                pl.col("diff_values").list.arg_min().alias("best_idx")
+            )
+            .top_k(top_n, by="Delta_M")
+            .with_columns(
+                pl.lit(adduct_names).list.get(pl.col("best_idx")).alias("Adduct")
+            )
+            .drop(["diff_values", "best_idx"])
         )
 
         # --- Step 4: Compute iso_score ---
@@ -832,7 +864,8 @@ def match_oligos(
             formula = calculate_brut_formula(
                 oligo_df=candidate_row,
                 monomer_df=monomer_df,
-                adduct=candidate_row.get('Adduct', None),
+                adduct=candidate_row["Adduct"],
+                adduct_compo=adduct_compo,
                 use_label_3aq=use_label_3aq
             )
 
@@ -878,7 +911,6 @@ def match_oligos(
             "Delta_M": pl.Float64,
             "Formula": pl.Utf8,
             "iso_score": pl.Float64,
-            #"Recurrence": pl.Utf8,
             "Identifications":pl.Utf8
         })
     
@@ -1129,6 +1161,7 @@ def execute_process(
     monomers_list: List[str],
     monomer_df: pl.DataFrame,
     adduct_mass: Dict[str, float],
+    adduct_compo: Dict[str, int],
     label_dict: Dict[str, int],
     rm_threshold: int = 5,
     window: int = 10,
@@ -1200,6 +1233,8 @@ def execute_process(
                 library=ref_oligo_df,
                 threshold=rm_threshold,
                 monomer_df=monomer_df,
+                adduct_names=list(adduct_mass.keys()),
+                adduct_compo=adduct_compo,
                 use_label_3aq=True,
                 top_n= number_candidate, 
                 number_isotope = number_isotope,

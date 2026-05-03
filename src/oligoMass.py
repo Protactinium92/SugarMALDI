@@ -22,7 +22,6 @@ from typing import Dict, List, Union
 from pathlib import Path
 
 
-
 def csv_to_df(file: str, sep: str):
     return pl.read_csv(file, separator = sep)
 

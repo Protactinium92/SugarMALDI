@@ -237,6 +237,8 @@ if __name__=="__main__":
                 with st.spinner('🔄 Treatment ongoing...'):
 
                     #TODO: Faire un clean des caches du backend
+                    #TODO: Faire une session manager
+                    #TODO: Transfer tous les loading en cache dans load_file
 
                     # --- Logger Streamlit ---
                     progress = ff.StreamlitProgress(len(spectra))
@@ -248,6 +250,7 @@ if __name__=="__main__":
                         monomers_list,
                         monomers_df,
                         adduct_mass,
+                        adduct_compo,
                         label_dict,
                         rm_threshold,
                         window,
