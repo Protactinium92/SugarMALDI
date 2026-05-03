@@ -439,48 +439,144 @@ def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
 
 
 def label_selection():
-    on_label = st.toggle("Use custum label (By default 3-AQ)")
+    col1, col2 = st.columns([0.25, 0.75])
+    use_label = col1.toggle("Use label (By default True)", value=True)
+    on_label = col2.toggle(
+        "Use custom label (By default 3-AQ)",
+        value=False,
+        disabled=not use_label
+    )
 
-    if on_label:
-        col_name, col_formula = st.columns([1,3])
+    label_name = None
+    label_formula = None
+    compo = None
+
+    # --- CASE 1: No label ---
+    if not use_label:
+        pass  # everything already None
+
+    # --- CASE 2: Custom label ---
+    elif on_label:
+        col_name, col_formula = st.columns([1, 3])
+
+        input_name = col_name.text_input(
+            label="Name",
+            key="label_name_input",
+        )
+
+        input_formula = col_formula.text_input(
+            label="Brut or Semi-developped Formula",
+            key="label_formula_input",
+            placeholder="e.g. CH4O or CH3-OH"
+        )
+
+        rows = ({"name": input_name, "formula": input_formula},)
+
+        valid_rows, error_indices, has_any_input = validate_rows(
+            rows=rows,
+            required_fields=["name", "formula"]
+        )
+
+        if error_indices:
+            st.error("❌ Both name and formula must be filled")
+
+        elif not has_any_input:
+            st.error("⚠️ Please fill the fields")
+
+        else:
+            row = valid_rows[0]
+
+            compo_candidate = parse_formula(row["formula"])
+            wrong_elements = check_formula(compo_candidate)
+
+            if wrong_elements:
+                print_error_formula(wrong_elements)
+            else:
+                label_name = row["name"]
+                label_formula = row["formula"]
+                compo = compo_candidate
+
+    # --- CASE 3: Default label ---
+    else:
+        label_name = "3-AQ"
+        label_formula = "C9H8N2"
+        compo = cf.LABEL_3AQ
+
+    return use_label, label_name, label_formula, compo
+
+
+def label_selection():
+    col1, col2 = st.columns([0.25, 0.75])
+    use_label = col1.toggle("Use label (By default True)", value=True)
+    on_label = col2.toggle(
+        "Use custom label (By default 3-AQ)",
+        value=False,
+        disabled=not use_label
+    )
+
+    label_name = None
+    label_formula = None
+    compo = None
+
+    if on_label and use_label:
+        col_name, col_formula = st.columns([1, 3])
 
         label_name = col_name.text_input(
             label="Name",
-            key="label_name",
+            key="label_name_input",
         )
 
         label_formula = col_formula.text_input(
             label="Brut or Semi-developped Fomrula",
-            key="label_formule",
+            key="label_formula_input",
             placeholder="e.g. CH4O or CH3-OH"
         )
 
-        rows= {"name": label_name, "formula": label_formula},
+        rows = ({"name": label_name, "formula": label_formula},)
+
         valid_rows, error_indices, has_any_input = validate_rows(
-            rows= rows,
+            rows=rows,
             required_fields=["name", "formula"]
         )
-        
+
         if error_indices:
             st.error("❌ Both name and formula must be filled")
-            return None, None, None
 
         elif not has_any_input:
             st.error("⚠️ Please fill the fields")
-            return None, None, None
 
-        row = valid_rows[0]
+        else:
+            row = valid_rows[0]
 
-        compo = parse_formula(row["formula"])
-        wrong_elements =  check_formula(compo)
-        if wrong_elements:
-            print_error_formula(wrong_elements)
-            compo = None
+            compo = parse_formula(row["formula"])
+            wrong_elements = check_formula(compo)
 
-        return row["name"], row["formula"], compo
-    
+            if wrong_elements:
+                print_error_formula(wrong_elements)
+                compo = None
+            else:
+                label_name = row["name"]
+                label_formula = row["formula"]
+
+    elif use_label == False:
+        label_name = None
+        label_formula = None
+        compo = None
+
     else:
-        return "3-AQ", "C9H8N2", cf.LABEL_3AQ
+        label_name = "3-AQ"
+        label_formula = "C9H8N2"
+        compo = cf.LABEL_3AQ
+
+    return use_label, label_name, label_formula, compo
+
+
+
+
+
+
+
+
 
 
 @st.cache_data

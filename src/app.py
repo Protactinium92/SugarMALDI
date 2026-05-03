@@ -51,6 +51,7 @@ import atexit  # Clean closure of tempory files
 import front_functions as ff
 import spectrum_analysis as sp_ana
 import helper
+import utils as ut
 
 
 if __name__=="__main__":
@@ -84,6 +85,8 @@ if __name__=="__main__":
             st.session_state.check_adduct_mass = None
         if "check_adduct_compo" not in st.session_state:
             st.session_state.check_adduct_compo = None
+        if "label_use" not in st.session_state:
+            st.session_state.label_use = None,
         if "label_name" not in st.session_state:
             st.session_state.label_name = None
         if "label_formula" not in st.session_state:
@@ -104,22 +107,28 @@ if __name__=="__main__":
         
         label_container = st.container(border=True)
         with label_container:
-            label_name, label_formula, label_dict = ff.label_selection()
+            label_use, label_name, label_formula, label_dict = ff.label_selection()
             
             if (st.session_state.label_name is not None and
                 st.session_state.label_formula is not None and
-                (label_name and label_formula) and
-                (label_name != st.session_state.label_name or
-                 adduct_compo != st.session_state.label_formula)):
+                (
+                    label_use != st.session_state.label_use or
+                    label_name != st.session_state.label_name or
+                    label_formula != st.session_state.label_formula
+                )):
                 st.warning("⚠️ Warning: Parameter(s) changed. Please re-run the analysis to apply the new settings.")
-        
+  
         badges_adduct = " ".join(
             [f":green-badge[{name}: {mass:.6f}]" for name, mass in adduct_mass.items()]
         )
         badges_label = (
-            f":red-badge[{label_name}: {label_formula}]"
-            if label_name and label_formula
-            else ""
+            ":red-badge[No Label]"
+            if not label_use
+            else (
+                f":red-badge[{label_name}: {label_formula}]"
+                if label_name and label_formula
+                else ""
+            )
         )
         st.markdown(badges_adduct + badges_label)
 
@@ -174,6 +183,7 @@ if __name__=="__main__":
                                            help=helper.minimum_distance())
 
             with st.expander(f"💡 Peak Detection Demo"):
+                 #TODO: Put it in a fragement
                  helper.display_peak_detection()
 
             col1, col2 = st.columns([1, 1])
@@ -231,7 +241,18 @@ if __name__=="__main__":
                 (st.session_state.analysis_results != None)):
                 st.warning("⚠️ Warning: Parameter(s) changed. Please re-run the analysis to apply the new settings.")
 
-        if monomers_list and adduct_compo and label_dict:
+        is_valid, errors = ut.validate_inputs(
+            monomers_list,
+            adduct_compo,
+            label_use,
+            label_dict
+        )
+
+
+        for err in errors:
+            st.error(err)
+
+        if is_valid:
             
             if st.button("🔍 Spectra analysis", use_container_width=True):
                 with st.spinner('🔄 Treatment ongoing...'):
@@ -251,6 +272,7 @@ if __name__=="__main__":
                         monomers_df,
                         adduct_mass,
                         adduct_compo,
+                        label_use,
                         label_dict,
                         rm_threshold,
                         window,
@@ -281,7 +303,8 @@ if __name__=="__main__":
                     st.session_state.iso_score = method_iso_score
                     st.session_state.check_adduct_mass = adduct_mass
                     st.session_state.check_adduct_compo = adduct_compo
-                    st.session_state.label_name = label_name
+                    st.session_state.label_use = label_use
+                    st.session_state.label_name = label_name if label_use else "No Label"
                     st.session_state.label_formula = label_formula
 
                     # Clear logs
@@ -336,7 +359,7 @@ if __name__=="__main__":
                     *[f":blue-badge[{m}]" for m in st.session_state.monomers_list],
                     f":orange-badge[{st.session_state.iso_score}]",
                     *[f":green-badge[{name}]" for name in st.session_state.check_adduct_mass],
-                    f":red-badge[{st.session_state.label_formula}]",
+                    f":red-badge[{st.session_state.label_name}]",
                 ]
                 badges = " ".join(badges_parts)
                 st.markdown(f"Information selections: {badges}")

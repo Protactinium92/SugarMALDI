@@ -216,6 +216,7 @@ def generate_oligo_combinations(
 def add_adduct_columns(
     df: Union[pl.DataFrame, pl.LazyFrame],
     adduct_mass_dict: Dict[str, float],
+    label_use: bool,
     label_dict: Dict[str, int],
     mass_column_name: str = cf.NAME_COLUMN_MASS_OLIGO
 ) -> pl.LazyFrame:
@@ -234,7 +235,7 @@ def add_adduct_columns(
         pl.LazyFrame: Input LazyFrame with additional columns for each adduct's total mass.
                       New columns are named "labeled_mass_[adduct]".
     """
-    label_mass = calc_mass_mol(label_dict)
+    label_mass = calc_mass_mol(label_dict) if label_use else 0
     water = calc_mass_mol(cf.WATER)
     df_lazy = ensure_lazy(df)
     # Build all adduct columns in one call using list comprehension

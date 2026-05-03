@@ -485,7 +485,8 @@ def calculate_brut_formula(
     monomer_df: pl.DataFrame,
     adduct: Optional[str] = None,
     adduct_compo: dict[str, int] = cf.ADDUCTS,
-    use_label_3aq: bool = True
+    use_label_3aq: bool = True,
+    label_compo: dict[str, int] = cf.LABEL_3AQ,
 ) -> str:
     """
     Compute brute formula from monomer composition using vectorized Polars.
@@ -523,7 +524,7 @@ def calculate_brut_formula(
 
     # Add the label
     if use_label_3aq:
-        for elem, count in cf.LABEL_3AQ.items():
+        for elem, count in label_compo.items():
             totals[elem] = totals.get(elem, 0) + count
             total_monomers += 1
     
@@ -735,6 +736,7 @@ def match_oligos(
     monomer_df: pl.DataFrame,
     adduct_names: list,
     adduct_compo: dict[str, float],
+    label_compo: dict[str, float],
     use_label_3aq: bool = True,
     top_n: int = 4,
     number_isotope: int = 4,
@@ -797,41 +799,6 @@ def match_oligos(
         if candidates.select(pl.len()).collect().item() == 0:
             continue
 
-        # --- Step 2: Compute the mass ratio ---
-        # diff_exprs = [
-        #     ((mass - pl.col(col)) / pl.col(col) * 1e6).abs().alias(f"diff_{name}")
-        #     for col, name in zip(adduct_norm_cols, adduct_names)
-        # ]
-        # candidates_with_diff = candidates.with_columns(
-        #     pl.lit(int(mass)).cast(pl.Int64).alias("query_mass"),
-        #     pl.lit(float(intensity)).alias("Intensity"),
-        #     *diff_exprs
-        # )
-
-        # # --- Step 3: Find best match ---
-        # # Find the top_n best matches, this strategy allow best compromise between
-        # # performance and precision. The top_n will be analyze with isotop for a better
-        # # precison
-        # diff_cols = [f"diff_{name}" for name in adduct_names]
-        # best_matches = (
-        #     candidates_with_diff
-        #     # Find the Minimum ratio between the adducts
-        #     .with_columns(pl.min_horizontal(diff_cols).alias("Delta_M"))
-        #     # Select 1 line of the library for the query mass
-        #     .sort("Delta_M").head(top_n)
-        #     # Add the corresponding best adduct in the lazyframe of the mass 
-        #     .with_columns(
-        #         pl.when(pl.col("diff_H") == pl.col("Delta_M")).then(pl.lit("H+"))
-        #         .when(pl.col("diff_Na") == pl.col("Delta_M")).then(pl.lit("Na+"))
-        #         .otherwise(pl.lit("K+")).alias("Adduct")
-        #     )
-        #     # Select relevant columns (exclude temporary ones)
-        #     .select([
-        #         pl.exclude("diff_H", "diff_Na", "diff_K"),  # Keep all original columns
-        #         #"query_mass", "Adduct", "mass_diff"
-        #     ])
-        # )
-
         diff_exprs = [
             ((mass - pl.col(col)) / pl.col(col) * 1e6).abs()
             for col in adduct_norm_cols
@@ -866,7 +833,8 @@ def match_oligos(
                 monomer_df=monomer_df,
                 adduct=candidate_row["Adduct"],
                 adduct_compo=adduct_compo,
-                use_label_3aq=use_label_3aq
+                use_label_3aq=use_label_3aq,
+                label_compo=label_compo,
             )
 
             # 2. Theoretical spectrum
@@ -1162,6 +1130,7 @@ def execute_process(
     monomer_df: pl.DataFrame,
     adduct_mass: Dict[str, float],
     adduct_compo: Dict[str, int],
+    label_use: bool,
     label_dict: Dict[str, int],
     rm_threshold: int = 5,
     window: int = 10,
@@ -1207,6 +1176,7 @@ def execute_process(
         ref_oligo_df = adjust_library(ref_oligo_path, monomers_list)
         ref_oligo_df = om.add_adduct_columns(df = ref_oligo_df,
                                              adduct_mass_dict = adduct_mass,
+                                             label_use=label_use,
                                              label_dict = label_dict).collect().lazy()
 
         file_paths, peaks_dict = {}, {}
@@ -1235,7 +1205,8 @@ def execute_process(
                 monomer_df=monomer_df,
                 adduct_names=list(adduct_mass.keys()),
                 adduct_compo=adduct_compo,
-                use_label_3aq=True,
+                label_compo=label_dict,
+                use_label_3aq=label_use,
                 top_n= number_candidate, 
                 number_isotope = number_isotope,
                 scoring_method = scoring_method)
@@ -1243,15 +1214,6 @@ def execute_process(
             # 3. Oligonucleotide name compilation
             logger.info(f"[INFO] {spectrum_name} -> Name atttribution")
             match = compile_oligo_name(match, monomers_list)
-
-            # 4. Add Shared mass names
-            # match = check_shared_mass(
-            #     match_dict = match,
-            #     complete_library =Path(__file__).parents[1]/"data"/"oligo_combinations.csv",
-            #     monomers_list= monomers_list,
-            #     mass_col_name = "Neutral_unlabeled_mass",
-            #     shared_col = "Recurrence",
-            #     n_workers= n_workers)
 
             # 4. Save to temporary file
             logger.info(f"[INFO] {spectrum_name} -> Save temp file")
