@@ -46,10 +46,11 @@ import uuid
 import spectrum_analysis as sp_ana
 import load_file as load
 import config as cf
+import utils as ut
 
 
 from pathlib import Path
-from typing import Dict, Union, Tuple, List, Callable, Any
+from typing import Dict, Union, Tuple, List
 
 
 EMPTY_VALUES = [None, "", 0, 0.0]
@@ -472,7 +473,7 @@ def label_selection():
 
         rows = ({"name": input_name, "formula": input_formula},)
 
-        valid_rows, error_indices, has_any_input = validate_rows(
+        valid_rows, error_indices, has_any_input = ut.validate_rows(
             rows=rows,
             required_fields=["name", "formula"]
         )
@@ -747,6 +748,15 @@ def define_x_y(
     return x, y
 
 
+def build_badges(config):
+    return [
+        *[f":blue-badge[{m}]" for m in config.monomers_list],
+        f":orange-badge[{config.params.iso_score}]",
+        *[f":green-badge[{a}]" for a in config.adduct_mass.keys()],
+        f":red-badge[{config.label_name}]",
+    ]
+
+
 class StreamlitHandler(logging.Handler):
     """
     A custom logging handler that outputs log messages to a Streamlit placeholder.
@@ -863,6 +873,7 @@ class StreamlitProgress:
         """Remove the progress display from the Streamlit interface."""
         self.progress_bar.empty()
         self.text.empty()
+
 
 if __name__ == "__main__":
     print(
