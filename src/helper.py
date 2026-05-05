@@ -271,18 +271,18 @@ def method_score() -> str:
 def display_full_demo_spectrum():
     # Generate m/z axis
     np.random.seed(42)
-    x = np.linspace(50, 1050, 8000)
+    x = np.linspace(0, 10, 8000)
     dx = np.mean(np.diff(x))
     
     n_peaks = 50
     # Regular spacing
-    base_positions = np.linspace(100, 1000, n_peaks)
+    base_positions = np.linspace(0.5, 10, n_peaks)
 
     # Small jitter
-    peak_positions = base_positions + np.random.normal(0, 1.0, n_peaks)
+    peak_positions = base_positions + np.random.normal(0, 0.01, n_peaks)
 
     # Narrow MS-like widths
-    peak_widths = np.random.uniform(1.5, 5, n_peaks)
+    peak_widths = np.random.uniform(0.015, 0.05, n_peaks)
 
     # Alternating intensity pattern (key change 🔥)
     peak_heights = np.zeros(n_peaks)
@@ -299,7 +299,7 @@ def display_full_demo_spectrum():
 
     # Stronger noise + baseline
     noise = np.random.normal(0, 2e5, size=x.shape)
-    baseline = 1e5 * np.sin(x / 50) + 5e4 * np.random.normal(size=x.shape)
+    baseline = 1e5 * np.sin(x / 0.5) + 5e4 * np.random.normal(size=x.shape)
     y += noise + baseline
 
 
@@ -309,7 +309,7 @@ def display_full_demo_spectrum():
             "Prominence",
             min_value=0.0,
             max_value=2e6,
-            value=1.0e5,
+            value=0.0e5,
             step=0.1e5,
         )
     with col2:
@@ -317,17 +317,18 @@ def display_full_demo_spectrum():
             "Minimum height",
             min_value=0.0,
             max_value=10e6,
-            value=1.0e5,
+            value=0.0e5,
             step=0.1e5,
         )
     with col3:
         distance = st.slider(
             "Minimum m/z distance",
-            min_value=0,
-            max_value=500,
-            value=50,
-            step=1,
+            min_value=0.0,
+            max_value=1.0,
+            value=0.0,
+            step=0.001,
         )
+        #Conversion distance (float) to indice (int) with a minium value of 1 unit 
         distance_points = max(1, int((distance / dx)))
   
     # Peak detection

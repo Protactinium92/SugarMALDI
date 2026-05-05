@@ -75,15 +75,9 @@ if __name__=="__main__":
         st.markdown("---")
         st.subheader("Chemical Configuration")
 
-        # if "monomers_list" not in st.session_state:
-        #     st.session_state.monomers_list = None
-        #     st.session_state.monomers_df = None
+
         monomers_list, monomers_df = ff.monomer_selection()
 
-        # if (st.session_state.monomers_list is not None and     # 1 Check the 1st launch
-        #     monomers_list and                                  # 2 chek if not empty (warning in the function)
-        #     monomers_list != st.session_state.monomers_list):  # 3 check if the list changes
-        #     st.warning("⚠️ Warning: List of monomers changes. Please re-run the analysis to apply the new settings.")
         if has_snapshot:
                 ssm.SessionManager.warn_if_any_changed(
                     "Monomers selection",
@@ -93,30 +87,12 @@ if __name__=="__main__":
 
         st.markdown("##### Adduct & Label Selection")
 
-        # if "check_adduct_mass" not in st.session_state:
-        #     st.session_state.check_adduct_mass = None
-        # if "check_adduct_compo" not in st.session_state:
-        #     st.session_state.check_adduct_compo = None
-        # if "label_use" not in st.session_state:
-        #     st.session_state.label_use = None
-        # if "label_name" not in st.session_state:
-        #     st.session_state.label_name = None
-        # if "label_formula" not in st.session_state:
-        #     st.session_state.label_formula = None
-
         adduct_container = st.container(border=True)
         with adduct_container:
             ff.adduct_selection()
             adduct_mass = st.session_state.get("adduct_mass", {})
             adduct_compo = st.session_state.get("adduct_compo", {})
-
-            # if (st.session_state.check_adduct_mass is not None and
-            #     st.session_state.check_adduct_compo is not None and
-            #     (adduct_mass and adduct_compo) and
-            #     (adduct_mass != st.session_state.check_adduct_mass or
-            #      adduct_compo != st.session_state.check_adduct_compo)):
-            #     st.warning("⚠️ Warning: Parameter(s) changed. Please re-run the analysis to apply the new settings.")
-        
+     
             if has_snapshot:
                 ssm.SessionManager.warn_if_any_changed(
                     "Adduct parameters",
@@ -130,16 +106,7 @@ if __name__=="__main__":
         label_container = st.container(border=True)
         with label_container:
             label_use, label_name, label_formula, label_dict = ff.label_selection()
-            
-            # if (st.session_state.label_name is not None and
-            #     st.session_state.label_formula is not None and
-            #     (
-            #         label_use != st.session_state.label_use or
-            #         label_name != st.session_state.label_name or
-            #         label_formula != st.session_state.label_formula
-            #     )):
-            #     st.warning("⚠️ Warning: Parameter(s) changed. Please re-run the analysis to apply the new settings.")
-  
+             
             if has_snapshot:
                 ssm.SessionManager.warn_if_any_changed(
                     "Label parameters",
@@ -167,28 +134,7 @@ if __name__=="__main__":
         st.markdown("---")
         st.subheader("Process and Download")
 
-        # Initialize session state for parameters if not already set
-        # Default values, used for the first run
-        # Allowed to generate a warning if the user change them
-        # if 'window' not in st.session_state:
-        #     st.session_state.window = 500
-        # if 'prominence' not in st.session_state:
-        #     st.session_state.prominence = 3e5  # Float 
-        # if 'dist_min' not in st.session_state:
-        #     st.session_state.dist_min = 0
-        # if 'height_min' not in st.session_state:
-        #     st.session_state.height_min = 5e5
-        # if 'rm_threshold' not in st.session_state:
-        #     st.session_state.rm_threshold = 5
-        # if 'analysis_results' not in st.session_state:
-        #     st.session_state.analysis_results = None
-        # if 'number_candidate' not in st.session_state:
-        #     st.session_state.number_candidate = 4
-        # if "number_iso" not in st.session_state:
-        #     st.session_state.number_iso = 5
-        # if "iso_score" not in st.session_state:
-        #     st.session_state.iso_score = None
-
+        # Get default or saved parameter
         params = ssm.SessionManager.get_params()
         
         with st.expander("⚙️ Advanced options for peak detection", expanded=False):
@@ -196,7 +142,7 @@ if __name__=="__main__":
             window = params.window
             # Use only for segmentation and performance
             # Uncomment bellow for use it in the UI
-            # window = st.number_input("Sub-window for peak detection (Da)", value=st.session_state.window, step=1,
+            # window = st.number_input("Sub-window for peak detection (Da)", value=params.window, step=1,
             #                          min_value=100, max_value=2000,
             #                          help=helper.window())
             st.subheader("Detection parameters 🔎")
@@ -260,20 +206,8 @@ if __name__=="__main__":
                     st.markdown(helper.SCORING_HELP[method_iso_score][1])
                  with col2:
                     st.markdown(helper.SCORING_HELP[method_iso_score][0])
-                    
-            # Detect changes and warn the user
-            # if (((window != st.session_state.window) or
-            #     (prominence != st.session_state.prominence) or
-            #     (height_min != st.session_state.height_min) or 
-            #     (dist_min != st.session_state.dist_min) or
-            #     (rm_threshold != st.session_state.rm_threshold) or  
-            #     (number_candidate != st.session_state.number_candidate) or
-            #     (number_isotope != st.session_state.number_iso) or
-            #     (method_iso_score != st.session_state.iso_score))and
-            #     (st.session_state.analysis_results != None)):
-            #     st.warning("⚠️ Warning: Parameter(s) changed. Please re-run the analysis to apply the new settings.")
 
-            # Create a temporary params object to compare with the current session params
+            # Create a temporary params object to compare with the saved session params
             current_params = ssm.AnalysisParams(
                 window=window,
                 prominence=prominence,
@@ -292,8 +226,8 @@ if __name__=="__main__":
                     [(current_params, snapshot.params)]
                 )
 
-        # ---------- CONFIG ----------
-
+        
+        # Create a temporary config object to save
         current_config = ssm.AnalysisConfig(
             params=current_params,
             monomers_list=monomers_list,
@@ -304,6 +238,7 @@ if __name__=="__main__":
             label_formula=label_formula
         )
 
+        # Check of all field are filled
         is_valid, errors = ut.validate_inputs(
             monomers_list,
             adduct_compo,
@@ -314,18 +249,22 @@ if __name__=="__main__":
         for err in errors:
             st.error(err)
 
-        if is_valid:
-            
+        if not is_valid:
+             st.button(
+                "🔍 Spectra analysis",
+                use_container_width=True,
+                disabled=True
+             )        
+        else:    
             if st.button(
                 "🔍 Spectra analysis",
-                on_click=ssm.SessionManager.run_analysis,
+                on_click=ssm.SessionManager.run_analysis,  # To run first avoiding warning latence
                 args=(current_config,),
                 use_container_width=True
             ):
                 with st.spinner('🔄 Treatment ongoing...'):
 
                     #TODO: Faire un clean des caches du backend
-                    #TODO: Faire une session manager --> On GOING
                     #TODO: Transfer tous les loading en cache dans load_file
 
                     # --- Logger Streamlit ---
@@ -351,28 +290,14 @@ if __name__=="__main__":
                         method_iso_score,
                         progress
                     )
+
+                    # Store results in sessions state 
+                    # Not in session manager which is dedicated to parameters only
                     st.session_state.peak_dict = {
                         spectrum_name: peaks_lf.lazy() 
                         for spectrum_name, peaks_lf in peak_dict.items()
                     }
-                    # Update session state with new values
-                    # For warning messages
                     st.session_state.analysis_results = zip_buffer
-                    # st.session_state.window = window
-                    # st.session_state.prominence = prominence
-                    # st.session_state.height_min = height_min
-                    # st.session_state.dist_min = dist_min
-                    # st.session_state.rm_threshold = rm_threshold
-                    # st.session_state.monomers_list = monomers_list
-                    # st.session_state.monomers_df = monomers_df
-                    # st.session_state.number_candidate = number_candidate
-                    # st.session_state.number_iso = number_isotope
-                    # st.session_state.iso_score = method_iso_score
-                    # st.session_state.check_adduct_mass = adduct_mass
-                    # st.session_state.check_adduct_compo = adduct_compo
-                    # st.session_state.label_use = label_use
-                    # st.session_state.label_name = label_name if label_use else "No Label"
-                    # st.session_state.label_formula = label_formula
 
                     # Clear logs
                     root_logger.removeHandler(handler)

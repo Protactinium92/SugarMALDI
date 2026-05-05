@@ -572,14 +572,6 @@ def label_selection():
     return use_label, label_name, label_formula, compo
 
 
-
-
-
-
-
-
-
-
 @st.cache_data
 def make_background_b64(x: np.ndarray, y: np.ndarray, figsize=(12,4), dpi=150):
     """
