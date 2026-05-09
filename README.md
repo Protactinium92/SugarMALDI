@@ -113,7 +113,7 @@ src/oligoMass.py
 Example spectra can be downloaded from the dedicated Google Drive folder [here](https://drive.google.com/drive/folders/1_okD6vXmOA4NmZ66R5Os8q0V76rWMidL) 
 
 It contains 4 examples:  
-- Arabinogalactose standard: Non-calibrated / Calibrated
+- Arabinogalactan standard: Non-calibrated / Calibrated
 - Galactomannan standard: Non-calibrated / Calibrated
 
 
