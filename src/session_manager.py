@@ -1,7 +1,3 @@
-# =============================
-# session_manager.py
-# =============================
-
 """
 Module for managing session state in the SugarMALDI application.
 
