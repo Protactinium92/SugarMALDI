@@ -96,16 +96,25 @@ streamlit run src/app.py
 Before starting the first analysis please create the oligosacaride library by running this command:
 ```bash
 # UV:
-uv run src/oligoMasse.py
+uv run src/oligoMass.py
 
 # In virtual envioronnement
-src/oligoMasse.py
+src/oligoMass.py
 ```
 
 ## Project structure  
 
 - `pyproject.toml` → dependency and project configuration  
 - `app.py` → main Streamlit application  
+
+
+## Example
+
+Example spectra can be downloaded from the dedicated Google Drive folder [here](https://drive.google.com/drive/folders/1_okD6vXmOA4NmZ66R5Os8q0V76rWMidL) 
+
+It contains 4 examples:  
+- Arabinogalactose standard: Non-calibrated / Calibrated
+- Galactomannan standard: Non-calibrated / Calibrated
 
 
 ## Notes  
