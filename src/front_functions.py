@@ -317,6 +317,7 @@ def check_formula(dict_formula_compo: dict) -> List[str]:
         if element not in element_mass_library
     ]
 
+
 def print_error_formula(wrong_elements: List[str]):
     elements_str = ", ".join(wrong_elements)
     verb = "are" if len(wrong_elements) > 1 else "is"
@@ -425,8 +426,15 @@ def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
         elif not has_any_input:
             st.error("⚠️ Please fill at least one adduct")
 
-        for composition in adduct_compo.values():
-            wrong_elements =  check_formula(composition)
+        for adduct in valid_adducts:
+            composition = adduct_compo.get(adduct["name"], {})
+
+            if adduct["formula"] and not composition:
+                st.error(f"❌ Adduct formula '{adduct['formula']}' is invalid")
+                adduct_compo = None
+                break
+
+            wrong_elements = check_formula(composition)
             if wrong_elements:
                 print_error_formula(wrong_elements)
                 adduct_compo = None
