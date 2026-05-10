@@ -252,7 +252,7 @@ if __name__=="__main__":
         if not is_valid:
              st.button(
                 "🔍 Spectra analysis",
-                use_container_width=True,
+                width="stretch",
                 disabled=True
              )        
         else:    
@@ -260,7 +260,7 @@ if __name__=="__main__":
                 "🔍 Spectra analysis",
                 on_click=ssm.SessionManager.run_analysis,  # To run first avoiding warning latence
                 args=(current_config,),
-                use_container_width=True
+                width="stretch"
             ):
                 with st.spinner('🔄 Treatment ongoing...'):
 
@@ -362,7 +362,7 @@ if __name__=="__main__":
                     data=st.session_state.analysis_results.getvalue(),
                     file_name="results_maldi.zip",
                     mime="application/zip",
-                    use_container_width=True,
+                    width="stretch",
                 )
 
     atexit.register(sp_ana.cleanup)

@@ -123,6 +123,15 @@ It contains 4 examples:
 - Recommended Python version: **>= 3.9**  
 
 
+The application relies on cached functions distributed across multiple modules. In some execution contexts, Streamlit may display the following warning:
+
+```text id="9l95cl"
+WARNING streamlit.runtime.caching.cache_data_api:
+No runtime found, using MemoryCacheStorageManager
+```
+
+In this case, Streamlit automatically uses an in-memory cache backend. This behavior is expected and does not affect the application.
+
 
 ## Contributing  
 

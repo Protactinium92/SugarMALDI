@@ -600,7 +600,7 @@ def display_easy_schema() -> str:
                       template='plotly_white', margin=dict(l=20,r=20,t=40,b=20),
                       xaxis_title='m/z', yaxis_title='Intensity',
                       showlegend=False)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     # === Markdown explanation ===
     explanation = (
@@ -633,7 +633,7 @@ def display_peak_detection() -> None:
             # Display info
             fig, peaks = display_full_demo_spectrum()
             st.markdown(f"**Number of peaks detected:** {len(peaks)}")
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
     with col1:
         st.markdown("""
