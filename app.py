@@ -40,7 +40,7 @@ Dependencies:
 
 __author__  = "Pierre-Alexandre HO"
 __date__    = "2025-09-08"
-__version__ = "1.0"
+__version__ = "1.2"
 
 
 import streamlit as st
@@ -48,11 +48,11 @@ import polars as pl
 import plotly.graph_objects as go
 import atexit  # Clean closure of tempory files
 
-import front_functions as ff
-import spectrum_analysis as sp_ana
-import helper
-import utils as ut
-import session_manager as ssm
+from src import front_functions as ff
+from src import spectrum_analysis as sp_ana
+from src import helper
+from src import utils as ut
+from src import session_manager as ssm
 
 
 if __name__=="__main__":
@@ -161,8 +161,7 @@ if __name__=="__main__":
                                            help=helper.minimum_distance())
 
             with st.expander(f"💡 Peak Detection Demo"):
-                 #TODO: Put it in a fragement
-                 helper.display_peak_detection()
+                helper.display_peak_detection()
 
             col1, col2 = st.columns([1, 1])
             with col1:
@@ -265,7 +264,6 @@ if __name__=="__main__":
                 with st.spinner('🔄 Treatment ongoing...'):
 
                     #TODO: Faire un clean des caches du backend
-                    #TODO: Transfer tous les loading en cache dans load_file
 
                     # --- Logger Streamlit ---
                     progress = ff.StreamlitProgress(len(spectra))

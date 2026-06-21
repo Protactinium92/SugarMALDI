@@ -14,10 +14,10 @@ __author__  = "Pierre-Alexandre HO"
 __date__    = "2025-09-02"
 __version__ = "2.0"
 
-# import
+
 import polars as pl
-import load_file as load
-import config as cf
+from src import load_file as load
+from src import config as cf
 from typing import Dict, List, Union
 from pathlib import Path
 

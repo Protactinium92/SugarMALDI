@@ -30,8 +30,7 @@ Note:
 """
 
 __author__  = "Pierre-Alexandre HO"
-__date__    = "2026-01-14"
-__version__ = "1.0"
+
 
 import streamlit as st
 import polars as pl
@@ -43,17 +42,14 @@ import logging
 import re
 import uuid
 
-import spectrum_analysis as sp_ana
-import load_file as load
-import config as cf
-import utils as ut
+from src import spectrum_analysis as sp_ana
+from src import load_file as load
+from src import config as cf
+from src import utils as ut
 
 
 from pathlib import Path
 from typing import Dict, Union, Tuple, List
-
-
-EMPTY_VALUES = [None, "", 0, 0.0]
 
 
 def display_logo() -> None:
@@ -163,7 +159,7 @@ def monomer_selection() ->Tuple[List[str], pl.DataFrame]:
         st.write("Here will be the guidlines for the selection of monomers.")
 
     # Load and prepare monomer data
-    monomers = sp_ana.read_csv(Path(__file__).parents[1] / "data" / "monomers.csv", sep=";")
+    monomers = load.read_csv(Path(__file__).parents[1] / "data" / "monomers.csv", sep=";")
     monomers_df = (monomers
         .with_columns(pl.lit(False).alias("Selection"))              # Boolean for checkbox
         .select(["Selection"] +  monomers.collect_schema().names())  # Selection column first
@@ -197,23 +193,6 @@ def monomer_selection() ->Tuple[List[str], pl.DataFrame]:
     return monomers_list, selected_df
 
 
-def parse_formula(formula: str) -> Dict[str, int]:
-    """
-    Convert a chemical formula into a dictionary.
-    
-    Example:
-        "NH4" -> {"N": 1, "H": 4}
-    """
-    pattern = r"([A-Z][a-z]*)(\d*)"
-    matches = re.findall(pattern, formula)
-    
-    composition = {}
-    for element, count in matches:
-        composition[element] = composition.get(element, 0) + int(count or 1)
-    
-    return composition
-
-
 def _init_adducts_state() -> None:
     """Initialize session state for adducts."""
     if "adducts" not in st.session_state:
@@ -245,77 +224,6 @@ def _delete_adduct(adduct_id: str) -> None:
         st.session_state.adducts = [
             a for a in st.session_state.adducts if a["id"] != adduct_id
         ]
-
-
-def build_adduct_dicts(adducts: List[dict]) -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
-    """Build mass and composition dictionaries from adduct list."""
-    
-    adduct_mass: Dict[str, float] = {}
-    adduct_compo: Dict[str, Dict[str, int]] = {}
-
-    for adduct in adducts:
-        name = adduct["name"]
-        mass = adduct["mass"]
-        formula = adduct["formula"]
-
-        if name and formula:
-            adduct_mass[name] = mass
-            adduct_compo[name] = parse_formula(formula)
-
-    return adduct_mass, adduct_compo
-
-
-def validate_rows(
-    rows: List[dict],
-    required_fields: List[str],
-) -> Tuple[List[dict], List[int], bool]:
-    """
-    Generic row validator.
-
-    Parameters
-    ----------
-    rows : list of dict
-        Input data
-    required_fields : list of str
-        Fields that must be filled for a row to be valid
-
-    Returns
-    -------
-    valid_rows : list
-    error_indices : list
-    has_any_input : bool
-    """
-
-    valid_rows = []
-    error_indices = []
-    has_any_input = False
-
-    for i, row in enumerate(rows):
-
-        values = [row.get(f) for f in required_fields]
-
-        # Empty line
-        if all(v in EMPTY_VALUES for v in values):
-            continue
-        
-        # At least one value somewhere
-        has_any_input = True
-
-        # True if all required fields are filled
-        if all(v not in EMPTY_VALUES for v in values):
-            valid_rows.append(row)
-        else:
-            error_indices.append(i)
-
-    return valid_rows, error_indices, has_any_input
-
-
-def check_formula(dict_formula_compo: dict) -> List[str]:
-    element_mass_library = load.element_mass()
-    return [
-        element for element in dict_formula_compo.keys()
-        if element not in element_mass_library
-    ]
 
 
 def print_error_formula(wrong_elements: List[str]):
@@ -413,9 +321,9 @@ def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
             on_click=_add_adduct,
         )
         field = ["name", "mass", "formula"]
-        valid_adducts, error_indices, has_any_input = validate_rows(st.session_state.adducts,
+        valid_adducts, error_indices, has_any_input = ut.validate_rows(st.session_state.adducts,
                                                                     required_fields=field)
-        adduct_mass, adduct_compo = build_adduct_dicts(valid_adducts)
+        adduct_mass, adduct_compo = ut.build_adduct_dicts(valid_adducts)
         
         # Warning message
 
@@ -434,7 +342,7 @@ def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
                 adduct_compo = None
                 break
 
-            wrong_elements = check_formula(composition)
+            wrong_elements = ut.check_formula(composition)
             if wrong_elements:
                 print_error_formula(wrong_elements)
                 adduct_compo = None
@@ -495,8 +403,8 @@ def label_selection():
         else:
             row = valid_rows[0]
 
-            compo_candidate = parse_formula(row["formula"])
-            wrong_elements = check_formula(compo_candidate)
+            compo_candidate = ut.parse_formula(row["formula"])
+            wrong_elements = ut.check_formula(compo_candidate)
 
             if wrong_elements:
                 print_error_formula(wrong_elements)
@@ -543,7 +451,7 @@ def label_selection():
 
         rows = ({"name": label_name, "formula": label_formula},)
 
-        valid_rows, error_indices, has_any_input = validate_rows(
+        valid_rows, error_indices, has_any_input = ut.validate_rows(
             rows=rows,
             required_fields=["name", "formula"]
         )
@@ -557,8 +465,8 @@ def label_selection():
         else:
             row = valid_rows[0]
 
-            compo = parse_formula(row["formula"])
-            wrong_elements = check_formula(compo)
+            compo = ut.parse_formula(row["formula"])
+            wrong_elements = ut.check_formula(compo)
 
             if wrong_elements:
                 print_error_formula(wrong_elements)

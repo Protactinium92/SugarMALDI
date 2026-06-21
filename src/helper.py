@@ -614,6 +614,8 @@ def display_easy_schema() -> str:
 
     return explanation
 
+
+@st.fragment
 def display_peak_detection() -> None:
     """
     Display an interactive peak detection demo using Streamlit.

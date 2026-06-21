@@ -45,9 +45,9 @@ import gc
 import logging
 import IsoSpecPy as iso
 
-import load_file as load
-import oligoMass as om
-import config as cf
+from src import load_file as load
+from src import oligoMass as om
+from src import config as cf
 
 from io import BytesIO
 from pathlib import Path
@@ -59,6 +59,8 @@ from scipy.stats import pearsonr,  wasserstein_distance
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
+from streamlit.runtime.uploaded_file_manager import UploadedFile
+
 
 
 def find_workers():
@@ -69,24 +71,8 @@ def find_workers():
     return n_workers
 
 
-def read_csv(file:str, sep: str = ','):
-    """
-    Read a lambda csv file
-
-    Args:
-        file (str): _description_
-        sep (str, optional): _description_. Defaults to ','.
-
-    Returns:
-        _type_: _description_
-    """
-    if not file.exists():
-        raise FileNotFoundError(f"File not found: {file}")
-    return pl.scan_csv(file, separator=sep)
-
-
 def read_spectrum(
-    file: Union[str, "StreamlitUploadedFile"],
+    file: Union[str, UploadedFile],
     sep: str = ','
 ) -> pl.LazyFrame:
     """
@@ -116,7 +102,7 @@ def read_spectrum(
 
 
 def parse_spectra(
-    files: list[Union[str, "StreamlitUploadedFile"]],
+    files: list[Union[str, UploadedFile]],
     dir: Optional[str] = None,
     delimiter: str = ","
 ) -> Dict[str, pl.LazyFrame]:
@@ -898,6 +884,7 @@ def adjust_library(
     Args:
         library_path: Path to the CSV library file
         monomers_list: List of authorized monomer column names (e.g., ["dHex", "Hex"])
+        mass_column_name: Name of the column containing the mass values (default: cf.NAME_COLUMN_MASS_OLIGO)
 
     Returns:
         pl.LazyFrame: Processed library in lazy evaluation mode
@@ -909,20 +896,21 @@ def adjust_library(
     
     column_selection = ["column_id"] + monomers_list + [mass_column_name]
 
-    library_oligo_unic = read_csv(library_path, sep=",")
-    all_columns = library_oligo_unic.collect_schema().names()
+    library_oligo = load.read_csv(library_path, sep=",")
+    all_columns = library_oligo.collect_schema().names()
     # Identify unauthorized columns (all columns not in selection)
     unauthorized_columns = [col for col in all_columns if col not in column_selection]
     
     # Create filter conditions
     # If unauthorized_columns is empty every columns are True and conserved
+    # Use to remove lines with at least 1 monomere unauthorized
     unauthorized_filter_condition = (
         pl.all_horizontal(pl.col(m) == 0 for m in unauthorized_columns)
         if unauthorized_columns  
         else pl.lit(True) 
     )
 
-    return (library_oligo_unic
+    return (library_oligo
         # Remove lines with at least 1 monomere unauthorized
         .filter(unauthorized_filter_condition)
         .select(column_selection)
@@ -1034,54 +1022,6 @@ def process_mass(mass: float, adduct:str, full_library: pl.LazyFrame, monomers_l
     print(f"Masse : {str(mass)} -> Oligo duplicate liste: {'/'.join(oligo_names)}")
     return "/".join(oligo_names)
 
-
-def check_shared_mass(
-    match_dict: Dict[str, pl.LazyFrame],
-    complete_library: Path,
-    monomers_list: List[str],
-    mass_col_name: str = "Neutral_unlabeled_mass",
-    shared_col: str = "Recurrence",
-    oglido_id_col_name: str = "Identifications",
-    n_workers: Optional[int] = None,
-) -> Dict[str, pl.LazyFrame]:
-    """
-    Parallélise le traitement des masses partagées (niveau intra-spectre).
-    Chaque spectre est traité séquentiellement, mais les masses sont traitées en parallèle.
-    """
-    full_library = read_csv(complete_library)  # lazyframe
-    new_dict = {}
-    for spectrum, lf in match_dict.items():
-        unique_lf = lf.filter(pl.col(shared_col) == "Unique")
-        non_unique_lf = lf.filter(pl.col(shared_col) == "Shared")
-
-        mass_list = non_unique_lf.select(pl.col(mass_col_name)).collect().to_series().to_list()
-        adduct_list = non_unique_lf.select(pl.col("Adduct")).collect().to_series().to_list()
-
-        print(f"{spectrum} start duplicate analysis")
-        # ---- Parallélisation sur les masses ----
-        with ThreadPoolExecutor(max_workers=n_workers) as executor:
-            oligo_name_list = list(
-                executor.map(
-                    lambda m_a: process_mass(*m_a, full_library, monomers_list, mass_col_name),
-                    zip(mass_list, adduct_list),
-                )
-            )
-        print(f"{spectrum} End duplicate analysis")
-
-        # Replace the initial column 
-        non_unique_lf = (non_unique_lf.drop(oglido_id_col_name)
-                         .with_columns(pl.Series(oglido_id_col_name, oligo_name_list)))
-
-        # Fusion avec le LazyFrame initial
-        print(f"Unique : {unique_lf.select(pl.col(oglido_id_col_name)).collect().to_series().to_list()}")
-        print(f"Non Unique : {non_unique_lf.select(pl.col(oglido_id_col_name)).collect().to_series().to_list()}")
-
-        full_lf = pl.concat([unique_lf, non_unique_lf])
-        print(f'Full lf {full_lf.columns}')
-        new_dict[spectrum] = full_lf
-
-    return new_dict
-        
 
 def combine_lf(
     lf_1: pl.LazyFrame,
