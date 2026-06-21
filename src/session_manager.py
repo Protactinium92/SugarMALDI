@@ -1,8 +1,74 @@
 """
-Module for managing session state in the SugarMALDI application.
+Session State Management for SugarMALDI Analysis Application
+=============================================================
 
-This module provides classes and utilities to handle analysis parameters,
-configuration snapshots, and session management using Streamlit.
+Overview
+--------
+This module manages Streamlit session state for the SugarMALDI application.
+It provides structured handling of analysis parameters, configuration
+snapshots, and execution state tracking.
+
+The goal is to ensure reproducibility and consistency between user-defined
+parameters and executed analyses by maintaining a persistent session-level
+state.
+
+Main Responsibilities
+---------------------
+1. Analysis Parameter Management
+   - Stores and retrieves user-defined parameters for spectrum analysis
+   - Encapsulated in the `AnalysisParams` dataclass
+
+2. Configuration Snapshot System
+   - Captures a full analysis configuration at execution time
+   - Enables reproducibility of results
+   - Encapsulated in the `AnalysisConfig` dataclass
+
+3. Streamlit Session State Handling
+   - Initializes and maintains session variables
+   - Tracks whether an analysis has been executed
+   - Stores current parameters and saved snapshots
+
+4. Change Detection Utilities
+   - Compares current vs reference configurations
+   - Detects parameter modifications using dataclass comparison
+   - Supports warnings when re-analysis is required
+
+5. User Feedback Helpers
+   - Provides warning mechanisms when parameters change
+   - Ensures users are informed when results may no longer be valid
+
+Core Data Structures
+--------------------
+- AnalysisParams:
+    Defines all tunable parameters for spectrum analysis
+    (peak detection, isotopic scoring, filtering thresholds, etc.)
+
+- AnalysisConfig:
+    Immutable snapshot combining:
+    - analysis parameters
+    - chemical configuration (monomers, adducts)
+    - labeling options
+
+Design Philosophy
+-----------------
+- Streamlit-native session state management
+- Reproducibility through snapshot-based execution
+- Minimal but robust state tracking
+- Defensive comparison of dataclass configurations
+
+Usage
+-----
+Typical usage within a Streamlit app:
+
+    SessionManager.init()
+    params = SessionManager.get_params()
+    SessionManager.run_analysis(config)
+
+Notes
+-----
+- This module does not perform analysis itself.
+- It only manages state and configuration consistency.
+- Designed to support interactive scientific workflows.
 """
 
 

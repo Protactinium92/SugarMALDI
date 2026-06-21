@@ -9,7 +9,6 @@ the SugarMALDI application.
 
 It includes:
 - Elemental mass table loading.
-- Cached CSV file reading using Polars lazy execution.
 - Streamlit-compatible caching to avoid repeated disk access.
 
 Functions
@@ -65,7 +64,6 @@ def element_mass() -> dict[str, float]:
     return element_dict
 
 
-@st.cache_data
 def read_csv(file: Path, sep: str = ",") -> pl.LazyFrame:
     """
     Read a delimited text file as a Polars LazyFrame.
@@ -91,7 +89,6 @@ def read_csv(file: Path, sep: str = ",") -> pl.LazyFrame:
     -----
     The file is loaded lazily using `polars.scan_csv`, which delays
     execution until a collection operation is performed.
-    The result is cached using Streamlit.
     """
     if not file.exists():
         raise FileNotFoundError(f"File not found: {file}")
