@@ -550,13 +550,26 @@ def get_theoretical_spectrum(
     iso_threshold: float = 0.0001,
 ) -> pl.DataFrame:
     """
-    Génère le spectre isotopique théorique pour une formule brute + adduct.
-    The theoritical spectrum is saved in the cache
-    Args:
-        formula: Formule brute (ex: "C29H47N3O13").
-        iso_threshold: Seuil de probabilité pour filtrer les isotopologues (défaut: 0.01%).
-    Returns:
-        LazyFrame avec colonnes ["mz_theo", "prob_theo", "prob_theo_norm"].
+    Generate the theoretical isotopic spectrum for a molecular formula.
+
+    The spectrum is computed using isotopic distribution above a given probability
+    threshold and cached to avoid recomputation.
+
+    Parameters
+    ----------
+    formula : str
+        Molecular formula (e.g. "C29H47N3O13").
+    iso_threshold : float, optional
+        Minimum probability threshold used to filter isotopologues.
+        Default is 0.0001 (0.01%).
+
+    Returns
+    -------
+    pl.LazyFrame
+        LazyFrame containing the theoretical spectrum with columns:
+        - "mz_theo": theoretical m/z values
+        - "prob_theo": raw isotopic probabilities
+        - "prob_theo_norm": normalized probabilities (max = 1)
     """
     sp = iso.IsoThreshold(formula=formula, threshold=iso_threshold)
 

@@ -1,3 +1,78 @@
+"""
+Streamlit Helper Module for Interactive Scientific UI
+=====================================================
+
+Overview
+--------
+This module provides helper functions for a Streamlit-based application.
+It is designed to support the main interface by offering interactive
+educational content, visual explanations, and parameter guidance.
+
+The primary goal is to improve user understanding of core signal processing
+and mass spectrometry concepts through interactive visualization tools.
+
+Main Purpose
+------------
+This module acts as a "help system" for the application, providing:
+
+1. Interactive Help Components
+   - Explanations of key algorithmic parameters
+   - Contextual guidance embedded in the UI
+   - Streamlit-based tooltips and sections
+
+2. Visual and Educational Demonstrations
+   - Synthetic signal generation for demonstration purposes
+   - Interactive peak detection visualization
+   - Graphical interpretation of key concepts:
+       * Peak prominence
+       * Peak height threshold
+       * Minimum distance between peaks
+
+3. Scientific Concept Explanations
+   - Mass spectrometry signal processing concepts
+   - Isotopic scoring functions and similarity metrics
+   - Mathematical formulations with intuitive interpretations
+
+4. Interactive Parameter Exploration
+   - Real-time adjustment of signal processing parameters
+   - Immediate visual feedback using Plotly
+   - Educational comparison of parameter effects
+
+Scoring Methods Included
+------------------------
+The module documents and explains several isotopic similarity metrics:
+
+- Cosine similarity
+- Pearson correlation
+- Chi-square distance
+- Kullback-Leibler divergence
+- Wasserstein distance
+- Hybrid scoring approach
+
+Dependencies
+------------
+- numpy
+- streamlit
+- scipy.signal (find_peaks)
+- plotly.graph_objects
+
+Usage
+-----
+This file is intended to be imported into a Streamlit application:
+
+    import src.helper as helper
+
+and used to display interactive help sections:
+
+    helper.display_peak_detection()
+
+Notes
+-----
+- This module is strictly for UI/UX support and educational purposes.
+- It does not perform production-level signal processing.
+- All signals are synthetic and generated for visualization only.
+- The modification of parameters in this module does not affect the main analysis pipeline.
+"""
 
 __author__  = "Pierre-Alexandre HO"
 

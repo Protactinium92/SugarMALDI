@@ -7,9 +7,6 @@ configuration snapshots, and session management using Streamlit.
 
 
 __author__  = "Pierre-Alexandre HO"
-__date__    = "2026-05-01"
-__version__ = "1.0"
-
 
 import streamlit as st
 from dataclasses import dataclass, asdict

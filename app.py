@@ -262,9 +262,6 @@ if __name__=="__main__":
                 width="stretch"
             ):
                 with st.spinner('🔄 Treatment ongoing...'):
-
-                    #TODO: Faire un clean des caches du backend
-
                     # --- Logger Streamlit ---
                     progress = ff.StreamlitProgress(len(spectra))
                     log_placeholder = st.empty()
