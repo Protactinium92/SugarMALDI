@@ -196,16 +196,17 @@ def monomer_selection() ->Tuple[List[str], pl.DataFrame]:
 
 
 def _init_adducts_state() -> None:
-    """Initialize session state for adducts."""
+    """Initialize session state for adducts with default values from cf.ADDUCT_MASS"""
     if "adducts" not in st.session_state:
-        st.session_state.adducts = [
-            {
+        st.session_state.adducts = []
+        for adduct_name, mass in cf.ADDUCT_MASS.items():
+            st.session_state.adducts.append({
                 "id": str(uuid.uuid4()),  # Unique ID
-                "name": "",
-                "mass": 0.0,
-                "formula": "",
-            }
-        ]
+                "name": adduct_name,
+                "mass": mass,
+                "formula": adduct_name,  # Default formula same as name
+                "is_lost": False,  # Default value for is_lost
+            })
 
 
 def _add_adduct() -> None:
@@ -216,6 +217,7 @@ def _add_adduct() -> None:
             "name": "",
             "mass": 0.0,
             "formula": "",
+            "is_lost": False,
         }
     )
 
@@ -234,6 +236,19 @@ def print_error_formula(wrong_elements: List[str]):
     st.error(f"❌ {elements_str} {verb} not in the NIST monoisotopic library")
 
 
+def markdown_checkbox_title_rendering(text: str) -> None:
+    return f"""
+        <div style="
+            white-space: nowrap;
+            font-size: 0.9rem;
+            line-height: 2.3;
+            margin-bottom: 0.5rem;
+        ">
+            {text}
+        </div>
+        """
+            
+
 def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
     """
     Render adduct selection UI and return mass + composition dicts.
@@ -242,13 +257,14 @@ def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
     on_adduct = st.toggle("Use custom adduct (By default H+ Na+ & K+)")
 
     if on_adduct:
+        st.markdown("ℹ️ *Lost: Check the box to indicate if the adduct is lost during ionization*")
         
         _init_adducts_state()
        
         for i, adduct in enumerate(st.session_state.adducts):
             st.markdown(f"Adduct {i+1}")
 
-            col_name, col_mass, col_formula, col_delete = st.columns([2, 2, 4, 0.5],
+            col_name, col_mass, col_is_lost, col_formula, col_delete = st.columns([2, 2, 0.5, 4, 0.5],
                                                     vertical_alignment="bottom")
 
             adduct["name"] = col_name.text_input(
@@ -263,27 +279,22 @@ def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
                 format="%.6f",
                 key=f"mass_{adduct['id']}"
             )
-
-            with col_formula:
-                #st.markdown("Use a brut formula different from name")
-                sub_col_box, sub_col_formula = st.columns([0.05, 1],
-                                                          vertical_alignment="bottom") 
-
-            # label libre (au-dessus, stylable)
-            sub_col_box.markdown(
-                """
-                <div style="
-                    white-space: nowrap;
-                    font-size: 0.9rem;
-                    line-height: 2.3;
-                    margin-bottom: 0.5rem;
-                ">
-                    Use a brut formula different from name
-                </div>
-                """,
+            col_is_lost.markdown(markdown_checkbox_title_rendering("Lost"),
                 unsafe_allow_html=True
             )
+            adduct["is_lost"] = col_is_lost.checkbox(
+                "Lost",
+                key=f"is_lost_{adduct['id']}",
+                label_visibility="collapsed",
+                value=False
+            )
 
+            with col_formula:
+                sub_col_box, sub_col_formula = st.columns([0.05, 1],
+                                                          vertical_alignment="bottom") 
+          
+            sub_col_box.markdown(markdown_checkbox_title_rendering("Use a brut formula different from name"),
+                unsafe_allow_html=True)
             use_formula = sub_col_box.checkbox(
                 "Use Formula",
                 key=f"use_formula_{adduct['id']}",
@@ -325,7 +336,8 @@ def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
         field = ["name", "mass", "formula"]
         valid_adducts, error_indices, has_any_input = ut.validate_rows(st.session_state.adducts,
                                                                     required_fields=field)
-        adduct_mass, adduct_compo = ut.build_adduct_dicts(valid_adducts)
+        adduct_mass, adduct_compo, adduct_is_lost = ut.build_adduct_dicts(valid_adducts)
+        
         
         # Warning message
 
@@ -352,9 +364,11 @@ def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
     else:
         adduct_mass = cf.ADDUCT_MASS
         adduct_compo = cf.ADDUCTS
+        adduct_is_lost = {name: False for name in cf.ADDUCT_MASS.keys()}
 
     st.session_state.adduct_mass = adduct_mass
     st.session_state.adduct_compo = adduct_compo
+    st.session_state.adduct_loss = adduct_is_lost
 
 
 def label_selection():

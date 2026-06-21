@@ -92,6 +92,7 @@ if __name__=="__main__":
             ff.adduct_selection()
             adduct_mass = st.session_state.get("adduct_mass", {})
             adduct_compo = st.session_state.get("adduct_compo", {})
+            adduct_loss = st.session_state.get("adduct_loss", False)
      
             if has_snapshot:
                 ssm.SessionManager.warn_if_any_changed(
@@ -99,6 +100,7 @@ if __name__=="__main__":
                     [
                         (adduct_mass, snapshot.adduct_mass),
                         (adduct_compo, snapshot.adduct_compo),
+                        (adduct_loss, snapshot.adduct_loss),
                     ]
                 )
 
@@ -232,6 +234,7 @@ if __name__=="__main__":
             monomers_list=monomers_list,
             adduct_mass=adduct_mass,
             adduct_compo=adduct_compo,
+            adduct_loss=adduct_loss,
             label_use=label_use,
             label_name=label_name,
             label_formula=label_formula

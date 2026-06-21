@@ -54,47 +54,6 @@ def parse_formula(formula: str) -> Dict[str, int]:
     return composition
 
 
-
-def build_adduct_dicts(adducts: List[dict]
-                       )-> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
-    """
-    Build mass and composition dictionaries from a list of adduct definitions.
-
-    This function processes a list of adduct dictionaries and constructs:
-    - A mapping of adduct names to their masses
-    - A mapping of adduct names to their elemental compositions
-
-    Parameters
-    ----------
-    adducts : List[dict]
-        List of adduct dictionaries. Each dictionary must contain:
-        - "name" (str): Adduct identifier
-        - "mass" (float): Adduct mass
-        - "formula" (str): Chemical formula of the adduct
-
-    Returns
-    -------
-    Tuple[Dict[str, float], Dict[str, Dict[str, int]]]
-        - adduct_mass: mapping of adduct names to masses
-        - adduct_compo: mapping of adduct names to elemental compositions
-    """
-    
-    adduct_mass: Dict[str, float] = {}
-    adduct_compo: Dict[str, Dict[str, int]] = {}
-
-    for adduct in adducts:
-        name = adduct["name"]
-        mass = adduct["mass"]
-        formula = adduct["formula"]
-
-        if name and formula:
-            adduct_mass[name] = mass
-            adduct_compo[name] = parse_formula(formula)
-
-    return adduct_mass, adduct_compo
-
-
-
 def validate_rows(
     rows: List[dict],
     required_fields: List[str],
@@ -146,6 +105,51 @@ def validate_rows(
             error_indices.append(i)
 
     return valid_rows, error_indices, has_any_input
+
+
+def build_adduct_dicts(adducts: List[dict]
+                       )-> Tuple[Dict[str, float], Dict[str, Dict[str, int]], Dict[str, bool]]:
+    """
+    Build mass and composition dictionaries from a list of adduct definitions.
+
+    This function processes a list of adduct dictionaries and constructs:
+    - A mapping of adduct names to their masses
+    - A mapping of adduct names to their elemental compositions
+    - A mapping of adduct names to their lost status
+
+    Parameters
+    ----------
+    adducts : List[dict]
+        List of adduct dictionaries. Each dictionary must contain:
+        - "name" (str): Adduct identifier
+        - "mass" (float): Adduct mass
+        - "formula" (str): Chemical formula of the adduct
+        - "is_lost" (bool): Whether the adduct is lost during ionization
+
+    Returns
+    -------
+    Tuple[Dict[str, float], Dict[str, Dict[str, int]], Dict[str, bool]]
+        - adduct_mass: mapping of adduct names to masses
+        - adduct_compo: mapping of adduct names to elemental compositions
+        - adduct_is_lost: mapping of adduct names to their lost status
+    """
+    
+    adduct_mass: Dict[str, float] = {}
+    adduct_compo: Dict[str, Dict[str, int]] = {}
+    adduct_is_lost: Dict[str, bool] = {}
+
+    for adduct in adducts:
+        name = adduct["name"]
+        mass = adduct["mass"]
+        formula = adduct["formula"]
+        is_lost = adduct["is_lost"]
+        
+        if name and formula:
+            adduct_mass[name] = mass
+            adduct_compo[name] = parse_formula(formula)
+            adduct_is_lost[name] = is_lost
+
+    return adduct_mass, adduct_compo, adduct_is_lost
 
 
 def check_formula(dict_formula_compo: dict) -> List[str]:
