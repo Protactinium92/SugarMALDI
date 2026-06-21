@@ -1,15 +1,17 @@
 """
 Frontend utility functions for the SugarMALDI Streamlit application.
+====================================================================
 
+Overview
+--------
 This module contains all Streamlit-specific functions for:
 - Data visualization of MALDI-MS spectra (m/z vs Intensity)
 - User interaction handling
-- Cached operations for performance optimization
 
 Key Features:
 - Polars DataFrame integration for efficient large dataset handling (~1M rows)
 - Base64 image generation for transparent spectrum backgrounds
-- Streamlit caching decorators (@st.cache_data) for responsive UI
+- Streamlit caching decorators (@st.cache_data) for responsive UI for spectra rendering
 
 Designed to work with:
 - Backend: spectre_analysis.py (data processing)

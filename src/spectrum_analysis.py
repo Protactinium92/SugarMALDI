@@ -1,5 +1,11 @@
 """
 MALDI-MS spectra analysis pipeline for oligosaccharide characterization.
+========================================================================
+
+Overview
+--------
+This module provides core functionality for processing and analyzing high-resolution
+MALDI-MS spectra, specifically tailored for oligosaccharide characterization. 
 
 This module provides core functionality for:
 - Data processing of high-resolution mass spectrometry spectra (~2M data points)
@@ -597,7 +603,48 @@ def _build_aligned_vectors(
     N: int,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
-    Build aligned isotopic vectors (experimental vs theoretical).
+    Build aligned experimental and theoretical isotopic intensity vectors.
+
+    For each of the first ``N`` theoretical isotopes, the function searches
+    for an experimental peak within the specified mass tolerance window.
+    If multiple experimental peaks are found, the closest peak in m/z is
+    selected. If no matching peak is found, an intensity of zero is assigned.
+
+    The resulting experimental and theoretical vectors are then normalized
+    before being returned.
+
+    Parameters
+    ----------
+    exp_mz : np.ndarray
+        Experimental m/z values.
+    exp_int : np.ndarray
+        Experimental peak intensities associated with ``exp_mz``.
+    theo_mz : np.ndarray
+        Theoretical isotopic m/z values.
+    theo_prob : np.ndarray
+        Theoretical isotopic probabilities or relative abundances.
+    tolerance : float
+        Mass tolerance used to match experimental and theoretical peaks.
+        The tolerance window is computed using ``calcul_offset``.
+    N : int
+        Number of theoretical isotopes to consider, starting from the
+        monoisotopic peak.
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray]
+        A tuple containing:
+
+        - Normalized experimental intensity vector aligned to the theoretical
+          isotopes.
+        - Normalized theoretical probability vector.
+
+    Notes
+    -----
+    Missing isotopes are represented by a value of zero in the experimental
+    vector. When several experimental peaks fall within the tolerance window,
+    the peak with the smallest m/z deviation from the theoretical isotope
+    is selected.
     """
     aligned_exp = []
     aligned_theo = []
@@ -1018,8 +1065,41 @@ def create_zip(file_paths: Dict[str, Path]) -> BytesIO:
 
 
 def process_mass(mass: float, adduct:str, full_library: pl.LazyFrame, monomers_list: List[str], mass_col_name: str):
-    """Traite une seule masse et renvoie le nom d'oligo correspondant.
-    Use for parralelisation"""
+    """
+    Generate oligosaccharide identification names for a given mass.
+
+    This function filters the oligosaccharide library for entries matching
+    the specified mass, assigns the selected adduct, and generates the
+    corresponding oligosaccharide identification string(s).
+
+    It is primarily intended for parallel processing of multiple masses.
+
+    Parameters
+    ----------
+    mass : float
+        Mass value used to filter the oligosaccharide library.
+    adduct : str
+        Adduct associated with the detected mass.
+    full_library : pl.LazyFrame
+        Complete oligosaccharide library.
+    monomers_list : list[str]
+        List of authorized monomers used to construct oligosaccharide names.
+    mass_col_name : str
+        Name of the column containing mass values in the library.
+
+    Returns
+    -------
+    str
+        Oligosaccharide identification(s) associated with the input mass.
+        Multiple identifications are concatenated using "/" when duplicate
+        masses correspond to several candidate structures.
+
+    Notes
+    -----
+    This function is designed to be executed in parallel when processing
+    large numbers of masses. Identifications are generated through
+    ``compile_oligo_name()`` and returned as a single string.
+    """
     selected_oligo_lf = (full_library
                          .filter(pl.col(mass_col_name) == mass)
                          .with_columns(pl.lit(adduct).alias("Adduct")))

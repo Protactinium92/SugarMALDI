@@ -82,13 +82,13 @@ pip install .
 
 Directly with UV:
 ```bash
-uv run streamlit run src/app.py
+uv run streamlit run app.py
 ```
 
 Or in virtual environnment:
 
 ```bash
-streamlit run src/app.py
+streamlit run app.py
 ```
 
 ## Important information:
@@ -119,7 +119,7 @@ It contains 4 examples:
 
 ## Notes  
 
-- This project uses `pyproject.toml` (PEP 517/518), so no `requirements.txt` is needed.  
+- This project uses `pyproject.toml` (PEP 517/518)  
 - Recommended Python version: **>= 3.9**  
 
 
@@ -135,4 +135,4 @@ In this case, Streamlit automatically uses an in-memory cache backend. This beha
 
 ## Contributing  
 
-Feel free to open issues or submit pull requests to improve the project 🚀  
+Feel free to open issues to improve the project 🚀  
