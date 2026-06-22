@@ -201,7 +201,7 @@ def _init_adducts_state() -> None:
         st.session_state.adducts = []
         for adduct_name, mass in cf.ADDUCT_MASS.items():
             st.session_state.adducts.append({
-                "id": str(uuid.uuid4()),  # Unique ID
+                "id": str(uuid.uuid4()), # Unique ID,  
                 "name": adduct_name,
                 "mass": mass,
                 "formula": adduct_name,  # Default formula same as name
@@ -264,7 +264,7 @@ def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
         for i, adduct in enumerate(st.session_state.adducts):
             st.markdown(f"Adduct {i+1}")
 
-            col_name, col_mass, col_is_lost, col_formula, col_delete = st.columns([2, 2, 0.5, 4, 0.5],
+            col_name, col_is_lost, col_mass, col_formula, col_delete = st.columns([2, 0.5, 2, 4, 0.5],
                                                     vertical_alignment="bottom")
 
             adduct["name"] = col_name.text_input(
@@ -273,21 +273,26 @@ def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
                 key=f"name_{adduct['id']}"
             )
 
-            adduct["mass"] = col_mass.number_input(
-                "m/z",
-                value=adduct["mass"],
-                format="%.6f",
-                key=f"mass_{adduct['id']}"
-            )
             col_is_lost.markdown(markdown_checkbox_title_rendering("Lost"),
                 unsafe_allow_html=True
             )
-            adduct["is_lost"] = col_is_lost.checkbox(
+            is_lost = col_is_lost.checkbox(
                 "Lost",
                 key=f"is_lost_{adduct['id']}",
                 label_visibility="collapsed",
                 value=False
             )
+
+            adduct["mass"] = col_mass.number_input(
+                "m/z",
+                format="%.6f",
+                key=f"mass_{adduct['id']}",
+                max_value=0.0 if is_lost else None,  # No min  but max 0 if is_lost = True forces negative
+                min_value=0.0 if not is_lost else None,  # No max but min 0 if is_lost = False forces positive
+                value=adduct["mass"] if is_lost == adduct["is_lost"] else adduct["mass"]*(-1),  # Adjust mass if is_lost changed
+                step=0.000001
+            )
+            adduct["is_lost"] = is_lost
 
             with col_formula:
                 sub_col_box, sub_col_formula = st.columns([0.05, 1],

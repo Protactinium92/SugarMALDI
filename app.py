@@ -75,7 +75,6 @@ if __name__=="__main__":
         st.markdown("---")
         st.subheader("Chemical Configuration")
 
-
         monomers_list, monomers_df = ff.monomer_selection()
 
         if has_snapshot:
