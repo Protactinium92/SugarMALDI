@@ -116,7 +116,7 @@ class AnalysisConfig:
         monomers_list (list[str]): List of monomers.
         adduct_mass (dict): Adduct masses.
         adduct_compo (dict): Adduct compositions.
-        adduct_loss (bool): Whether adduct loss is considered.
+        adduct_loss (dict): Mapping of adduct names to their lost status.
         label_use (bool): Whether to use labels.
         label_name (str): Label name.
         label_formula (Optional[str]): Label formula.
@@ -125,7 +125,7 @@ class AnalysisConfig:
     monomers_list: list[str]
     adduct_mass: dict
     adduct_compo: dict
-    adduct_loss: bool
+    adduct_loss: dict
     label_use: bool
     label_name: str
     label_formula: Optional[str]

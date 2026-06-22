@@ -619,7 +619,7 @@ def build_plotly_figure(
         y=df_unidentified[intensity_col].to_numpy(),
         mode="markers",
         marker=dict(size=4, color='yellow'),
-        name="Undentified Peaks",
+        name="Unidentified Peaks",
         customdata=x_formate,
         hovertemplate="m/z: %{customdata}<br>Intensity: %{y}<br><extra></extra>",
     ))
@@ -676,7 +676,7 @@ def build_badges(config):
     return [
         *[f":blue-badge[{m}]" for m in config.monomers_list],
         f":orange-badge[{config.params.iso_score}]",
-        *[f":green-badge[{a}]" for a in config.adduct_mass.keys()],
+        *[f":green-badge[{'(-)' if config.adduct_loss.get(name, False) else ''} {name}]" for name in config.adduct_mass.keys()],
         f":red-badge[{config.label_name}]",
     ]
 

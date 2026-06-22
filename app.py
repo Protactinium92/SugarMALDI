@@ -92,7 +92,7 @@ if __name__=="__main__":
             ff.adduct_selection()
             adduct_mass = st.session_state.get("adduct_mass", {})
             adduct_compo = st.session_state.get("adduct_compo", {})
-            adduct_loss = st.session_state.get("adduct_loss", False)
+            adduct_loss = st.session_state.get("adduct_loss", {})
      
             if has_snapshot:
                 ssm.SessionManager.warn_if_any_changed(
@@ -120,7 +120,7 @@ if __name__=="__main__":
                 )
 
         badges_adduct = " ".join(
-            [f":green-badge[{name}: {mass:.6f}]" for name, mass in adduct_mass.items()]
+            [f":green-badge[{'(-)' if adduct_loss.get(name, False) else ''} {name}: {mass:.6f}]" for name, mass in adduct_mass.items()]
         )
         badges_label = (
             ":red-badge[No Label]"
