@@ -247,11 +247,58 @@ def markdown_checkbox_title_rendering(text: str) -> None:
             {text}
         </div>
         """
-            
+
+def _toggle_lost(adduct_id: str) -> None:
+    """Invert mass sign when the 'Lost' checkbox changes."""
+    mass_key = f"mass_{adduct_id}"
+    st.session_state[mass_key] *= -1
+
 
 def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
     """
-    Render adduct selection UI and return mass + composition dicts.
+    Adduct configuration and validation.
+
+    This function renders an interactive interface allowing users to:
+    - Define, edit, and delete adducts
+    - Configure adduct mass values (m/z)
+    - Define chemical formulas or fallback to adduct names
+    - Specify whether an adduct is "lost" during ionization
+    - Optionally override formulas with custom definitions
+
+    The function manages both:
+    - Streamlit session state (UI layer)
+    - Internal adduct structure (data layer)
+
+    It also performs validation and builds clean output dictionaries
+    used for downstream spectrum analysis.
+
+    Returns
+    -------
+    adduct_mass : dict[str, float]
+        Mapping of adduct names to their corresponding m/z values.
+
+    adduct_compo : dict[str, dict[str, int]]
+        Mapping of adduct names to their elemental composition
+        (parsed from chemical formulas).
+
+    adduct_is_lost : dict[str, bool]
+        Mapping indicating whether each adduct is considered lost
+        during ionization (True) or retained (False).
+
+    Notes
+    -----
+    - Session state is used to persist UI interactions across reruns.
+    - Each adduct is identified internally by a UUID stored in session state.
+    - The function enforces consistency between user input and validated outputs.
+    - Validation is performed on formulas and elemental composition.
+    - Invalid adducts or incomplete entries are filtered before output.
+
+    Design philosophy
+    ------------------
+    - Streamlit-native reactive UI
+    - Separation between UI state (session_state) and analysis-ready data
+    - Reproducible and validated outputs for scientific workflows
+    - Defensive handling of partial or invalid user input
     """
 
     on_adduct = st.toggle("Use custom adduct (By default H+ Na+ & K+)")
@@ -264,76 +311,115 @@ def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
         for i, adduct in enumerate(st.session_state.adducts):
             st.markdown(f"Adduct {i+1}")
 
+            # Init session state for each adduct if not already present
+            # Use unique keys based on adduct ID to avoid collisions
+            # Use session state to persist user input across reruns
+
+            adduct_id = adduct["id"]
+
+            name_key = f"name_{adduct_id}"
+            mass_key = f"mass_{adduct_id}"
+            formula_key = f"formula_{adduct_id}"
+            is_lost_key = f"is_lost_{adduct_id}"
+            use_formula_key = f"use_formula_{adduct_id}"
+
+            defaults = {
+                name_key: adduct["name"],
+                mass_key: adduct["mass"],
+                formula_key: adduct["formula"],
+                is_lost_key: adduct["is_lost"],
+                use_formula_key: adduct["formula"] != adduct["name"],
+            }
+
+            for key, default_value in defaults.items():
+                if key not in st.session_state:
+                    st.session_state[key] = default_value
+
             col_name, col_is_lost, col_mass, col_formula, col_delete = st.columns([2, 0.5, 2, 4, 0.5],
                                                     vertical_alignment="bottom")
-
-            adduct["name"] = col_name.text_input(
+            
+            col_name.text_input(
                 "Name",
-                value=adduct["name"],
-                key=f"name_{adduct['id']}"
+                key=name_key,
             )
 
-            col_is_lost.markdown(markdown_checkbox_title_rendering("Lost"),
-                unsafe_allow_html=True
+            col_is_lost.markdown(
+                markdown_checkbox_title_rendering("Lost"),
+                unsafe_allow_html=True,
             )
-            is_lost = col_is_lost.checkbox(
+
+            col_is_lost.checkbox(
                 "Lost",
-                key=f"is_lost_{adduct['id']}",
+                key=is_lost_key,
                 label_visibility="collapsed",
-                value=False
+                on_change=_toggle_lost,
+                args=(adduct_id,),
             )
-
-            adduct["mass"] = col_mass.number_input(
+            is_lost = st.session_state[is_lost_key]
+            col_mass.number_input(
                 "m/z",
+                key=mass_key,
                 format="%.6f",
-                key=f"mass_{adduct['id']}",
-                max_value=0.0 if is_lost else None,  # No min  but max 0 if is_lost = True forces negative
-                min_value=0.0 if not is_lost else None,  # No max but min 0 if is_lost = False forces positive
-                value=adduct["mass"] if is_lost == adduct["is_lost"] else adduct["mass"]*(-1),  # Adjust mass if is_lost changed
-                step=0.000001
+                step=0.000001,
+                max_value=0.0 if is_lost else None,
+                min_value=0.0 if not is_lost else None, 
             )
-            adduct["is_lost"] = is_lost
 
             with col_formula:
-                sub_col_box, sub_col_formula = st.columns([0.05, 1],
-                                                          vertical_alignment="bottom") 
-          
-            sub_col_box.markdown(markdown_checkbox_title_rendering("Use a brut formula different from name"),
-                unsafe_allow_html=True)
-            use_formula = sub_col_box.checkbox(
-                "Use Formula",
-                key=f"use_formula_{adduct['id']}",
-                label_visibility="collapsed",
-                value=False
-            )
-            if use_formula:
-                adduct["formula"] = sub_col_formula.text_input(
-                    "formula",
-                    value=adduct["formula"],
-                    key=f"formula_{adduct['id']}",
-                    placeholder="e.g. NH4",
+
+                sub_col_box, sub_col_formula = st.columns(
+                    [0.05, 1],
+                    vertical_alignment="bottom",
+                )
+
+                sub_col_box.markdown(
+                    markdown_checkbox_title_rendering(
+                        "Use a brut formula different from name"
+                    ),
+                    unsafe_allow_html=True,
+                )
+
+                sub_col_box.checkbox(
+                    "Use Formula",
+                    key=use_formula_key,
                     label_visibility="collapsed",
                 )
-            else:
-                adduct["formula"] = adduct["name"]
+
+                # -----------------------------
+                # FORMULA VALUE LOGIC
+                # -----------------------------
+
+                use_formula = st.session_state[use_formula_key]
+                # If disabled → formula follows name automatically
+                if not use_formula:
+                    st.session_state[formula_key] = st.session_state[name_key]
+
                 sub_col_formula.text_input(
                     "formula",
-                    value=adduct["formula"],
-                    key=f"formula_{adduct['id']}_disabled",
-                    placeholder="e.g. NH4",
-                    disabled=True,
-                    label_visibility="collapsed"
+                    key=formula_key,
+                    disabled=not use_formula,
+                    label_visibility="collapsed",
                 )
 
             col_delete.button(
-                label = "❌" if len(st.session_state.adducts) > 1 else "—",
-                key=f"delete_{adduct['id']}",
+                label="❌" if len(st.session_state.adducts) > 1 else "—",
+                key=f"delete_{adduct_id}",
                 width=40,
                 on_click=_delete_adduct,
-                args=(adduct["id"],),
-                disabled=(len(adduct) == 1)
+                args=(adduct_id,),
+                disabled=(len(st.session_state.adducts) == 1),
             )
 
+            # ------------------------------------------------------------------
+            # Synchronize adduct dictionary
+            # ------------------------------------------------------------------
+
+            adduct["name"] = st.session_state[name_key]
+            adduct["mass"] = st.session_state[mass_key]
+            adduct["formula"] = st.session_state[formula_key]
+            adduct["is_lost"] = st.session_state[is_lost_key]
+
+            
         st.button(
             "➕ Add Adduct",
             on_click=_add_adduct,
@@ -343,9 +429,7 @@ def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
                                                                     required_fields=field)
         adduct_mass, adduct_compo, adduct_is_lost = ut.build_adduct_dicts(valid_adducts)
         
-        
         # Warning message
-
         if error_indices:
             error_adduct = [f"Adduct {i+1}" for i in error_indices]
             st.error(f"❌ Some adducts are incomplete {' / '.join(map(str, error_adduct))}")
