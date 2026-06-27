@@ -113,7 +113,10 @@ if __name__=="__main__":
                         (adduct_mass, snapshot.adduct_mass),
                         (adduct_compo, snapshot.adduct_compo),
                     ]
-                )          
+                )
+
+            for adduct in adduct_compo:
+                st.write(f"Adduct: {adduct}, Composition: {adduct_compo[adduct]}")          
 
         badges_adduct = " ".join(
             [f":green-badge[{name}: {mass:.6f}]" for name, mass in adduct_mass.items()]
@@ -232,7 +235,8 @@ if __name__=="__main__":
             adduct_compo=adduct_compo,
             label_use=label_use,
             label_name=label_name,
-            label_formula=label_formula
+            label_formula=label_formula,
+            label_compo=label_dict
         )
 
         # Check of all field are filled

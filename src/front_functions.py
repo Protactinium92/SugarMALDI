@@ -435,7 +435,7 @@ def adduct_selection(element_monomere: List[str], label_formula: Dict[str, int] 
         # ------------------------------------------------------------------
         # Warnings and errors for invalid adducts messages
         # ------------------------------------------------------------------
-        
+
         if error_indices:
             error_adduct = [f"Adduct {i+1}" for i in error_indices]
             st.error(f"❌ Some adducts are incomplete {' / '.join(map(str, error_adduct))}")
@@ -444,7 +444,7 @@ def adduct_selection(element_monomere: List[str], label_formula: Dict[str, int] 
             st.error("⚠️ Please fill at least one adduct")
 
         for adduct in valid_adducts:
-            adduct_compo, error = ut.validate_adduct(
+            error = ut.validate_adduct(
                 adduct=adduct,
                 monomer_elements=element_monomere,
                 label_composition=label_formula,
@@ -466,6 +466,45 @@ def adduct_selection(element_monomere: List[str], label_formula: Dict[str, int] 
 
 
 def label_selection():
+    """
+    Streamlit UI component to select and validate a labeling strategy.
+
+    The user can choose between:
+    - No label
+    - A custom label (name + chemical formula)
+    - A default predefined label (3-AQ)
+
+    Depending on the selection, the function validates the input,
+    parses the chemical formula, and checks element consistency.
+
+    Returns
+    -------
+    use_label : bool
+        Whether labeling is enabled or not.
+    label_name : str or None
+        Name of the selected label. None if no label is used or input is invalid.
+    label_formula : str or None
+        Chemical formula of the selected label. None if not applicable or invalid.
+    compo : dict or None
+        Parsed elemental composition of the label.
+        - For custom labels: result of `ut.parse_formula`
+        - For default label: predefined composition (`cf.LABEL_3AQ`)
+        - None if labeling is disabled or invalid input
+
+    Notes
+    -----
+    Validation steps for custom labels:
+    1. Both name and formula must be provided.
+    2. The formula is parsed into elemental composition.
+    3. Elements are checked against the allowed library via `ut.check_formula`.
+    4. Errors are displayed in the Streamlit UI if validation fails.
+
+    UI Behavior
+    -----------
+    - If `use_label` is False: no label is applied.
+    - If `on_label` is True: user-defined label is used.
+    - Otherwise: default label "3-AQ" is used.
+    """
     col1, col2 = st.columns([0.25, 0.75])
     use_label = col1.toggle("Use label (By default True)", value=True)
     on_label = col2.toggle(

@@ -493,6 +493,8 @@ def calculate_brut_formula(
         Adduct type ("H", "Na", "K", "NH4", ...)
     use_label_3aq : bool
         Add 3AQ label if True
+    label_compo : dict
+        Composition of the label (e.g., {"C": 9, "H": 7, "N": 1, "O": 1})
 
     Returns
     -------
@@ -533,6 +535,8 @@ def calculate_brut_formula(
 
         for elem, count in adduct_compo[adduct].items():
             totals[elem] = totals.get(elem, 0) + count
+            if totals[elem] < 0:
+                raise ValueError(f"Negative element count for {elem} after adduct application")
 
     # Build Formula
     # Ordre chimique standard
@@ -870,6 +874,8 @@ def match_oligos(
         scored_candidates = []
         # collect is acceptable here because top_n is small       
         for candidate_row in best_matches.collect().iter_rows(named=True):
+
+            print(f"Processing candidate: {candidate_row['column_id']} with Adduct: {candidate_row['Adduct']}")
             
             # 1. Compute formula
             formula = calculate_brut_formula(

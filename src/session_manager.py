@@ -119,6 +119,7 @@ class AnalysisConfig:
         label_use (bool): Whether to use labels.
         label_name (str): Label name.
         label_formula (Optional[str]): Label formula.
+        label_compo (Optional[dict]): Label composition.
     """
     params: AnalysisParams
     monomers_list: list[str]
@@ -127,6 +128,7 @@ class AnalysisConfig:
     label_use: bool
     label_name: str
     label_formula: Optional[str]
+    label_compo: Optional[dict]
 
 
 # ---------- SESSION MANAGER (MINIMAL) ----------

@@ -288,7 +288,7 @@ def validate_adduct(
     adduct: Dict[str, object],
     monomer_elements: List[str],
     label_composition: Optional[Dict[str, int]],
-) -> Tuple[Optional[Dict[str, int]], Optional[str]]:
+) -> Optional[str]:
     """
     Validate a single adduct.
 
@@ -311,9 +311,6 @@ def validate_adduct(
 
     Returns
     -------
-    composition : dict[str, int] or None
-        Parsed elemental composition if the adduct is valid, otherwise
-        ``None``.
     error : str or None
         Error message if validation failed, otherwise ``None``.
     """
@@ -323,7 +320,7 @@ def validate_adduct(
     )
 
     if adduct["formula"] and not composition:
-        return None, (
+        return (
             f"❌ Adduct formula '{adduct['formula']}' is invalid."
         )
 
@@ -332,7 +329,7 @@ def validate_adduct(
         elements_str = ", ".join(wrong_elements)
         verb = "are" if len(wrong_elements) > 1 else "is"
 
-        return None, (
+        return (
             f"❌ {elements_str} {verb} not in the NIST monoisotopic library."
         )
 
@@ -344,13 +341,13 @@ def validate_adduct(
     )
 
     if invalid_elements:
-        return None, (
+        return (
             f"❌ Lost adduct '{adduct['formula']}' contains element(s) "
             "that are not present in the monomers or the selected label: "
             f"{', '.join(invalid_elements)}."
         )
 
-    return composition, None
+    return  None
 
 if __name__ == "__main__":
     print(
