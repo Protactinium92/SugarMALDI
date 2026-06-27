@@ -91,7 +91,6 @@ if __name__=="__main__":
             ff.adduct_selection()
             adduct_mass = st.session_state.get("adduct_mass", {})
             adduct_compo = st.session_state.get("adduct_compo", {})
-            adduct_loss = st.session_state.get("adduct_loss", {})
      
             if has_snapshot:
                 ssm.SessionManager.warn_if_any_changed(
@@ -99,10 +98,11 @@ if __name__=="__main__":
                     [
                         (adduct_mass, snapshot.adduct_mass),
                         (adduct_compo, snapshot.adduct_compo),
-                        (adduct_loss, snapshot.adduct_loss),
                     ]
                 )
-
+            
+            for adduct in adduct_compo:
+                st.write(f"Adduct: {adduct}, Mass: {adduct_mass[adduct]:.6f}, Composition: {adduct_compo[adduct]}")
 
         label_container = st.container(border=True)
         with label_container:
@@ -119,7 +119,7 @@ if __name__=="__main__":
                 )
 
         badges_adduct = " ".join(
-            [f":green-badge[{'(-)' if adduct_loss.get(name, False) else ''} {name}: {mass:.6f}]" for name, mass in adduct_mass.items()]
+            [f":green-badge[{name}: {mass:.6f}]" for name, mass in adduct_mass.items()]
         )
         badges_label = (
             ":red-badge[No Label]"
@@ -226,14 +226,13 @@ if __name__=="__main__":
                     [(current_params, snapshot.params)]
                 )
 
-        
+   
         # Create a temporary config object to save
         current_config = ssm.AnalysisConfig(
             params=current_params,
             monomers_list=monomers_list,
             adduct_mass=adduct_mass,
             adduct_compo=adduct_compo,
-            adduct_loss=adduct_loss,
             label_use=label_use,
             label_name=label_name,
             label_formula=label_formula

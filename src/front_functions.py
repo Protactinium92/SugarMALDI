@@ -292,19 +292,14 @@ def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
     - The function enforces consistency between user input and validated outputs.
     - Validation is performed on formulas and elemental composition.
     - Invalid adducts or incomplete entries are filtered before output.
-
-    Design philosophy
-    ------------------
-    - Streamlit-native reactive UI
-    - Separation between UI state (session_state) and analysis-ready data
-    - Reproducible and validated outputs for scientific workflows
-    - Defensive handling of partial or invalid user input
     """
 
     on_adduct = st.toggle("Use custom adduct (By default H+ Na+ & K+)")
 
     if on_adduct:
         st.markdown("ℹ️ *Lost: Check the box to indicate if the adduct is lost during ionization*")
+        st.markdown("ℹ️ *Formula: Enter the net elemental composition of the adduct (e.g. H2O, CO, Na, H). Complex expressions such as -H2O+H are not supported; \
+                    instead, enter the simplified net composition (HO) with Lost checkbox checked.*")
         
         _init_adducts_state()
        
@@ -438,7 +433,7 @@ def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
             st.error("⚠️ Please fill at least one adduct")
 
         for adduct in valid_adducts:
-            composition = adduct_compo.get(adduct["name"], {})
+            composition = ut.parse_formula(adduct["formula"], adduct["is_lost"])
 
             if adduct["formula"] and not composition:
                 st.error(f"❌ Adduct formula '{adduct['formula']}' is invalid")
@@ -450,6 +445,7 @@ def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
                 print_error_formula(wrong_elements)
                 adduct_compo = None
                 break
+
     else:
         adduct_mass = cf.ADDUCT_MASS
         adduct_compo = cf.ADDUCTS
@@ -765,7 +761,7 @@ def build_badges(config):
     return [
         *[f":blue-badge[{m}]" for m in config.monomers_list],
         f":orange-badge[{config.params.iso_score}]",
-        *[f":green-badge[{'(-)' if config.adduct_loss.get(name, False) else ''} {name}]" for name in config.adduct_mass.keys()],
+        *[f":green-badge[{name}]" for name in config.adduct_mass.keys()],
         f":red-badge[{config.label_name}]",
     ]
 

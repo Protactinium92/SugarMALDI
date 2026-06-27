@@ -20,37 +20,38 @@ from src import config as cf
 from src import load_file as load
 
 
-def parse_formula(formula: str) -> Dict[str, int]:
+def parse_formula(formula: str, lost: bool = False) -> Dict[str, int]:
     """
     Parse a chemical formula into its elemental composition.
-
-    This function converts a string representation of a chemical formula
-    into a dictionary where keys are element symbols and values are their
-    respective counts.
 
     Parameters
     ----------
     formula : str
-        Chemical formula string (e.g., "NH4", "C6H12O6").
+        Chemical formula string representing a net elemental composition.
+    lost : bool, optional
+        Whether the adduct is lost during ionization.
+        If ``True``, all element counts are negated.
+        If ``False``, the formula is kept unchanged.
 
     Returns
     -------
     Dict[str, int]
-        Dictionary mapping element symbols to integer counts.
-        Example: "NH4" -> {"N": 1, "H": 4}
-
-    Notes
-    -----
-    This parser assumes a simple chemical notation without nested
-    groups or parentheses.
+        Elemental composition with signed counts.
     """
+    # global sign variable to determine if the adduct is lost
+    sign = -1 if lost else 1
+
     pattern = r"([A-Z][a-z]*)(\d*)"
     matches = re.findall(pattern, formula)
-    
-    composition = {}
+
+    composition: Dict[str, int] = {}
     for element, count in matches:
-        composition[element] = composition.get(element, 0) + int(count or 1)
-    
+        value = int(count or 1) * sign
+        composition[element] = composition.get(element, 0) + value
+
+    # remove zero entries (optional clean-up)
+    composition = {k: v for k, v in composition.items() if v != 0}
+
     return composition
 
 
@@ -117,6 +118,9 @@ def build_adduct_dicts(adducts: List[dict]
     - A mapping of adduct names to their elemental compositions
     - A mapping of adduct names to their lost status
 
+    Lost adducts are automatically prefixed with "(-)" in the output
+    dictionaries.
+
     Parameters
     ----------
     adducts : List[dict]
@@ -144,10 +148,15 @@ def build_adduct_dicts(adducts: List[dict]
         formula = adduct["formula"]
         is_lost = adduct["is_lost"]
         
-        if name and formula:
-            adduct_mass[name] = mass
-            adduct_compo[name] = parse_formula(formula)
-            adduct_is_lost[name] = is_lost
+        if not (name and formula):
+            continue
+
+        if is_lost:
+            name = f"(-){name}"
+
+        adduct_mass[name] = mass
+        adduct_compo[name] = parse_formula(formula, is_lost)
+        adduct_is_lost[name] = is_lost
 
     return adduct_mass, adduct_compo, adduct_is_lost
 

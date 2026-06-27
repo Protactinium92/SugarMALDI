@@ -827,8 +827,6 @@ def match_oligos(
     intensity_list = peaks_np[:, 1]
     matched_oligos = []
 
-
-
     # Loop: for each mass select the closest reference oligo
     for mass, intensity in zip(mass_list, intensity_list):
 
