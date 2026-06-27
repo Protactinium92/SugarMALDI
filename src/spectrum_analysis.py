@@ -539,7 +539,7 @@ def calculate_brut_formula(
                 raise ValueError(f"Negative element count for {elem} after adduct application")
 
     # Build Formula
-    # Ordre chimique standard
+    # Standard chemical order: C, H, N, O, S, P, then others alphabetically
     priority_order = ["C", "H", "N", "O", "S", "P"]
     other_elements = sorted([e for e in totals.keys() if e not in priority_order])
 
