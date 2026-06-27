@@ -254,7 +254,8 @@ def _toggle_lost(adduct_id: str) -> None:
     st.session_state[mass_key] *= -1
 
 
-def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
+def adduct_selection(element_monomere: List[str], label_formula: Dict[str, int] | None
+                     ) -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
     """
     Adduct configuration and validation.
 
@@ -271,6 +272,13 @@ def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
 
     It also performs validation and builds clean output dictionaries
     used for downstream spectrum analysis.
+
+    Parameters
+    ----------
+    element_monomere : List[str]
+        List of valid elements for monomers, used for formula validation.   
+    label_formula : Dict[str, int] | None
+        Optional dictionary of label elemental composition for validation.
 
     Returns
     -------
@@ -424,7 +432,10 @@ def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
                                                                     required_fields=field)
         adduct_mass, adduct_compo, adduct_is_lost = ut.build_adduct_dicts(valid_adducts)
         
-        # Warning message
+        # ------------------------------------------------------------------
+        # Warnings and errors for invalid adducts messages
+        # ------------------------------------------------------------------
+        
         if error_indices:
             error_adduct = [f"Adduct {i+1}" for i in error_indices]
             st.error(f"❌ Some adducts are incomplete {' / '.join(map(str, error_adduct))}")
@@ -433,16 +444,14 @@ def adduct_selection() -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
             st.error("⚠️ Please fill at least one adduct")
 
         for adduct in valid_adducts:
-            composition = ut.parse_formula(adduct["formula"], adduct["is_lost"])
+            adduct_compo, error = ut.validate_adduct(
+                adduct=adduct,
+                monomer_elements=element_monomere,
+                label_composition=label_formula,
+            )
 
-            if adduct["formula"] and not composition:
-                st.error(f"❌ Adduct formula '{adduct['formula']}' is invalid")
-                adduct_compo = None
-                break
-
-            wrong_elements = ut.check_formula(composition)
-            if wrong_elements:
-                print_error_formula(wrong_elements)
+            if error:
+                st.error(error)
                 adduct_compo = None
                 break
 
@@ -515,72 +524,6 @@ def label_selection():
                 compo = compo_candidate
 
     # --- CASE 3: Default label ---
-    else:
-        label_name = "3-AQ"
-        label_formula = "C9H8N2"
-        compo = cf.LABEL_3AQ
-
-    return use_label, label_name, label_formula, compo
-
-
-def label_selection():
-    col1, col2 = st.columns([0.25, 0.75])
-    use_label = col1.toggle("Use label (By default True)", value=True)
-    on_label = col2.toggle(
-        "Use custom label (By default 3-AQ)",
-        value=False,
-        disabled=not use_label
-    )
-
-    label_name = None
-    label_formula = None
-    compo = None
-
-    if on_label and use_label:
-        col_name, col_formula = st.columns([1, 3])
-
-        label_name = col_name.text_input(
-            label="Name",
-            key="label_name_input",
-        )
-
-        label_formula = col_formula.text_input(
-            label="Brut or Semi-developped Fomrula",
-            key="label_formula_input",
-            placeholder="e.g. CH4O or CH3-OH"
-        )
-
-        rows = ({"name": label_name, "formula": label_formula},)
-
-        valid_rows, error_indices, has_any_input = ut.validate_rows(
-            rows=rows,
-            required_fields=["name", "formula"]
-        )
-
-        if error_indices:
-            st.error("❌ Both name and formula must be filled")
-
-        elif not has_any_input:
-            st.error("⚠️ Please fill the fields")
-
-        else:
-            row = valid_rows[0]
-
-            compo = ut.parse_formula(row["formula"])
-            wrong_elements = ut.check_formula(compo)
-
-            if wrong_elements:
-                print_error_formula(wrong_elements)
-                compo = None
-            else:
-                label_name = row["name"]
-                label_formula = row["formula"]
-
-    elif use_label == False:
-        label_name = None
-        label_formula = None
-        compo = None
-
     else:
         label_name = "3-AQ"
         label_formula = "C9H8N2"

@@ -15,7 +15,7 @@ __author__  = "Pierre-Alexandre HO"
 
 
 import re
-from typing import Dict, Union, Tuple, List
+from typing import Dict, Union, Tuple, List, Optional
 from src import config as cf
 from src import load_file as load
 
@@ -235,6 +235,122 @@ def validate_inputs(
 
     return len(errors) == 0, errors
 
+
+def validate_lost_adduct(
+    composition: Dict[str, int],
+    is_lost: bool,
+    monomer_elements: List[str],
+    label_composition: Optional[Dict[str, int]],
+) -> List[str]:
+    """
+    Validate that a lost adduct only contains removable elements.
+
+    When an adduct is marked as lost during ionization, every element
+    in its composition must be present either in the monomer elemental
+    composition or in the label composition.
+
+    Parameters
+    ----------
+    composition : dict[str, int]
+        Elemental composition of the adduct.
+    is_lost : bool
+        Whether the adduct is lost during ionization.
+    monomer_elements : list[str]
+        List of element symbols present in the monomers
+        (e.g. ["C", "H", "N", "O"]).
+    label_composition : dict[str, int] or None
+        Elemental composition of the selected label. If no label is used,
+        this should be None.
+
+    Returns
+    -------
+    list[str]
+        Elements that cannot be removed. An empty list indicates that
+        the lost adduct is valid.
+    """
+    if not is_lost:
+        return []
+
+    allowed_elements = set(monomer_elements)
+
+    if label_composition is not None:
+        allowed_elements.update(label_composition.keys())
+
+    return sorted(
+        element
+        for element in composition
+        if element not in allowed_elements
+    )
+
+
+
+def validate_adduct(
+    adduct: Dict[str, object],
+    monomer_elements: List[str],
+    label_composition: Optional[Dict[str, int]],
+) -> Tuple[Optional[Dict[str, int]], Optional[str]]:
+    """
+    Validate a single adduct.
+
+    The validation checks:
+    - the chemical formula can be parsed;
+    - all elements belong to the supported element list;
+    - if the adduct is marked as lost, all its elements can originate
+      from either the monomers or the selected label.
+
+    Parameters
+    ----------
+    adduct : dict
+        Adduct definition containing at least the keys ``"formula"``
+        and ``"is_lost"``.
+    monomer_elements : list[str]
+        List of element symbols present in the monomers.
+    label_composition : dict[str, int] or None
+        Elemental composition of the selected label. If no label is used,
+        this should be ``None``.
+
+    Returns
+    -------
+    composition : dict[str, int] or None
+        Parsed elemental composition if the adduct is valid, otherwise
+        ``None``.
+    error : str or None
+        Error message if validation failed, otherwise ``None``.
+    """
+    composition = parse_formula(
+        adduct["formula"],
+        adduct["is_lost"],
+    )
+
+    if adduct["formula"] and not composition:
+        return None, (
+            f"❌ Adduct formula '{adduct['formula']}' is invalid."
+        )
+
+    wrong_elements = check_formula(composition)
+    if wrong_elements:
+        elements_str = ", ".join(wrong_elements)
+        verb = "are" if len(wrong_elements) > 1 else "is"
+
+        return None, (
+            f"❌ {elements_str} {verb} not in the NIST monoisotopic library."
+        )
+
+    invalid_elements = validate_lost_adduct(
+        composition=composition,
+        is_lost=adduct["is_lost"],
+        monomer_elements=monomer_elements,
+        label_composition=label_composition,
+    )
+
+    if invalid_elements:
+        return None, (
+            f"❌ Lost adduct '{adduct['formula']}' contains element(s) "
+            "that are not present in the monomers or the selected label: "
+            f"{', '.join(invalid_elements)}."
+        )
+
+    return composition, None
 
 if __name__ == "__main__":
     print(

@@ -86,24 +86,6 @@ if __name__=="__main__":
 
         st.markdown("##### Adduct & Label Selection")
 
-        adduct_container = st.container(border=True)
-        with adduct_container:
-            ff.adduct_selection()
-            adduct_mass = st.session_state.get("adduct_mass", {})
-            adduct_compo = st.session_state.get("adduct_compo", {})
-     
-            if has_snapshot:
-                ssm.SessionManager.warn_if_any_changed(
-                    "Adduct parameters",
-                    [
-                        (adduct_mass, snapshot.adduct_mass),
-                        (adduct_compo, snapshot.adduct_compo),
-                    ]
-                )
-            
-            for adduct in adduct_compo:
-                st.write(f"Adduct: {adduct}, Mass: {adduct_mass[adduct]:.6f}, Composition: {adduct_compo[adduct]}")
-
         label_container = st.container(border=True)
         with label_container:
             label_use, label_name, label_formula, label_dict = ff.label_selection()
@@ -117,6 +99,21 @@ if __name__=="__main__":
                         (label_formula, snapshot.label_formula),
                     ]
                 )
+
+        adduct_container = st.container(border=True)
+        with adduct_container:
+            ff.adduct_selection(monomers_df.columns[3:], label_dict)
+            adduct_mass = st.session_state.get("adduct_mass", {})
+            adduct_compo = st.session_state.get("adduct_compo", {})
+     
+            if has_snapshot:
+                ssm.SessionManager.warn_if_any_changed(
+                    "Adduct parameters",
+                    [
+                        (adduct_mass, snapshot.adduct_mass),
+                        (adduct_compo, snapshot.adduct_compo),
+                    ]
+                )          
 
         badges_adduct = " ".join(
             [f":green-badge[{name}: {mass:.6f}]" for name, mass in adduct_mass.items()]
