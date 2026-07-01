@@ -96,9 +96,9 @@ class AnalysisParams:
         iso_score (Optional[str]): Isotope scoring method.
     """
     window: int = 500
-    prominence: float = 3e5
+    prominence: float = 1e5
     dist_min: int = 0
-    height_min: float = 5e5
+    height_min: float = 2e5
     rm_threshold: float = 5
     number_candidate: int = 4
     number_iso: int = 5

@@ -270,55 +270,55 @@ def add_column_id(df: pl.LazyFrame, monomers: List[str]) -> pl.LazyFrame:
     return df_lazy
 
 
-def get_duplicate(
-    df: Union[pl.DataFrame, pl.LazyFrame],
-    columns_to_check: List[str],
-    id_col: str = "column_id",
-    ) -> List[str]:
-    """
-    Returns a set of `id_col` values corresponding to rows that contain 
-    at least one value that appears more than once in any of the specified columns.
+# def get_duplicate(
+#     df: Union[pl.DataFrame, pl.LazyFrame],
+#     columns_to_check: List[str],
+#     id_col: str = "column_id",
+#     ) -> List[str]:
+#     """
+#     Returns a set of `id_col` values corresponding to rows that contain 
+#     at least one value that appears more than once in any of the specified columns.
     
-    Fully lazy and vectorized horizontal version:
+#     Fully lazy and vectorized horizontal version:
 
-    Args:
-        df (pl.DataFrame): The Polars DataFrame to analyze.
-        id_col (str, optional): The name of the unique identifier column. Defaults to "column_id".
-        columns_to_check (List[str]): List of columns to check for duplicated values.
+#     Args:
+#         df (pl.DataFrame): The Polars DataFrame to analyze.
+#         id_col (str, optional): The name of the unique identifier column. Defaults to "column_id".
+#         columns_to_check (List[str]): List of columns to check for duplicated values.
 
-    Returns:
-        List[str]: A list of `id_col` values for rows containing duplicated values.
-    """
+#     Returns:
+#         List[str]: A list of `id_col` values for rows containing duplicated values.
+#     """
 
-    # Convert to lazy frame
-    df_lazy = ensure_lazy(df)
+#     # Convert to lazy frame
+#     df_lazy = ensure_lazy(df)
 
-    # Step 1: For each column, find which values appear more than once (lazy, vectorized)
-    duplicated_values_exprs = [
-        pl.col(c).is_in(  # rerurn bool for each row, whether the value in column c is in the given set of values
-            df_lazy.select(pl.col(c), allow_object=True)
-                   .group_by(c)  # separate DataFrame into groups of identical values.
-                   .agg(pl.len().alias("cnt"))  # count how many rows are in each group.
-                   .filter(pl.col("cnt") > 1)
-                   .collect()[c]
-                   .to_list()
-        )
-        for c in columns_to_check
-    ]
+#     # Step 1: For each column, find which values appear more than once (lazy, vectorized)
+#     duplicated_values_exprs = [
+#         pl.col(c).is_in(  # rerurn bool for each row, whether the value in column c is in the given set of values
+#             df_lazy.select(pl.col(c), allow_object=True)
+#                    .group_by(c)  # separate DataFrame into groups of identical values.
+#                    .agg(pl.len().alias("cnt"))  # count how many rows are in each group.
+#                    .filter(pl.col("cnt") > 1)
+#                    .collect()[c]
+#                    .to_list()
+#         )
+#         for c in columns_to_check
+#     ]
 
-    # Step 2: Combine all boolean masks horizontally with pl.any_horizontal
-    mask_global = pl.any_horizontal(duplicated_values_exprs)
+#     # Step 2: Combine all boolean masks horizontally with pl.any_horizontal
+#     mask_global = pl.any_horizontal(duplicated_values_exprs)
 
-    # Step 3: Filter original DataFrame lazily and collect id_col values
-    duplicate_ids = (
-        df_lazy.filter(mask_global)
-               .select(id_col)
-               .unique()
-               .collect()[id_col]
-               .to_list()
-    )
+#     # Step 3: Filter original DataFrame lazily and collect id_col values
+#     duplicate_ids = (
+#         df_lazy.filter(mask_global)
+#                .select(id_col)
+#                .unique()
+#                .collect()[id_col]
+#                .to_list()
+#     )
 
-    return duplicate_ids
+#     return duplicate_ids
 
 
 def write_pl_df_to_csv(
