@@ -228,7 +228,7 @@ def validate_inputs(
         errors.append("No monomers provided")
 
     if not adduct_compo:
-        errors.append("Adduct composition is missing or empty")
+        errors.append("Adduct composition is missing, empty or invalid")
 
     if use_label and label_compo is None:
         errors.append("Label is enabled but invalid")

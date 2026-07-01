@@ -422,6 +422,7 @@ def adduct_selection(element_monomere: List[str], label_formula: Dict[str, int] 
             adduct["formula"] = st.session_state[formula_key]
             adduct["is_lost"] = st.session_state[is_lost_key]
 
+
             
         st.button(
             "➕ Add Adduct",
@@ -431,7 +432,7 @@ def adduct_selection(element_monomere: List[str], label_formula: Dict[str, int] 
         valid_adducts, error_indices, has_any_input = ut.validate_rows(st.session_state.adducts,
                                                                     required_fields=field)
         adduct_mass, adduct_compo, adduct_is_lost = ut.build_adduct_dicts(valid_adducts)
-        
+
         # ------------------------------------------------------------------
         # Warnings and errors for invalid adducts messages
         # ------------------------------------------------------------------

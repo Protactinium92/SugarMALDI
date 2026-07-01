@@ -115,9 +115,6 @@ if __name__=="__main__":
                     ]
                 )
 
-            for adduct in adduct_compo:
-                st.write(f"Adduct: {adduct}, Composition: {adduct_compo[adduct]}")          
-
         badges_adduct = " ".join(
             [f":green-badge[{name}: {mass:.6f}]" for name, mass in adduct_mass.items()]
         )
