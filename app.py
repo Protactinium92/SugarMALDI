@@ -53,6 +53,7 @@ from src import spectrum_analysis as sp_ana
 from src import helper
 from src import utils as ut
 from src import session_manager as ssm
+from src import plot_spectrum as ps
 
 
 if __name__=="__main__":
@@ -316,11 +317,11 @@ if __name__=="__main__":
             # Show specytrum plot
                                 
             # make background image
-            x, y = ff.define_x_y(spectra, selected_spectrum,)
-            bg_src, x_min, x_max, y_min, y_max = ff.make_background_b64(x, y, dpi=dpi)
+            x, y = ps.define_x_y(spectra, selected_spectrum,)
+            bg_src, x_min, x_max, y_min, y_max = ps.make_background_b64(x, y, dpi=dpi)
 
             # PLot the mass spectrum
-            fig = ff.build_plotly_figure(bg_src, peak_lf,
+            fig = ps.build_plotly_figure(bg_src, peak_lf,
                                     mass_col="m/z",
                                     intensity_col="Intensity",
                                     oligo_col_name="Identifications",
