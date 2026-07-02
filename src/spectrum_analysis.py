@@ -1217,7 +1217,7 @@ def execute_process(
                                              label_use=label_use,
                                              label_dict = label_dict).collect()
         nb_combination = (
-            ref_oligo_df.select(pl.col("column_id")).shape[0],
+            ref_oligo_df.shape[0],
             len(adduct_mass)
         )
         ref_oligo_df = ref_oligo_df.lazy()
