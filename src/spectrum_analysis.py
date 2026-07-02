@@ -1196,9 +1196,10 @@ def execute_process(
         progress: Use to communicate with streamlit progress bar
         
     Returns:
-        Tuple[BytesIO, Dict[str, pl.DataFrame]]:
+        Tuple[BytesIO, Dict[str, pl.DataFrame], Tuple[int, int]]:
             - BytesIO: Buffer containing ZIP of results
             - Dict[str, pl.LazyFrame]: Dictionary peaks
+            - Tuple[int, int]: Number of combinations
 
     Raises:
         Exception: If any error occurs during processing
@@ -1214,7 +1215,12 @@ def execute_process(
         ref_oligo_df = om.add_adduct_columns(df = ref_oligo_df,
                                              adduct_mass_dict = adduct_mass,
                                              label_use=label_use,
-                                             label_dict = label_dict).collect().lazy()
+                                             label_dict = label_dict).collect()
+        nb_combination = (
+            ref_oligo_df.select(pl.col("column_id")).shape[0],
+            len(adduct_mass)
+        )
+        ref_oligo_df = ref_oligo_df.lazy()
 
         file_paths, peaks_dict = {}, {}
         for i, (spectrum_name, spectrum_data) in enumerate(spectra_dict.items(), start=1):    
@@ -1271,7 +1277,7 @@ def execute_process(
         gc.collect()
 
         logger.info("[INFO]: End Analysis generation of spectrum")
-        return zip_buffer, peaks_dict
+        return zip_buffer, peaks_dict, nb_combination
 
     except Exception as e:
         print(f"Error in execute_process: {str(e)}")

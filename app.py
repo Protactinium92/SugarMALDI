@@ -267,7 +267,7 @@ if __name__=="__main__":
                     log_placeholder = st.empty()
                     root_logger, handler = ff.init_streamlit_logger(log_placeholder)
 
-                    zip_buffer, peak_dict = sp_ana.execute_process(
+                    zip_buffer, peak_dict, nb_combination = sp_ana.execute_process(
                         spectra,
                         monomers_list,
                         monomers_df,
@@ -312,6 +312,7 @@ if __name__=="__main__":
             nb_peak = peak_lf.select(pl.len()).collect().item()  # .item() extract the scalar value
             nb_id_peak = peak_lf.filter(pl.col("Identifications").is_not_null()).select(pl.len()).collect().item()  # .item() extract the scalar value
             
+            st.write(f'Number of reference oligosaccharide combinations: {nb_combination[0]} x {nb_combination[1]} adducts = {nb_combination[0] * nb_combination[1]}')
             st.write(f'Number of peak identified vs detected: {nb_id_peak} / {nb_peak}')
 
             # Show specytrum plot
