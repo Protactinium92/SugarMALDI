@@ -874,8 +874,6 @@ def match_oligos(
         scored_candidates = []
         # collect is acceptable here because top_n is small       
         for candidate_row in best_matches.collect().iter_rows(named=True):
-
-            print(f"Processing candidate: {candidate_row['column_id']} with Adduct: {candidate_row['Adduct']}")
             
             # 1. Compute formula
             formula = calculate_brut_formula(
@@ -1116,7 +1114,6 @@ def process_mass(mass: float, adduct:str, full_library: pl.LazyFrame, monomers_l
         .to_list()
     )
 
-    print(f"Masse : {str(mass)} -> Oligo duplicate liste: {'/'.join(oligo_names)}")
     return "/".join(oligo_names)
 
 
