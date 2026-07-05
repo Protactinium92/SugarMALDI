@@ -1,4 +1,4 @@
-# SugarMALDI  
+# SugarMALDI v0.1.5
 
 A Spectra Analysis Tool (Draft)
 
@@ -131,6 +131,14 @@ No runtime found, using MemoryCacheStorageManager
 ```
 
 In this case, Streamlit automatically uses an in-memory cache backend. This behavior is expected and does not affect the application.
+
+
+# License
+
+SugarMALDI is distributed under the CeCILL 2.1 License.
+
+The full license text is available in the LICENSE file and at
+https://cecill.info.
 
 
 ## Contributing  

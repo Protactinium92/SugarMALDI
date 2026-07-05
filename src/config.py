@@ -1,3 +1,10 @@
+# Copyright (C) 2026 Pierre-Alexandre HO
+#
+# This file is part of SugarMALDI.
+#
+# Licensed under the CeCILL 2.1 license.
+# See LICENSE file for details.
+
 import tempfile
 from pathlib import Path
 

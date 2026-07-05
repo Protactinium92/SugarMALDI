@@ -1,0 +1,54 @@
+cff-version: 1.2.0
+message: "If you use SugarMALDI in your research, please cite the software as follows."
+
+title: "TBD"
+
+version: 0.1.5
+date-released: 2026-07-05
+
+doi: "10.5281/zenodo.TBD"
+
+authors:
+  - family-names: HO
+    given-names: Pierre-Alexandre
+    role: "Lead developer; methodology; software implementation"
+    affiliation: "TBD"
+
+  - family-names: Rolando
+    given-names: Christian
+    role: "Scientific advisor; project supervision; methodological validation"
+    affiliation: "Professor Emeritus"
+
+  - family-names: Yammine
+    given-names: Marie
+    role: "Experimental design; data acquisition; interpretation; senior scientific contributor"
+    affiliation: "Pasteur Institute, Paris, France"
+
+license: CeCILL-2.1
+
+repository-code: "https://github.com/Protactinium92/SugarMALDI"
+
+keywords:
+  - mass spectrometry
+  - MALDI
+  - glycomics
+  - carbohydrates
+  - bioinformatics
+  - chemoinformatics
+
+abstract: >
+  TBD
+
+preferred-citation:
+  type: software
+  title: "TBD"
+  authors:
+    - family-names: HO
+      given-names: Pierre-Alexandre
+    - family-names: Rolando
+      given-names: Christian
+    - family-names: Yammine
+      given-names: Marie
+  year: 2026
+  doi: "10.5281/zenodo.TBD"
+  repository: "https://github.com/Protactinium92/SugarMALDI"

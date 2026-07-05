@@ -1,13 +1,20 @@
+# Copyright (C) 2026 Pierre-Alexandre HO
+#
+# This file is part of SugarMALDI.
+#
+# Licensed under the CeCILL 2.1 license.
+# See LICENSE file for details.
+
 """
-    Generate a set of theoretical masses for oligosaccharides composed of different oligosccharides.
+Generate a set of theoretical masses for oligosaccharides composed of different oligosccharides.
 
-    These masses are intended for mass spectrometric analysis
+These masses are intended for mass spectrometric analysis
 
-    General formula for the oligosaccharides:
-        x A + y B → Oligosaccharide + (x + y - 1) H2O
+General formula for the oligosaccharides:
+    x A + y B → Oligosaccharide + (x + y - 1) H2O
 
-    The corresponding mass-to-charge ratio (m/z) is given by:
-        m/z = x·m(A) + y·m(B) - (x + y - 1)·m(H2O)
+The corresponding mass-to-charge ratio (m/z) is given by:
+    m/z = x·m(A) + y·m(B) - (x + y - 1)·m(H2O)
 """
 
 __author__  = "Pierre-Alexandre HO"
@@ -27,7 +34,7 @@ try:
     from src import config as cf
 except ImportError:
     import config as cf
-    
+
 
 def csv_to_df(file: str, sep: str):
     return pl.read_csv(file, separator = sep)

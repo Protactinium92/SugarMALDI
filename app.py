@@ -1,3 +1,17 @@
+# Copyright (C) 2026 Pierre-Alexandre HO
+#
+# This file is part of SugarMALDI.
+#
+# SugarMALDI is free software governed by the CeCILL 2.1 license under French law.
+# You can use, modify and/or redistribute the software under the terms of the
+# CeCILL license as circulated by CEA, CNRS and Inria at:
+#
+#     https://www.cecill.info
+#
+# As a counterpart to the access to the source code and rights to copy,
+# modify and redistribute granted by the license, users are provided only
+# with a limited warranty and the software's author has only limited liability.
+
 """
 Streamlit-based user interface for MALDI-MS spectra analysis and visualization.
 
@@ -39,8 +53,7 @@ Dependencies:
 """
 
 __author__  = "Pierre-Alexandre HO"
-__date__    = "2025-09-08"
-__version__ = "1.2"
+__version__ = "0.1.5"
 
 
 import streamlit as st

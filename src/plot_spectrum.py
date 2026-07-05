@@ -1,5 +1,14 @@
+# Copyright (C) 2026 Pierre-Alexandre HO
+#
+# This file is part of SugarMALDI.
+#
+# Licensed under the CeCILL 2.1 license.
+# See LICENSE file for details.
+
 """
 Streamlit utilities for MALDI-MS spectrum visualization and interactive analysis.
+=================================================================================   
+
 
 This module provides helper functions to build interactive spectral visualization
 tools within a Streamlit application. It includes utilities for synchronized UI
