@@ -1,6 +1,6 @@
 # Gum Composition Reference — User Guideline
 
-> **Purpose**
+> **Purpose**  
 > This guideline explains the carbohydrate composition and classification of commonly used natural gums, to help implement accurate queries using **SugarMALDI** software. The values are expressed as **approximate percentage composition** of monosaccharides and grouped sugar classes.
 
 ---
