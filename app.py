@@ -98,7 +98,7 @@ if __name__=="__main__":
                     condition=(snapshot.monomers_list is not None and monomers_list)
                 )
 
-        st.markdown("##### Adduct & Label Selection")
+        st.markdown("##### Adducts, label and chemical modifications selection")
 
         label_container = st.container(border=True)
         with label_container:

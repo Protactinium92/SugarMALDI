@@ -89,6 +89,7 @@ import numpy as np
 import plotly.graph_objects as go
 from scipy.signal import find_peaks
 
+
 SCORING_HELP = {
             "cosine": [
         r"""
@@ -257,6 +258,41 @@ $\epsilon$ : small intensity threshold to consider a peak as “detected”
     ]
 }
 
+
+def user_guide() -> str:
+    return r"""
+##### Quick guide
+
+Choose monomers according to the expected gum composition.
+
+---
+
+***Step 1 — Identify your gum family***
+
+Natural gums usually belong to one of three major polysaccharide families:
+
+| Family | Typical gums |
+|---------|--------------|
+| **Arabinogalactans** | Arabic, Ghatti, Tragacanth, Cherry, Peach, Plum, Almond |
+| **Galactomannans** | Guar, Locust Bean Gum |
+| **Rhamnogalacturonans** | Karaya |
+
+***Step 2 — Select the major monomers***
+
+Choose the monosaccharides expected in your sample.
+
+Typical examples:
+
+- **Galactomannans** → almost exclusively **Hexose**
+- **Arabinogalactans** → mainly **Pentose + Hexose**, often with **HexA**
+- **Karaya gum** → **Hexose + dHex** with some **HexA**
+
+---
+
+📘 **Need detailed compositions for each gum?**
+
+**Full docs on GitHub**: [NOTICE.md](https://github.com/Protactinium92/SugarMALDI/NOTICE.md)
+    """
 
 def window() -> str:
     return r"""

@@ -51,7 +51,7 @@ from src import spectrum_analysis as sp_ana
 from src import load_file as load
 from src import config as cf
 from src import utils as ut
-
+from src import helper
 
 from pathlib import Path
 from typing import Dict, Union, Tuple, List
@@ -160,8 +160,14 @@ def monomer_selection() ->Tuple[List[str], pl.DataFrame]:
     """
     st.markdown("#### Monomer(s) Selection")
 
-    with st.expander("💬 **Information & Guidelines**", expanded=False):
-        st.write("Here will be the guidlines for the selection of monomers.")
+    st.markdown("""ℹ️ **Select the monomer(s) to include in the analysis.**  
+                Select only the most likely monosaccharides for your sample.
+                Including unnecessary monomers greatly increases computation time and the number of false-positive identifications.  
+                If uncertain, run several targeted searches changing the monomer set instead of one exhaustive analysis.
+                """)
+
+    with st.expander("💬 **Guidelines monomers selection**", expanded=False):
+        st.markdown(helper.user_guide())
 
     # Load and prepare monomer data
     monomers = load.read_csv(Path(__file__).parents[1] / "data" / "monomers.csv", sep=";")
@@ -305,7 +311,7 @@ def adduct_selection(element_monomere: List[str], label_formula: Dict[str, int] 
     - Invalid adducts or incomplete entries are filtered before output.
     """
 
-    on_adduct = st.toggle("Use custom adduct (By default H+ Na+ & K+)")
+    on_adduct = st.toggle("Use custom adduct (By default H+ Na+ & K+) and chemical modifications", value=False)
 
     if on_adduct:
         st.markdown("ℹ️ *Lost: Check the box to indicate if the adduct is lost during ionization*")
