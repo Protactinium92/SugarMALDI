@@ -9,30 +9,51 @@
 
 Selecting only the monosaccharides that are expected in your sample improves both **processing speed** and **identification reliability**.
 
-- **Faster analysis:** the number of theoretical oligosaccharides increases exponentially with the number of selected monosaccharides. Restricting the selection greatly reduces computation time. ![Impact of monosaccharide selection on execution time](pictures/monosaccharide_selection_time.svg)
-<details>
-<summary>Benchmark data</summary>
+- **Faster analysis:** the number of theoretical oligosaccharides increases exponentially with the number of selected monosaccharides. Restricting the selection greatly reduces computation time.  
 
-| Number of selected monosaccharides | GM (s) | AG (s) |
-|:---:|---:|---:|
-|1|38|10|
-|2|45|17|
-|3|104|24|
-|4|228|40|
-|5|350|75|
-|6|410|118|
-|7|490|205|
-|8|755|347|
-|9|1305|735|
+![Impact of monosaccharide selection on execution time](pictures/monosaccharide_selection_time.svg)
+  <details>
+  <summary>Benchmark data</summary>
 
-</details>  
+  | Number of selected monosaccharides | GM (s) | AG (s) |
+  |:---:|---:|---:|
+  |1|38|10|
+  |2|45|17|
+  |3|104|24|
+  |4|228|40|
+  |5|350|75|
+  |6|410|118|
+  |7|490|205|
+  |8|755|347|
+  |9|1305|735|
 
+  </details>  
+ <br>
+ 
 - **More reliable identifications:** adding more monosaccharides does not increase the number of detected peaks. Instead, it generates many additional theoretical candidates, increasing the risk of false-positive identifications when several candidates fall within the mass tolerance.
+
+  ![Impact of monosaccharide selection on execution time](pictures/found_hits_GM_AG.svg)  
+  <details>
+  <summary>Benchmark data</summary>  
+
+  | Number of selected monosaccharides | Number of found hits - GM | Number of found hits - AG |
+  |------------------------------------|----------------------------|----------------------------|
+  | 1                                  | 36                         | 0                          |
+  | 2                                  | 151                        | 19                         |
+  | 3                                  | 435                        | 86                         |
+  | 4                                  | 596                        | 194                        |
+  | 5                                  | 1182                       | 433                        |
+  | 6                                  | 1232                       | 496                        |
+  | 7                                  | 1247                       | 520                        |
+  | 8                                  | 1252                       | 535                        |
+  | 9                                  | 1257                       | 545                        |
+  </details>  
+<br>
 
 > **Recommendation:**   
 > Select only the monosaccharides that are likely to be present in your sample. In most cases, **3–5 monosaccharides** provide the best balance between computational efficiency and reliable identifications.
 
-For **unknown samples**, it is recommended to perform multiple analyses using different monosaccharide selections rather than selecting all monosaccharides in a single run.
+>For **unknown samples**, it is recommended to perform **multiple analyses** using different monosaccharide selections rather than selecting all monosaccharides in a single run.
 
 ## 2. Understanding the Parameters
 
