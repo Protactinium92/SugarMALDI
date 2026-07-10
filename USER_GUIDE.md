@@ -5,7 +5,36 @@
 
 ---
 
-## 1. Understanding the Parameters
+## 1. Why limit the number of selected monosaccharides?
+
+Selecting only the monosaccharides that are expected in your sample improves both **processing speed** and **identification reliability**.
+
+- **Faster analysis:** the number of theoretical oligosaccharides increases exponentially with the number of selected monosaccharides. Restricting the selection greatly reduces computation time. ![Impact of monosaccharide selection on execution time](pictures/monosaccharide_selection_time.svg)
+<details>
+<summary>Benchmark data</summary>
+
+| Number of selected monosaccharides | GM (s) | AG (s) |
+|:---:|---:|---:|
+|1|38|10|
+|2|45|17|
+|3|104|24|
+|4|228|40|
+|5|350|75|
+|6|410|118|
+|7|490|205|
+|8|755|347|
+|9|1305|735|
+
+</details>  
+
+- **More reliable identifications:** adding more monosaccharides does not increase the number of detected peaks. Instead, it generates many additional theoretical candidates, increasing the risk of false-positive identifications when several candidates fall within the mass tolerance.
+
+> **Recommendation:**   
+> Select only the monosaccharides that are likely to be present in your sample. In most cases, **3–5 monosaccharides** provide the best balance between computational efficiency and reliable identifications.
+
+For **unknown samples**, it is recommended to perform multiple analyses using different monosaccharide selections rather than selecting all monosaccharides in a single run.
+
+## 2. Understanding the Parameters
 
 ### Notation & Chemical Formulas
    Notation  | Description               | Chemical Formula |
@@ -22,9 +51,9 @@
 
 ---
 
-## 2. Gum Profiles and Recommended Interpretation
+## 3. Gum Profiles and Recommended Interpretation
 
-### 2.A. Arabinogalactan Gums
+### 3.A. Arabinogalactan Gums
 
 #### **Ghatti Gum**
 - **Classification**: Arabinogalactan
@@ -94,7 +123,7 @@
 
 ---
 
-### 2.B. Galactomannan Gums
+### 3.B. Galactomannan Gums
 
 #### **Locust Bean Gum (LBG)**
 - **Classification**: Galactomannan
@@ -118,7 +147,7 @@
 
 ---
 
-### 2.C. Rhamnogalacturonan Gums
+### 3.C. Rhamnogalacturonan Gums
 
 #### **Karaya Gum**
 - **Classification**: Rhamnogalacturonan
@@ -133,7 +162,7 @@
 
 ---
 
-## 3. General Usage Recommendations
+## 4. General Usage Recommendations
 
 ### By Gum Classification
  | **Classification**       | **Includes**                          | **Best Used For**                          |
@@ -144,13 +173,13 @@
 
 ---
 
-## 4. Notes for Users
+## 5. Notes for Users
 - Composition values are **approximate** and may vary depending on source and purification method.
 - Use **gum classification** as the primary selection criterion when building formulation or prediction models.
 - Pentose, hexose, deoxyhexose, and hexuronic acid values provide **grouped carbohydrate summaries** for advanced analysis.
 
 ---
-## 5. References
+## 6. References
 1. Bonaduce, I., Brecoulaki, H., Colombini, M. P., Lluveras, A., Restivo, V., & Ribechini, E. (2007). *Gas chromatographic–mass spectrometric characterisation of plant gums in samples from painted works of art*. **Journal of Chromatography A**, *1175*(2), 275-282. [doi:10.1016/j.chroma.2007.10.056](https://doi.org/10.1016/j.chroma.2007.10.056).
 2. Mahfoudhi, N., Chouaibi, M., Donsi, F., Ferrari, G., & Hamdi, S. (2012). *Chemical composition and functional properties of gum exudates from the trunk of the almond tree (Prunus dulcis)*. **Food Science and Technology International**, *18*(3), 241-250. [doi:10.1177/1082013211415173](https://doi.org/10.1177/1082013211415173).
 3. Granzotto, C. (2014). *Methodological developments based on mass spectrometry for the analysis of glycoproteins and polysaccharides of plant gums: an application to cultural heritage samples*. **PhD thesis**, Université de Lille. [theses.fr/203942086](https://theses.fr/203942086) (Accessed July 7th, 2026).
