@@ -291,7 +291,7 @@ Typical examples:
 
 📘 **Need detailed compositions for each gum?**
 
-**Full docs on GitHub**: [NOTICE.md](https://github.com/Protactinium92/SugarMALDI/NOTICE.md)
+**Full docs on GitHub**: [USER_GUIDE.md](https://github.com/Protactinium92/SugarMALDI/USER_GUIDE.md)
     """
 
 def window() -> str:
