@@ -1,7 +1,7 @@
 # Gum Composition Reference — User Guideline
 
-> **Purpose**  
-> This guideline explains the carbohydrate composition and classification of commonly used natural gums, to help implement accurate queries using **SugarMALDI** software. The values are expressed as **approximate percentage composition** of monosaccharides and grouped sugar classes.
+**Purpose**  
+This guideline explains the carbohydrate composition and classification of commonly used natural gums, to help implement accurate queries using **SugarMALDI** software. The values are expressed as **approximate percentage composition** of monosaccharides and grouped sugar classes.
 
 ---
 
@@ -50,9 +50,8 @@ Selecting only the monosaccharides that are expected in your sample improves bot
   </details>  
 <br>
 
-> **Recommendation:**   
-> Select only the monosaccharides that are likely to be present in your sample. In most cases, **3–5 monosaccharides** provide the best balance between computational efficiency and reliable identifications.
-
+> [!TIP]  
+> Select only the monosaccharides that are likely to be present in your sample. In most cases, **3–5 monosaccharides** provide the best balance between computational efficiency and reliable identifications.  
 >For **unknown samples**, it is recommended to perform **multiple analyses** using different monosaccharide selections rather than selecting all monosaccharides in a single run.
 
 ## 2. Understanding the Parameters

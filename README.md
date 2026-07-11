@@ -93,7 +93,8 @@ streamlit run app.py
 
 ## Important information:
 
-Before starting the first analysis please create the oligosacaride library by running this command:
+> [!IMPORTANT]  
+>Before starting the first analysis please create the oligosacaride library by running this command:
 ```bash
 # UV:
 uv run src/oligoMass.py
