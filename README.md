@@ -1,8 +1,12 @@
+![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)
+![License: CeCILL 2.1](https://img.shields.io/badge/license-CeCILL_2.1-green.svg)
+![Polars](https://img.shields.io/badge/polars-1.33.0+-orange.svg)
+![Streamlit 1.49.1](https://img.shields.io/badge/Streamlit-1.49.1-ff4b4b.svg?logo=streamlit&logoColor=white)
+
 # SugarMALDI v0.1.5
 
 A Spectra Analysis Tool
 
----
 
 ## User-friendly interface  
 
@@ -93,14 +97,13 @@ streamlit run app.py
 
 > [!IMPORTANT]  
 >Before starting the first analysis please create the oligosacaride library by running this command:
-
-```bash
-# UV:
-uv run src/oligoMass.py
-
-# In virtual envioronnement
-src/oligoMass.py
-```
+>```bash
+># UV:
+>uv run src/oligoMass.py
+># In virtual envioronnement
+>src/oligoMass.py
+>```
+>This will create a CSV file in `data/` with theoretical masses for all the 10M combinaison of the monomers list in `data/monomers.csv`.
 
 ## 📁 Project Structure
 
@@ -117,7 +120,7 @@ The backend logic is organized in the `src/` directory, with modules grouped by 
  | `spectrum_analysis.py`| **Core pipeline**: Peak detection, spectrum parsing, and matching.               |
  | `oligoMass.py`         | Oligosaccharide mass calculations.                                  |
  | `load_file.py`         | File I/O utilities (CSV, lazy loading with Polars).                         |
- | `helper.py`            | Text helper to inject in streamlit.                 |
+ | `helper.py`            | Functions to generate Streamlit markdown/HTML components.                 |
  | `utils.py`             | Low-level functions (e.g. Chemical formula parsing, input validation).                     |
  | `plot_spectrum.py`     | Visualization logic (Matplotlib/Plotly wrappers for spectra and isotopic patterns).         |
  | `session_manager.py`   | Streamlit session state management (caching, progress tracking).                          |
@@ -241,6 +244,8 @@ Example spectra can be downloaded from the dedicated Google Drive folder [here](
 It contains 4 examples:  
 - Arabinogalactan standard: Non-calibrated / Calibrated
 - Galactomannan standard: Non-calibrated / Calibrated
+
+Format: CSV, tsv, txt files with m/z and Intensity columns.
 
 ## Notes  
 
