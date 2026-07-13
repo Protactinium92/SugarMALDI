@@ -1,23 +1,37 @@
-![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)
+![Version](https://img.shields.io/badge/version-0.1.5-red.svg)
+![Python 3.13+](https://img.shields.io/badge/python-3.9+-blue.svg)
 ![License: CeCILL 2.1](https://img.shields.io/badge/license-CeCILL_2.1-green.svg)
 ![Polars](https://img.shields.io/badge/polars-1.33.0+-orange.svg)
 ![Streamlit 1.49.1](https://img.shields.io/badge/Streamlit-1.49.1-ff4b4b.svg?logo=streamlit&logoColor=white)
+![IsoSpecPy](https://img.shields.io/badge/IsoSpecPy-2.3.5+-purple.svg)
 
-# SugarMALDI v0.1.5
+# SugarMALDI
 
-A Spectra Analysis Tool
+**A Comprehensive MALDI-MS Spectra Analysis Tool for Oligosaccharide Characterization**
 
+SugarMALDI is an open-source computational framework for analyzing high-resolution MALDI mass spectrometry data with a focus on carbohydrate and glycan characterization. It integrates spectral preprocessing, adduct-aware composition inference, isotopic pattern scoring, and interactive visualization tools.
+
+**Key Capabilities:**
+- Peak detection on high-resolution spectra
+- Batch processisng
+- Custom adduct support
+- Library matching against theoretical oligosaccharide combinations
+- Isotopic pattern scoring (6 similarity metrics)
+- Memory-efficient processing with Polars LazyFrames
+- Interactive Streamlit interface 
+
+---
 
 ## User-friendly interface  
 
 Access the app via Streamlit:  
-*(add deployed link here if available)*
+***Deployed version:** Not yet available (planned for Q4 2026).*
 
 ## Try it on your machine  
 
 ### Installation  
 
-#### 1. Get the code  
+#### 1. Clone the repository
 
 ```bash
 git clone https://github.com/Protactinium92/SugarMALDI.git
@@ -62,12 +76,12 @@ python -m venv .venv
 ```
 Activate it
 
-1. Linux / Mac
+**Linux / Mac:**
 ```bash
 source .venv/bin/activate
 ```
 
-2. Windows
+**Windows:**
 ```bash
 .venv\Scripts\activate
 ```
@@ -82,6 +96,18 @@ Install the project
 pip install .
 ```
 
+### Setup the Oligosaccharide Library
+
+> [!IMPORTANT] 
+> Before starting your first analysis, you **must** generate the oligosaccharide library by running this command:
+>```bash
+># UV:
+>uv run src/oligoMass.py
+># In virtual environnement
+>src/oligoMass.py
+>```
+>This will create a CSV file in `data/` with theoretical masses for all the 10M combinations of the monomers list in `data/monomers.csv`.
+
 ### Run the app  
 
 Directly with UV:
@@ -95,41 +121,65 @@ Or in virtual environnment:
 streamlit run app.py
 ```
 
-> [!IMPORTANT]  
->Before starting the first analysis please create the oligosacaride library by running this command:
->```bash
-># UV:
->uv run src/oligoMass.py
-># In virtual envioronnement
->src/oligoMass.py
->```
->This will create a CSV file in `data/` with theoretical masses for all the 10M combinaison of the monomers list in `data/monomers.csv`.
+The app will open at `http://localhost:8501`
 
 ## 📁 Project Structure
 
 ### **Root Files**
-- `pyproject.toml` → Project metadata and dependencies (managed with [`uv`](https://github.com/astral-sh/uv), PEP 517/518 compliant).
-  *Recommended Python version: **≥ 3.9***.
-- `app.py` → Main Streamlit UI (orchestrates file uploads, visualization, and backend calls).
+
+| File | Purpose |
+|------|---------|
+| `app.py` | **Main Streamlit UI** — orchestrates file uploads, visualization, and analysis pipeline |
+| `pyproject.toml` | **Project metadata** — dependencies (managed with `uv`, PEP 517/518 compliant). *Requires Python ≥3.13* |
+| `README.md` | This file |
+| `USER_GUIDE.md` | Detailed user documentation |
+| `LICENSE` | CeCILL 2.1 license |
+
 
 ### **Core Logic (`src/`)**
 The backend logic is organized in the `src/` directory, with modules grouped by functionality:
-   **File**               | **Role**                                                                                     |
- |------------------------|---------------------------------------------------------------------------------------------|
- | `config.py`            | Global constants (e.g., Default label and adduct formula, file paths, default parameters).              |
- | `spectrum_analysis.py`| **Core pipeline**: Peak detection, spectrum parsing, and matching.               |
- | `oligoMass.py`         | Oligosaccharide mass calculations.                                  |
- | `load_file.py`         | File I/O utilities (CSV, lazy loading with Polars).                         |
- | `helper.py`            | Functions to generate Streamlit markdown/HTML components.                 |
- | `utils.py`             | Low-level functions (e.g. Chemical formula parsing, input validation).                     |
- | `plot_spectrum.py`     | Visualization logic (Matplotlib/Plotly wrappers for spectra and isotopic patterns).         |
- | `session_manager.py`   | Streamlit session state management (caching, progress tracking).                          |
- | `front_fonction.py`    | **Frontend-backend bridge**: Functions called directly by `app.py`. |
+
+| **File** | **Role** | **Key Functions** |
+|----------|----------|------------------|
+| `config.py` | Global constants | Paths, adducts, labels, default parameters |
+| `spectrum_analysis.py` | **Core pipeline** | Peak detection, matching, scoring engine |
+| `oligoMass.py` | Library generation | Theoretical oligosaccharide combinations |
+| `load_file.py` | File I/O | CSV reading (Polars LazyFrames) |
+| `front_functions.py` | **Frontend-backend bridge** | Functions called directly by `app.py` |
+| `plot_spectrum.py` | Visualization | Matplotlib/Plotly spectrum & isotopic plots |
+| `helper.py` | Educational UI | Interactive help + parameter explanations |
+| `session_manager.py` | Session state | Streamlit state + change detection |
+| `utils.py` | Utilities | Formula parsing, validation, adduct processing |
+ 
 
 >[!NOTE]  
 >Dependencies: All core modules rely on polars (for DataFrames), streamlit (UI), and scipy/IsoSpecPy (scientific computations).  
 >Performance: Heavy operations (e.g., peak detection) use lazy evaluation (Polars) and caching (@st.cache_data or joblib).
 
+### **Data Files**
+
+| File | Contents |
+|------|----------|
+| `data/monomers.csv` | Reference monomer list with elemental compositions |
+| `data/mass_elements.txt` | NIST monoisotopic mass library |
+| `data/oligo_combinations.csv` | **Generated** — theoretical oligosaccharide library (run `oligoMass.py` first) |
+| `pictures/` | Logos and assets |
+
+
+## 🔬 Scientific Workflow
+
+### Simplified Pipeline
+```
+Input Spectra (CSV)
+    ↓
+[1] Peak Detection (Prominence, Height, Distance)
+    ↓
+[2] Preliminary Mass Matching (ΔM threshold)
+    ↓
+[3] Isotopic Pattern Scoring (6 metrics available)
+    ↓
+Output: Identified peaks with formulas & scores
+```
 
 ### **Workflow Overview**
 
@@ -220,15 +270,8 @@ graph TD
 
 > [!NOTE]  
 > **Key Technical Details**
-> - **Preliminary Matching**: Filters candidates using a **Δm threshold** (typical for MALDI: **5 ppm**).
 > - **Isotopic Scoring**: Uses [`IsoSpecPy`](https://https://matteolacki.github.io/IsoSpec/) to generate **theoretical isotopic patterns** for comparison with experimental data.
 > - **Chemical Modifications**: Only **simple additions or losses** (e.g., Na⁺, K⁺, H₂O) are supported in the adduct and modification selection.
-
-
-> [!WARNING]  
-> **Requirements for Analysis**
-> - **All parameters** (peak detection, adducts, chemical modifications, etc.) **must be correctly filled** to enable the analysis button.
-> - **Manual Rerun Required**: If **any parameter is modified** (e.g., peak detection settings, adducts, or thresholds), the analysis **must be rerun manually**. Changes are **not applied automatically**.
 
 > [!IMPORTANT]  
 > A **careful monomer selection** is **critical** to ensure:
@@ -237,17 +280,110 @@ graph TD
 >
 > For detailed instructions, see the **[User Guide](https://github.com/Protactinium92/SugarMALDI/USER_GUIDE.md)**.
 
-## Example
 
-Example spectra can be downloaded from the dedicated Google Drive folder [here](https://drive.google.com/drive/folders/1_okD6vXmOA4NmZ66R5Os8q0V76rWMidL) 
+### Analysis Parameters Explained
 
-It contains 4 examples:  
-- Arabinogalactan standard: Non-calibrated / Calibrated
-- Galactomannan standard: Non-calibrated / Calibrated
+#### Peak Detection
 
-Format: CSV, tsv, txt files with m/z and Intensity columns.
+| Parameter | Unit | Typical Value | Impact |
+|-----------|------|---------------|--------|
+| **Prominence** | Intensity units | 1e5 | Minimum height difference from baseline |
+| **Height Minimum** | Intensity units | 2e5 | Absolute intensity threshold from 0 |
+| **Min m/z Distance** | m/z (Da) | 15 | Minimum spacing between peaks |
+| **Window Size** | m/z (Da) | 500 | Spectrum segmentation for parallel processing (Cannot be change by the user)|
 
-## Notes  
+#### Mass Matching
+
+| Parameter | Unit | Typical Value | Impact |
+|-----------|------|---------------|--------|
+| **ΔM Threshold** | ppm | 5 | Mass accuracy tolerance (typical MALDI) |
+| **Number of Candidates** | count | 4 | Top N masses retained for isotopic scoring |
+
+#### Isotopic Scoring
+
+| Parameter | Unit | Typical Value | Options |
+|-----------|------|---------------|---------|
+| **Number of Isotopes** | count | 4 | 2-6 (M, M+1, M+2, ...) |
+| **Scoring Method** | — | Hybrid | Cosine, Pearson, χ², KL, Wasserstein, Hybrid |
+
+> [!WARNING]  
+> **Requirements for Analysis**
+> - **All parameters** (peak detection, adducts, chemical modifications, etc.) **must be correctly filled** to enable the analysis button.
+> - **Manual Rerun Required**: If **any parameter is modified** (e.g., peak detection settings, adducts, or thresholds), the analysis **must be rerun manually**. Changes are **not applied automatically**.
+
+## 📊 Input / Output Formats
+
+### Input Format (CSV)
+
+**Required columns:** `m/z` and `Intensity`
+
+**Example:**
+```csv
+m/z,Intensity
+500.1234,12500
+500.2456,25000
+500.3678,18900
+...
+```
+
+**Supported delimiters:** `,` | `Tab` | `Space` | `;` | `:` | `|` | `-`
+
+### Output Format (ZIP Archive)
+
+The download ZIP contains:
+
+```
+results_maldi.zip
+├── peak_spectrum_1.csv
+└── peak_spectrum_2.csv
+```
+
+Each `peak_*.csv` contains:
+
+```csv
+m/z,Intensity,Delta_M,Identifications,Formula,iso_score
+500.1234,12500,4.2,"Hex2-dHex1","C12H22O11+Na","0.987"
+500.2456,25000,3.8,"Hex3","C18H32O16+Na","0.995"
+...
+```
+
+ ## ⚙️ Advanced Configuration
+
+### Customizing Adducts and Labels
+
+Via the Streamlit UI:
+
+1. **Toggle:** "Use custom adduct and chemical modifications"
+2. **Add adducts:** Define name, mass (m/z), and formula
+3. **Mark as lost:** Check if the adduct is lost during ionization
+4. **Custom labels:** Enable "Use custom label" and enter name + formula
+
+**Example:**
+- Name: `Na+`
+- Mass: `22.989221`
+- Formula: `Na`
+- Lost: `False`
+
+### Modifying Monomers Library
+
+Edit `data/monomers.csv` (semicolon-separated):
+
+```csv
+Notation;Description;C;H;N;O;S;P
+Hex;Hexose;6;12;0;6;0;0
+dHex;Deoxyhexose;6;12;0;5;0;0
+HexA;Hexuronic acid;6;10;0;7;0;0
+...
+```
+
+Then regenerate the library:
+```bash
+uv run src/oligoMass.py
+```
+
+## Troubleshooting  
+
+### "No runtime found, using MemoryCacheStorageManager"
 
 The application relies on cached functions distributed across multiple modules. In some execution contexts, Streamlit may display the following warning:
 
@@ -258,10 +394,99 @@ No runtime found, using MemoryCacheStorageManager
 
 In this case, Streamlit automatically uses an in-memory cache backend. This behavior is expected and does not affect the application.
 
+### Long computation times
 
-# License
+**Cause:** Too many monomers selected → exponential growth of combinations
 
-SugarMALDI is distributed under the CeCILL 2.1 License.
+**Solution:**
+- Reduce monomer selection to 3-5 likely candidates
+    - See [USER_GUIDE.md](USER_GUIDE.md) for composition reference
+- Decrease ΔM threshold to reduce the number of theoretical candidates per experimental peak
+    - Can missed some peaks
+- Process spectra in smaller batches by adjusting `Window Size` (default: 500 Da) **directly in the code** (`session_manager.py`) to split the spectrum into independent segments for multiprocessing
+
+### Missing identifications
+
+**Possible causes:**
+1. Peak detection parameters too strict (high prominence/height)
+2. ΔM threshold too tight
+3. Selected monomers do not match the sample composition
+
+**Solutions:**
+- Lower prominence/height thresholds
+- Increase ΔM from 5 to 10 ppm
+- Rerun with different monomer selections
+
+### File parsing errors
+
+**Issue:** "Could not parse spectrum file"
+
+**Solutions:**
+- ✅ Select correct delimiter before uploading
+- ✅ Ensure columns are named `m/z` and `Intensity` (case-sensitive)
+- ✅ Remove empty rows/columns from CSV
+
+## 📈 Performance Optimization
+
+### Memory Efficiency
+
+- **Polars LazyFrames:** Deferred execution reduces peak memory usage
+- **Windowing:** Spectrum divided into ~500 m/z segments for parallel processing
+- **Caching:** Results cached via `@st.cache_data` to avoid recomputation
+
+### Speed Optimization
+
+| Optimization | Speedup | Method |
+|--------------|---------|--------|
+| Reduce monomers | 5-10x | Select only expected monosaccharides |
+| Increase ΔM threshold | 2-3x | Less stringent mass filtering |
+| Decrease isotope count | 1.5-2x | Use 3-4 isotopes instead of 6 |
+| Parallel processing | 4-8x | Automatic via ProcessPoolExecutor |
+
+### Benchmarks (from USER_GUIDE.md)
+
+Execution time for **Arabinogalactan (AG)** and **Galactomannan (GM)**:
+
+| # Monomers | AG (s) | GM (s) |
+|:---:|---:|---:|
+| 1 | 10 | 38 |
+| 3 | 24 | 104 |
+| 5 | 75 | 350 |
+| 7 | 205 | 490 |
+
+---
+
+## 📚 Example Data
+
+Example spectra can be downloaded from:  
+**[SugarMALDI Google Drive](https://drive.google.com/drive/folders/1_okD6vXmOA4NmZ66R5Os8q0V76rWMidL)**
+
+Contains 4 calibrated/non-calibrated examples:
+- ✓ Arabinogalactan standard
+- ✓ Galactomannan standard
+
+---
+
+## 🔧 Dependencies
+
+| Package | Version | Role |
+|---------|---------|------|
+| `streamlit` | ≥1.49.1 | Interactive UI framework |
+| `polars` | ≥1.33.0 | Data processing (LazyFrames) |
+| `isospecpy` | ≥2.3.5 | Isotopic pattern generation |
+| `scipy` | ≥1.16.1 | Peak detection (find_peaks) |
+| `numpy` | ≥2.3.2 | Numerical operations |
+| `matplotlib` | ≥3.10.6 | Static spectrum rendering |
+| `plotly` | ≥6.3.0 | Interactive visualization |
+| `joblib` | ≥1.5.3 | Parallel processing caching |
+
+See `pyproject.toml` for complete dependency list.
+
+---
+
+## 📜 License
+
+SugarMALDI is distributed under the **CeCILL 2.1 License**.
 
 The full license text is available in the LICENSE file and at
 https://cecill.info.
@@ -269,4 +494,7 @@ https://cecill.info.
 
 ## Contributing  
 
-Feel free to open issues to improve the project 🚀  
+Contributions are welcome! Please:
+
+1. **Report bugs** via GitHub Issues
+2. **Suggest features** with detailed use cases
