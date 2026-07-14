@@ -18,9 +18,6 @@ The corresponding mass-to-charge ratio (m/z) is given by:
 """
 
 __author__  = "Pierre-Alexandre HO"
-__date__    = "2025-09-02"
-__version__ = "2.0"
-
 
 import polars as pl
 from typing import Dict, List, Union

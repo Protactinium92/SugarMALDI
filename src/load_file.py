@@ -28,7 +28,7 @@ Functions
 
 Notes
 -----
-- All loading functions are cached using `st.cache_data` to improve
+- All loading functions are cached using `@lru_cache` to improve
   application performance.
 - CSV files are loaded lazily via `polars.scan_csv`, allowing query
   optimization and deferred execution.
@@ -36,13 +36,12 @@ Notes
 
 __author__ = "Pierre-Alexandre HO"
 
-import streamlit as st
 import polars as pl
 
 from pathlib import Path
+from functools import lru_cache
 
-
-@st.cache_data
+@lru_cache(maxsize=1)
 def element_mass() -> dict[str, float]:
     """
     Load elemental masses from the reference mass table.

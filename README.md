@@ -20,8 +20,6 @@ SugarMALDI is an open-source computational framework for analyzing high-resoluti
 - Memory-efficient processing with Polars LazyFrames
 - Interactive Streamlit interface 
 
----
-
 ## User-friendly interface  
 
 Access the app via Streamlit:  
@@ -98,7 +96,7 @@ pip install .
 
 ### Setup the Oligosaccharide Library
 
-> [!IMPORTANT] 
+> [!IMPORTANT]  
 > Before starting your first analysis, you **must** generate the oligosaccharide library by running this command:
 >```bash
 ># UV:
