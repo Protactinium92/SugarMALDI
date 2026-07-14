@@ -270,7 +270,7 @@ graph TD
 
 > [!NOTE]  
 > **Key Technical Details**
-> - **Isotopic Scoring**: Uses [`IsoSpecPy`](https://https://matteolacki.github.io/IsoSpec/) to generate **theoretical isotopic patterns** for comparison with experimental data.
+> - **Isotopic Scoring**: Uses [`IsoSpecPy`](https://github.com/MatteoLacki/IsoSpec) to generate **theoretical isotopic patterns** for comparison with experimental data.
 > - **Chemical Modifications**: Only **simple additions or losses** (e.g., Na⁺, K⁺, H₂O) are supported in the adduct and modification selection.
 
 > [!IMPORTANT]  
@@ -454,7 +454,6 @@ Execution time for **Arabinogalactan (AG)** and **Galactomannan (GM)**:
 | 5 | 75 | 350 |
 | 7 | 205 | 490 |
 
----
 
 ## 📚 Example Data
 
@@ -465,7 +464,6 @@ Contains 4 calibrated/non-calibrated examples:
 - ✓ Arabinogalactan standard
 - ✓ Galactomannan standard
 
----
 
 ## 🔧 Dependencies
 
@@ -482,8 +480,6 @@ Contains 4 calibrated/non-calibrated examples:
 
 See `pyproject.toml` for complete dependency list.
 
----
-
 ## 📜 License
 
 SugarMALDI is distributed under the **CeCILL 2.1 License**.
@@ -491,6 +487,21 @@ SugarMALDI is distributed under the **CeCILL 2.1 License**.
 The full license text is available in the LICENSE file and at
 https://cecill.info.
 
+## Citation
+
+If you use SugarMALDI in your research, please cite it as follows:
+
+```bibtex
+@software{SugarMALDI,
+  author = {HO, Pierre-Alexandre and Rolando, Christian and Yammine, Marie},
+  title = {SugarMALDI: An Application for oligosaccharides’ identification in MALDI-MS data.},
+  year = {2026},
+  doi = {10.5281/zenodo.TBD},
+  url = {https://github.com/Protactinium92/SugarMALDI},
+  license = {CeCILL-2.1},
+  keywords = {mass spectrometry, MALDI, glycomics, carbohydrates, bioinformatics, chemoinformatics}
+}
+```
 
 ## Contributing  
 
