@@ -278,7 +278,7 @@ graph TD
 > - **Performance**: Avoid overly large reference libraries to prevent slow processing.
 > - **Reliability**: Incorrect monomer choices may lead to **false positives/negatives** in matching.
 >
-> For detailed instructions, see the **[User Guide](https://github.com/Protactinium92/SugarMALDI/USER_GUIDE.md)**.
+> For detailed instructions, see the **[User Guide](USER_GUIDE.md)**.
 
 
 ### Analysis Parameters Explained
@@ -499,7 +499,7 @@ If you use SugarMALDI in your research, please cite it as follows:
   doi = {10.5281/zenodo.TBD},
   url = {https://github.com/Protactinium92/SugarMALDI},
   license = {CeCILL-2.1},
-  keywords = {mass spectrometry, MALDI, glycomics, carbohydrates, bioinformatics, chemoinformatics}
+  keywords = {mass spectrometry, MALDI, glycomics, carbohydrates, bioinformatics}
 }
 ```
 
