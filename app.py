@@ -129,8 +129,33 @@ if __name__=="__main__":
                     ]
                 )
 
+        neutral_loss_container = st.container(border=True)
+        with neutral_loss_container:
+            ff.neutral_loss_selection(monomers_df.columns[3:], label_dict)
+            neutral_loss_mass = st.session_state.get("neutral_loss_mass", {})
+            neutral_loss_compo = st.session_state.get("neutral_loss_compo", {})
+
+            if has_snapshot:
+                ssm.SessionManager.warn_if_any_changed(
+                    "Neutral loss parameters",
+                    [
+                        (neutral_loss_mass, snapshot.neutral_loss_mass),
+                        (neutral_loss_compo, snapshot.neutral_loss_compo),
+                    ]
+                )
+
+            if adduct_mass and neutral_loss_mass:
+                association_dict = ff.neutral_loss_adduct_association_table(
+                    neutral_loss_mass,
+                    adduct_mass
+                )
+                #st.session_state.neutral_loss_adduct_association = association_dict
+
         badges_adduct = " ".join(
             [f":green-badge[{name}: {mass:.6f}]" for name, mass in adduct_mass.items()]
+        )
+        badges_neutral_loss = " ".join(
+            [f":gray-badge[{name}: {mass:.6f}]" for name, mass in neutral_loss_mass.items()]
         )
         badges_label = (
             ":red-badge[No Label]"
@@ -141,7 +166,7 @@ if __name__=="__main__":
                 else ""
             )
         )
-        st.markdown(badges_adduct + badges_label)
+        st.markdown(badges_adduct + badges_neutral_loss + badges_label)
 
         st.markdown("---")
         st.subheader("Process and Download")

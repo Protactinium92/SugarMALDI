@@ -116,45 +116,47 @@ def validate_rows(
     return valid_rows, error_indices, has_any_input
 
 
-def build_adduct_dicts(adducts: List[dict]
-                       )-> Tuple[Dict[str, float], Dict[str, Dict[str, int]], Dict[str, bool]]:
+def build_entity_dicts(
+    entities: List[dict],
+    entity_type: str = "adduct"  # "adduct" or "neutral_loss"
+) -> Tuple[Dict[str, float], Dict[str, Dict[str, int]], Dict[str, bool]]:
     """
-    Build mass and composition dictionaries from a list of adduct definitions.
-
-    This function processes a list of adduct dictionaries and constructs:
-    - A mapping of adduct names to their masses
-    - A mapping of adduct names to their elemental compositions
-    - A mapping of adduct names to their lost status
-
-    Lost adducts are automatically prefixed with "(-)" in the output
-    dictionaries.
+    Build mass, composition, and lost status dictionaries from a list of entity definitions.
+    Works for both adducts and neutral losses.
 
     Parameters
     ----------
-    adducts : List[dict]
-        List of adduct dictionaries. Each dictionary must contain:
-        - "name" (str): Adduct identifier
-        - "mass" (float): Adduct mass
-        - "formula" (str): Chemical formula of the adduct
-        - "is_lost" (bool): Whether the adduct is lost during ionization
+    entities : List[dict]
+        List of entity dictionaries. Each must contain:
+        - "name" (str): Entity identifier (e.g., "Na+", "H2O")
+        - "mass" (float): Entity mass (positive for adducts, negative for neutral losses)
+        - "formula" (str): Chemical formula (e.g., "Na", "H2O")
+        - "is_lost" (bool): Whether the entity is lost (always True for neutral losses)
+    entity_type : str
+        Type of entity: "adduct" or "neutral_loss". Affects naming conventions.
 
     Returns
     -------
     Tuple[Dict[str, float], Dict[str, Dict[str, int]], Dict[str, bool]]
-        - adduct_mass: mapping of adduct names to masses
-        - adduct_compo: mapping of adduct names to elemental compositions
-        - adduct_is_lost: mapping of adduct names to their lost status
+        - entity_mass: mapping of names to masses
+        - entity_compo: mapping of names to elemental compositions
+        - entity_is_lost: mapping of names to lost status
     """
     
-    adduct_mass: Dict[str, float] = {}
-    adduct_compo: Dict[str, Dict[str, int]] = {}
-    adduct_is_lost: Dict[str, bool] = {}
+    entity_mass: Dict[str, float] = {}
+    entity_compo: Dict[str, Dict[str, int]] = {}
+    entity_is_lost: Dict[str, bool] = {}
 
-    for adduct in adducts:
-        name = adduct["name"]
-        mass = adduct["mass"]
-        formula = adduct["formula"]
-        is_lost = adduct["is_lost"]
+    for entity in entities:
+        name = entity["name"]
+        mass = entity["mass"]
+        formula = entity["formula"]
+        is_lost = entity.get("is_lost", False)  # Par défaut False pour les adducts
+
+        # Pour les pertes de neutres, is_lost est TOUJOURS True
+        if entity_type == "neutral_loss":
+            is_lost = True
+
         
         if not (name and formula):
             continue
@@ -162,11 +164,11 @@ def build_adduct_dicts(adducts: List[dict]
         if is_lost:
             name = f"(-){name}"
 
-        adduct_mass[name] = mass
-        adduct_compo[name] = parse_formula(formula, is_lost)
-        adduct_is_lost[name] = is_lost
+        entity_mass[name] = mass
+        entity_compo[name] = parse_formula(formula, is_lost)
+        entity_is_lost[name] = is_lost
 
-    return adduct_mass, adduct_compo, adduct_is_lost
+    return entity_mass, entity_compo, entity_is_lost
 
 
 def check_formula(dict_formula_compo: dict) -> List[str]:
@@ -291,47 +293,52 @@ def validate_lost_adduct(
     )
 
 
-
-def validate_adduct(
-    adduct: Dict[str, object],
+def validate_entity(
+    entity: Dict[str, object],
     monomer_elements: List[str],
     label_composition: Optional[Dict[str, int]],
+    entity_type: str = "adduct"  # "adduct" or "neutral_loss"
 ) -> Optional[str]:
     """
-    Validate a single adduct.
+    Validate a single entity (adduct or neutral loss).
 
     The validation checks:
-    - the chemical formula can be parsed;
-    - all elements belong to the supported element list;
-    - if the adduct is marked as lost, all its elements can originate
-      from either the monomers or the selected label.
+    - The chemical formula can be parsed.
+    - All elements belong to the supported element list.
+    - If the entity is marked as lost (or is a neutral loss), all its elements
+      can originate from either the monomers or the selected label.
 
     Parameters
     ----------
-    adduct : dict
-        Adduct definition containing at least the keys ``"formula"``
-        and ``"is_lost"``.
+    entity : dict
+        Entity definition containing at least the keys "formula" and "is_lost".
     monomer_elements : list[str]
         List of element symbols present in the monomers.
     label_composition : dict[str, int] or None
         Elemental composition of the selected label. If no label is used,
-        this should be ``None``.
+        this should be None.
+    entity_type : str
+        Type of entity: "adduct" or "neutral_loss".
 
     Returns
     -------
     error : str or None
         Error message if validation failed, otherwise ``None``.
     """
-    composition = parse_formula(
-        adduct["formula"],
-        adduct["is_lost"],
-    )
 
-    if adduct["formula"] and not composition:
-        return (
-            f"❌ Adduct formula '{adduct['formula']}' is invalid."
-        )
+    # Force is_lost to True for neutral losses
+    is_lost = entity.get("is_lost", False)
+    if entity_type == "neutral_loss":
+        is_lost = True
 
+    formula = entity["formula"]
+    composition = parse_formula(formula, is_lost)
+
+    # Check for empty formula or composition
+    if formula and not composition:
+        return f"❌ {entity_type.capitalize()} formula '{formula}' is invalid."
+
+    # Check if every element in the formula is present in the NIST monoisotopic library
     wrong_elements = check_formula(composition)
     if wrong_elements:
         elements_str = ", ".join(wrong_elements)
@@ -340,17 +347,17 @@ def validate_adduct(
         return (
             f"❌ {elements_str} {verb} not in the NIST monoisotopic library."
         )
-
+    # Check if the lost entity contains only elements present in the monomers or label
     invalid_elements = validate_lost_adduct(
         composition=composition,
-        is_lost=adduct["is_lost"],
+        is_lost=is_lost,
         monomer_elements=monomer_elements,
         label_composition=label_composition,
     )
 
     if invalid_elements:
         return (
-            f"❌ Lost adduct '{adduct['formula']}' contains element(s) "
+            f"❌ Lost {entity_type.capitalize()} '{formula}' contains element(s) "
             "that are not present in the monomers or the selected label: "
             f"{', '.join(invalid_elements)}."
         )
