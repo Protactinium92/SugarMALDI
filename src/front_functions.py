@@ -672,8 +672,7 @@ def neutral_loss_selection(
         neutral_loss_mass = {}
         neutral_loss_compo = {}
 
-    st.session_state.neutral_loss_mass = neutral_loss_mass
-    st.session_state.neutral_loss_compo = neutral_loss_compo
+    return neutral_loss_mass, neutral_loss_compo
 
 
 def neutral_loss_adduct_association_table(
@@ -700,7 +699,7 @@ def neutral_loss_adduct_association_table(
         st.warning("⚠️ No neutral losses or adducts available for association.")
         return {}
 
-    st.markdown("### Neutral Loss × Adduct Association Table")
+    st.markdown("##### Neutral Loss × Adduct Association Table")
     st.info(
         "ℹ️ Check the boxes to allow combinations between neutral losses (rows) and adducts (columns)."
     )

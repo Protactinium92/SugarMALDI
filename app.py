@@ -131,19 +131,7 @@ if __name__=="__main__":
 
         neutral_loss_container = st.container(border=True)
         with neutral_loss_container:
-            ff.neutral_loss_selection(monomers_df.columns[3:], label_dict)
-            neutral_loss_mass = st.session_state.get("neutral_loss_mass", {})
-            neutral_loss_compo = st.session_state.get("neutral_loss_compo", {})
-
-
-            if has_snapshot:
-                ssm.SessionManager.warn_if_any_changed(
-                    "Neutral loss parameters",
-                    [
-                        (neutral_loss_mass, snapshot.neutral_loss_mass),
-                        (neutral_loss_compo, snapshot.neutral_loss_compo),
-                    ]
-                )
+            neutral_loss_mass, neutral_loss_compo = ff.neutral_loss_selection(monomers_df.columns[3:], label_dict)
 
             if adduct_mass and neutral_loss_mass:
                 association_dict = ff.neutral_loss_adduct_association_table(
@@ -155,12 +143,37 @@ if __name__=="__main__":
                 if association_errors:
                     for err in association_errors:
                         st.error(err)
+                    parsed_association_mass = {}
+                    parsed_association_formula = {}
+                else:
+                    parsed_association_mass = ut.parse_association_mass(
+                        association_dict,
+                        adduct_mass,
+                        neutral_loss_mass
+                    )
+                    parsed_association_formula = ut.parse_association_formula(
+                        association_dict,
+                        adduct_compo,
+                        neutral_loss_compo
+                    )
+                
+                st.session_state.associated_neutral_loss_mass = parsed_association_mass
+                st.session_state.associated_neutral_loss_compo = parsed_association_formula
+                
+                if has_snapshot:
+                    ssm.SessionManager.warn_if_any_changed(
+                        "Neutral loss parameters or its association with adducts",
+                        [
+                            (parsed_association_mass, snapshot.associated_neutral_loss_mass),
+                            (parsed_association_formula, snapshot.associated_neutral_loss_compo),
+                        ]
+                    )
 
-        badges_adduct = " ".join(
+            badges_adduct = " ".join(
             [f":green-badge[{name}: {mass:.6f}]" for name, mass in adduct_mass.items()]
         )
         badges_neutral_loss = " ".join(
-            [f":gray-badge[{name}: {mass:.6f}]" for name, mass in neutral_loss_mass.items()]
+            [f":gray-badge[{name}: {mass:.6f} {parsed_association_formula.get(name, {})}]" for name, mass in parsed_association_mass.items()]
         )
         badges_label = (
             ":red-badge[No Label]"

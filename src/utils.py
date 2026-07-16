@@ -389,6 +389,67 @@ def validate_association(association: Dict[str, List[str]]) -> List[str]:
 
     return errors
 
+def parse_association_mass(association: Dict[str, List[str]], adducts_mass: Dict[str, float],
+                      neutral_losses_mass: Dict[str, float]) -> Dict[str, float]:
+    """
+    Parse the association dictionary to create a new dictionary with combined names and masses.
+
+    Parameters
+    ----------
+    association : dict
+        Dictionary mapping neutral loss names to associated adduct names.
+    adducts_mass : dict
+        Dictionary mapping adduct names to their masses.
+    neutral_losses_mass : dict
+        Dictionary mapping neutral loss names to their masses.
+
+    Returns
+    -------
+    parsed_association : dict
+        Dictionary with combined names as keys and their masses as values.
+    """
+    parsed_association = {}
+    for neutral_loss, adducts_list in association.items():
+        for adduct in adducts_list:
+            name = adduct + neutral_loss
+            mass = adducts_mass.get(adduct, 0) + neutral_losses_mass.get(neutral_loss, 0)
+            parsed_association[name] = mass
+    return parsed_association
+
+
+def parse_association_formula(association: Dict[str, List[str]], adducts_compo: Dict[str, Dict[str, int]],
+                      neutral_losses_compo: Dict[str, Dict[str, int]]) -> Dict[str, Dict[str, int]]:
+    """
+    Parse the association dictionary to create a new dictionary with combined names and compositions.
+
+    Parameters
+    ----------
+    association : dict
+        Dictionary mapping neutral loss names to associated adduct names.
+    adducts_compo : dict
+        Dictionary mapping adduct names to their compositions.
+    neutral_losses_compo : dict
+        Dictionary mapping neutral loss names to their compositions.
+
+    Returns
+    -------
+    parsed_association : dict
+        Dictionary with combined names as keys and their compositions as values.
+    """
+    parsed_association = {}
+    for neutral_loss, adducts_list in association.items():
+        for adduct in adducts_list:
+            name = adduct + neutral_loss
+            compo = {}
+            # Combine the compositions of the adduct and the neutral loss
+            for element, count in adducts_compo.get(adduct, {}).items():
+                compo[element] = compo.get(element, 0) + count
+            for element, count in neutral_losses_compo.get(neutral_loss, {}).items():
+                compo[element] = compo.get(element, 0) + count
+            parsed_association[name] = compo
+    return parsed_association
+
+
 if __name__ == "__main__":
     print(
         "This module is not designed to be run standalone.\n"
