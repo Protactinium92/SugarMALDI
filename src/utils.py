@@ -364,6 +364,31 @@ def validate_entity(
 
     return  None
 
+
+def validate_association(association: Dict[str, List[str]]) -> List[str]:
+    """
+    Validate if a neural loss is associated with at least one adduct.
+
+    Parameters
+    ----------
+    association : dict
+        Dictionary mapping neutral loss names to lists of associated adduct names.
+
+    Returns
+    -------
+    errors : list of str
+        List of error messages for any missing associations.
+    """
+    errors = []
+
+    for neutral_loss, associated_adducts in association.items():
+        if not associated_adducts:
+            errors.append(
+                f"❌ Neutral loss '{neutral_loss}' is not associated with any adduct. Please associate it with at least one adduct."
+            )
+
+    return errors
+
 if __name__ == "__main__":
     print(
         "This module is not designed to be run standalone.\n"

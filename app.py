@@ -135,6 +135,7 @@ if __name__=="__main__":
             neutral_loss_mass = st.session_state.get("neutral_loss_mass", {})
             neutral_loss_compo = st.session_state.get("neutral_loss_compo", {})
 
+
             if has_snapshot:
                 ssm.SessionManager.warn_if_any_changed(
                     "Neutral loss parameters",
@@ -150,6 +151,10 @@ if __name__=="__main__":
                     adduct_mass
                 )
                 #st.session_state.neutral_loss_adduct_association = association_dict
+                association_errors = ut.validate_association(association_dict)
+                if association_errors:
+                    for err in association_errors:
+                        st.error(err)
 
         badges_adduct = " ".join(
             [f":green-badge[{name}: {mass:.6f}]" for name, mass in adduct_mass.items()]
