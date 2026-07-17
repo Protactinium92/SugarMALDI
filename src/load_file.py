@@ -41,6 +41,7 @@ import polars as pl
 from pathlib import Path
 from functools import lru_cache
 
+
 @lru_cache(maxsize=1)
 def element_mass() -> dict[str, float]:
     """

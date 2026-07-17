@@ -116,45 +116,47 @@ def validate_rows(
     return valid_rows, error_indices, has_any_input
 
 
-def build_adduct_dicts(adducts: List[dict]
-                       )-> Tuple[Dict[str, float], Dict[str, Dict[str, int]], Dict[str, bool]]:
+def build_entity_dicts(
+    entities: List[dict],
+    entity_type: str = "adduct"  # "adduct" or "neutral_loss"
+) -> Tuple[Dict[str, float], Dict[str, Dict[str, int]], Dict[str, bool]]:
     """
-    Build mass and composition dictionaries from a list of adduct definitions.
-
-    This function processes a list of adduct dictionaries and constructs:
-    - A mapping of adduct names to their masses
-    - A mapping of adduct names to their elemental compositions
-    - A mapping of adduct names to their lost status
-
-    Lost adducts are automatically prefixed with "(-)" in the output
-    dictionaries.
+    Build mass, composition, and lost status dictionaries from a list of entity definitions.
+    Works for both adducts and neutral losses.
 
     Parameters
     ----------
-    adducts : List[dict]
-        List of adduct dictionaries. Each dictionary must contain:
-        - "name" (str): Adduct identifier
-        - "mass" (float): Adduct mass
-        - "formula" (str): Chemical formula of the adduct
-        - "is_lost" (bool): Whether the adduct is lost during ionization
+    entities : List[dict]
+        List of entity dictionaries. Each must contain:
+        - "name" (str): Entity identifier (e.g., "Na+", "H2O")
+        - "mass" (float): Entity mass (positive for adducts, negative for neutral losses)
+        - "formula" (str): Chemical formula (e.g., "Na", "H2O")
+        - "is_lost" (bool): Whether the entity is lost (always True for neutral losses)
+    entity_type : str
+        Type of entity: "adduct" or "neutral_loss". Affects naming conventions.
 
     Returns
     -------
     Tuple[Dict[str, float], Dict[str, Dict[str, int]], Dict[str, bool]]
-        - adduct_mass: mapping of adduct names to masses
-        - adduct_compo: mapping of adduct names to elemental compositions
-        - adduct_is_lost: mapping of adduct names to their lost status
+        - entity_mass: mapping of names to masses
+        - entity_compo: mapping of names to elemental compositions
+        - entity_is_lost: mapping of names to lost status
     """
     
-    adduct_mass: Dict[str, float] = {}
-    adduct_compo: Dict[str, Dict[str, int]] = {}
-    adduct_is_lost: Dict[str, bool] = {}
+    entity_mass: Dict[str, float] = {}
+    entity_compo: Dict[str, Dict[str, int]] = {}
+    entity_is_lost: Dict[str, bool] = {}
 
-    for adduct in adducts:
-        name = adduct["name"]
-        mass = adduct["mass"]
-        formula = adduct["formula"]
-        is_lost = adduct["is_lost"]
+    for entity in entities:
+        name = entity["name"]
+        mass = entity["mass"]
+        formula = entity["formula"]
+        is_lost = entity.get("is_lost", False)  # Par défaut False pour les adducts
+
+        # Pour les pertes de neutres, is_lost est TOUJOURS True
+        if entity_type == "neutral_loss":
+            is_lost = True
+
         
         if not (name and formula):
             continue
@@ -162,11 +164,11 @@ def build_adduct_dicts(adducts: List[dict]
         if is_lost:
             name = f"(-){name}"
 
-        adduct_mass[name] = mass
-        adduct_compo[name] = parse_formula(formula, is_lost)
-        adduct_is_lost[name] = is_lost
+        entity_mass[name] = mass
+        entity_compo[name] = parse_formula(formula, is_lost)
+        entity_is_lost[name] = is_lost
 
-    return adduct_mass, adduct_compo, adduct_is_lost
+    return entity_mass, entity_compo, entity_is_lost
 
 
 def check_formula(dict_formula_compo: dict) -> List[str]:
@@ -203,6 +205,9 @@ def check_formula(dict_formula_compo: dict) -> List[str]:
 def validate_inputs(
     monomers_list: List[str],
     adduct_compo: Dict[str, int],
+    neutral_loss_use: bool,
+    neutral_loss_compo: Dict[str, int],
+    association: Dict[str, List[str]],
     use_label: bool,
     label_compo: Dict[str, int],
 ) -> Tuple[bool, List[str]]:
@@ -218,6 +223,12 @@ def validate_inputs(
         List of monomer identifiers.
     adduct_compo : Dict[str, int]
         Adduct composition dictionary.
+    neutral_loss_use : bool
+        Whether neutral loss is enabled.
+    neutral_loss_compo : Dict[str, int]
+        Neutral loss composition dictionary.
+    association : Dict[str, List[str]]
+        Association between neutral losses and adducts.
     use_label : bool
         Whether isotopic or chemical labeling is enabled.
     label_compo : Dict[str, int]
@@ -240,6 +251,12 @@ def validate_inputs(
 
     if use_label and label_compo is None:
         errors.append("Label is enabled but invalid")
+
+    if neutral_loss_use and not neutral_loss_compo:
+        errors.append("Neutral loss is enabled but invalid")
+
+    if neutral_loss_compo and not all(association.values()):
+        errors.append("One or more neutral losses provided are not associated with any adduct.")
 
     return len(errors) == 0, errors
 
@@ -291,47 +308,52 @@ def validate_lost_adduct(
     )
 
 
-
-def validate_adduct(
-    adduct: Dict[str, object],
+def validate_entity(
+    entity: Dict[str, object],
     monomer_elements: List[str],
     label_composition: Optional[Dict[str, int]],
+    entity_type: str = "adduct"  # "adduct" or "neutral_loss"
 ) -> Optional[str]:
     """
-    Validate a single adduct.
+    Validate a single entity (adduct or neutral loss).
 
     The validation checks:
-    - the chemical formula can be parsed;
-    - all elements belong to the supported element list;
-    - if the adduct is marked as lost, all its elements can originate
-      from either the monomers or the selected label.
+    - The chemical formula can be parsed.
+    - All elements belong to the supported element list.
+    - If the entity is marked as lost (or is a neutral loss), all its elements
+      can originate from either the monomers or the selected label.
 
     Parameters
     ----------
-    adduct : dict
-        Adduct definition containing at least the keys ``"formula"``
-        and ``"is_lost"``.
+    entity : dict
+        Entity definition containing at least the keys "formula" and "is_lost".
     monomer_elements : list[str]
         List of element symbols present in the monomers.
     label_composition : dict[str, int] or None
         Elemental composition of the selected label. If no label is used,
-        this should be ``None``.
+        this should be None.
+    entity_type : str
+        Type of entity: "adduct" or "neutral_loss".
 
     Returns
     -------
     error : str or None
         Error message if validation failed, otherwise ``None``.
     """
-    composition = parse_formula(
-        adduct["formula"],
-        adduct["is_lost"],
-    )
 
-    if adduct["formula"] and not composition:
-        return (
-            f"❌ Adduct formula '{adduct['formula']}' is invalid."
-        )
+    # Force is_lost to True for neutral losses
+    is_lost = entity.get("is_lost", False)
+    if entity_type == "neutral_loss":
+        is_lost = True
 
+    formula = entity["formula"]
+    composition = parse_formula(formula, is_lost)
+
+    # Check for empty formula or composition
+    if formula and not composition:
+        return f"❌ {entity_type.capitalize()} formula '{formula}' is invalid."
+
+    # Check if every element in the formula is present in the NIST monoisotopic library
     wrong_elements = check_formula(composition)
     if wrong_elements:
         elements_str = ", ".join(wrong_elements)
@@ -340,22 +362,108 @@ def validate_adduct(
         return (
             f"❌ {elements_str} {verb} not in the NIST monoisotopic library."
         )
-
+    # Check if the lost entity contains only elements present in the monomers or label
     invalid_elements = validate_lost_adduct(
         composition=composition,
-        is_lost=adduct["is_lost"],
+        is_lost=is_lost,
         monomer_elements=monomer_elements,
         label_composition=label_composition,
     )
 
     if invalid_elements:
         return (
-            f"❌ Lost adduct '{adduct['formula']}' contains element(s) "
+            f"❌ Lost {entity_type.capitalize()} '{formula}' contains element(s) "
             "that are not present in the monomers or the selected label: "
             f"{', '.join(invalid_elements)}."
         )
 
     return  None
+
+
+def validate_association(association: Dict[str, List[str]]) -> List[str]:
+    """
+    Validate if a neural loss is associated with at least one adduct.
+
+    Parameters
+    ----------
+    association : dict
+        Dictionary mapping neutral loss names to lists of associated adduct names.
+
+    Returns
+    -------
+    errors : list of str
+        List of error messages for any missing associations.
+    """
+    errors = []
+
+    for neutral_loss, associated_adducts in association.items():
+        if not associated_adducts:
+            errors.append(
+                f"❌ Neutral loss '{neutral_loss}' is not associated with any adduct. Please associate it with at least one adduct."
+            )
+
+    return errors
+
+def parse_association_mass(association: Dict[str, List[str]], adducts_mass: Dict[str, float],
+                      neutral_losses_mass: Dict[str, float]) -> Dict[str, float]:
+    """
+    Parse the association dictionary to create a new dictionary with combined names and masses.
+
+    Parameters
+    ----------
+    association : dict
+        Dictionary mapping neutral loss names to associated adduct names.
+    adducts_mass : dict
+        Dictionary mapping adduct names to their masses.
+    neutral_losses_mass : dict
+        Dictionary mapping neutral loss names to their masses.
+
+    Returns
+    -------
+    parsed_association : dict
+        Dictionary with combined names as keys and their masses as values.
+    """
+    parsed_association = {}
+    for neutral_loss, adducts_list in association.items():
+        for adduct in adducts_list:
+            name = adduct + neutral_loss
+            mass = adducts_mass.get(adduct, 0) + neutral_losses_mass.get(neutral_loss, 0)
+            parsed_association[name] = mass
+    return parsed_association
+
+
+def parse_association_formula(association: Dict[str, List[str]], adducts_compo: Dict[str, Dict[str, int]],
+                      neutral_losses_compo: Dict[str, Dict[str, int]]) -> Dict[str, Dict[str, int]]:
+    """
+    Parse the association dictionary to create a new dictionary with combined names and compositions.
+
+    Parameters
+    ----------
+    association : dict
+        Dictionary mapping neutral loss names to associated adduct names.
+    adducts_compo : dict
+        Dictionary mapping adduct names to their compositions.
+    neutral_losses_compo : dict
+        Dictionary mapping neutral loss names to their compositions.
+
+    Returns
+    -------
+    parsed_association : dict
+        Dictionary with combined names as keys and their compositions as values.
+    """
+    parsed_association = {}
+    for neutral_loss, adducts_list in association.items():
+        for adduct in adducts_list:
+            name = adduct + neutral_loss
+            compo = {}
+            # Combine the compositions of the adduct and the neutral loss
+            for element, count in adducts_compo.get(adduct, {}).items():
+                compo[element] = compo.get(element, 0) + count
+            for element, count in neutral_losses_compo.get(neutral_loss, {}).items():
+                compo[element] = compo.get(element, 0) + count
+            parsed_association[name] = compo
+    return parsed_association
+
 
 if __name__ == "__main__":
     print(

@@ -123,6 +123,9 @@ class AnalysisConfig:
         monomers_list (list[str]): List of monomers.
         adduct_mass (dict): Adduct masses.
         adduct_compo (dict): Adduct compositions.
+        neutral_loss_use (bool): Whether to use neutral loss.
+        associated_neutral_loss_mass (dict): Neutral loss masses associated with adducts.
+        associated_neutral_loss_compo (dict): Neutral loss compositions associated with adducts.
         label_use (bool): Whether to use labels.
         label_name (str): Label name.
         label_formula (Optional[str]): Label formula.
@@ -132,6 +135,9 @@ class AnalysisConfig:
     monomers_list: list[str]
     adduct_mass: dict
     adduct_compo: dict
+    neutral_loss_use: bool
+    associated_neutral_loss_mass: dict
+    associated_neutral_loss_compo: dict
     label_use: bool
     label_name: str
     label_formula: Optional[str]
