@@ -53,7 +53,7 @@ Dependencies:
 """
 
 __author__  = "Pierre-Alexandre HO"
-__version__ = "0.1.5"
+__version__ = "0.1.6"
 
 
 import streamlit as st
@@ -141,7 +141,6 @@ if __name__=="__main__":
                     neutral_loss_mass,
                     adduct_mass
                 )
-                #st.session_state.neutral_loss_adduct_association = association_dict
                 association_errors = ut.validate_association(association_dict)
                 if association_errors:
                     for err in association_errors:

@@ -1,4 +1,4 @@
-![Version](https://img.shields.io/badge/version-0.1.5-red.svg)
+![Version](https://img.shields.io/badge/version-0.1.6-red.svg)
 ![Python 3.13+](https://img.shields.io/badge/python-3.9+-blue.svg)
 ![License: CeCILL 2.1](https://img.shields.io/badge/license-CeCILL_2.1-green.svg)
 ![Polars](https://img.shields.io/badge/polars-1.33.0+-orange.svg)
@@ -441,7 +441,7 @@ In this case, Streamlit automatically uses an in-memory cache backend. This beha
 | Decrease isotope count | 1.5-2x | Use 3-4 isotopes instead of 6 |
 | Parallel processing | 4-8x | Automatic via ProcessPoolExecutor |
 
-### Benchmarks (from USER_GUIDE.md)
+### Benchmarks (from [USER_GUIDE.md](USER_GUIDE.md))
 
 Execution time for **Arabinogalactan (AG)** and **Galactomannan (GM)**:
 
@@ -462,6 +462,50 @@ Contains 4 calibrated/non-calibrated examples:
 - ✓ Arabinogalactan standard
 - ✓ Galactomannan standard
 
+## Extending SugarMALDI for Other Polymers
+
+Although SugarMALDI was initially developed for the characterization of oligosaccharides in painting gums, its modular algorithmic framework allows adaptation to other hetero-polymers.
+
+### 1. Adding New Monomers
+
+SugarMALDI relies on the `monomers.csv` file to define the reference monomer library.  
+The software can be adapted to new polymer classes by updating this file.
+
+The `monomers.csv` file must follow this format using a semicolon (`;`) separator:
+
+| Column | Description |
+|---|---|
+| `Notation` | Short name used to identify the monomer |
+| `Description` | Brief definition of the monomer |
+| `C`, `H`, `O`, `N` | Atomic count of each element in the individual (non-polymerized) monomer |
+
+Example:
+
+```csv
+Notation;Description;C;H;O;N
+dHex;Deoxyhexose;6;12;5;0
+Hex;Hexose;6;12;6;0
+...
+```
+
+### 2. Customizing Polymerization Chemistry
+
+While the monomer library can be easily configured, the condensation reaction logic is currently implemented directly in the source code.
+
+The algorithm calculates the mass variation associated with polymerization based on the degree of polymerization. If your target polymer involves a different chemical reaction (e.g., loss of another molecule or different stoichiometry), the corresponding functions in `oligoMass.py` must be adapted:
+
+- `calc_oligo_mass`
+- `add_adduct_columns` (for labelling)
+
+These functions define how polymerization affects the calculated molecular mass and how adduct-related modifications are handled.
+
+### 3. Known Limitations: Protein Analysis
+
+Although SugarMALDI could theoretically be extended to protein analysis, the current implementation has an important limitation:
+
+**Combinatorial complexity**  
+The algorithm is optimized for small-to-medium-sized oligosaccharides (500 to 4000 Da). For proteins, the number of possible amino acid combinations increases exponentially with polymer length, leading to a very large search space.
+Consequently, the current version is not computationally efficient for the analysis of large polypeptides.
 
 ## 🔧 Dependencies
 
