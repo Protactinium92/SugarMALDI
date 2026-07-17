@@ -133,6 +133,8 @@ if __name__=="__main__":
         with neutral_loss_container:
             neutral_loss_mass, neutral_loss_compo = ff.neutral_loss_selection(monomers_df.columns[3:], label_dict)
 
+            parsed_association_mass = {}
+            parsed_association_formula = {}
             if adduct_mass and neutral_loss_mass:
                 association_dict = ff.neutral_loss_adduct_association_table(
                     neutral_loss_mass,
@@ -156,20 +158,18 @@ if __name__=="__main__":
                         adduct_compo,
                         neutral_loss_compo
                     )
-                
-                st.session_state.associated_neutral_loss_mass = parsed_association_mass
-                st.session_state.associated_neutral_loss_compo = parsed_association_formula
-                
-                if has_snapshot:
-                    ssm.SessionManager.warn_if_any_changed(
-                        "Neutral loss parameters or its association with adducts",
-                        [
-                            (parsed_association_mass, snapshot.associated_neutral_loss_mass),
-                            (parsed_association_formula, snapshot.associated_neutral_loss_compo),
-                        ]
-                    )
+            
+            if has_snapshot:
+                ssm.SessionManager.warn_if_any_changed(
+                    "Neutral loss parameters or its association with adducts",
+                    [
+                        (parsed_association_mass, snapshot.associated_neutral_loss_mass),
+                        (parsed_association_formula, snapshot.associated_neutral_loss_compo),
+                    ]
+                )
 
-            badges_adduct = " ".join(
+
+        badges_adduct = " ".join(
             [f":green-badge[{name}: {mass:.6f}]" for name, mass in adduct_mass.items()]
         )
         badges_neutral_loss = " ".join(
@@ -287,6 +287,8 @@ if __name__=="__main__":
             monomers_list=monomers_list,
             adduct_mass=adduct_mass,
             adduct_compo=adduct_compo,
+            #associated_neutral_loss_mass=parsed_association_mass,
+            #associated_neutral_loss_compo=parsed_association_formula,
             label_use=label_use,
             label_name=label_name,
             label_formula=label_formula,

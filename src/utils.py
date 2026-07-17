@@ -243,6 +243,9 @@ def validate_inputs(
     if use_label and label_compo is None:
         errors.append("Label is enabled but invalid")
 
+    # for neutral losse: "neutral loss is enable but invalid"
+    # for neutral losse: "neutral loss is provided but not associated with any adduct"
+
     return len(errors) == 0, errors
 
 
