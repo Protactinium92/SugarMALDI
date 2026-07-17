@@ -246,14 +246,20 @@ def add_adduct_columns(
         pl.LazyFrame: Input LazyFrame with additional columns for each adduct's total mass.
                       New columns are named "labeled_mass_[adduct]".
     """
-    label_mass = calc_mass_mol(label_dict) if label_use else 0
     water = calc_mass_mol(cf.WATER)
     df_lazy = ensure_lazy(df)
     # Build all adduct columns in one call using list comprehension
-    adduct_columns = [
-        (pl.col(mass_column_name) + label_mass - water + adduct_mass).round(6).alias(f"labeled_mass_{adduct}")
-        for adduct, adduct_mass in adduct_mass_dict.items()
-    ]
+    if label_use:
+        label_mass = calc_mass_mol(label_dict)
+        adduct_columns = [
+            (pl.col(mass_column_name) + label_mass - water + adduct_mass).round(6).alias(f"labeled_mass_{adduct}")
+            for adduct, adduct_mass in adduct_mass_dict.items()
+        ]
+    else:
+        adduct_columns = [
+            (pl.col(mass_column_name) + adduct_mass).round(6).alias(f"labeled_mass_{adduct}")
+            for adduct, adduct_mass in adduct_mass_dict.items()
+        ]
 
     # Add all columns lazily
     return df_lazy.with_columns(adduct_columns)
