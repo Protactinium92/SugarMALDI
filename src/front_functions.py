@@ -672,7 +672,7 @@ def neutral_loss_selection(
         neutral_loss_mass = {}
         neutral_loss_compo = {}
 
-    return neutral_loss_mass, neutral_loss_compo
+    return on_neutral_loss, neutral_loss_mass, neutral_loss_compo
 
 
 def neutral_loss_adduct_association_table(
@@ -855,6 +855,7 @@ def build_badges(config):
         *[f":blue-badge[{m}]" for m in config.monomers_list],
         f":orange-badge[{config.params.iso_score}]",
         *[f":green-badge[{name}]" for name in config.adduct_mass.keys()],
+        *[f":gray-badge[{name}]" for name in config.associated_neutral_loss_mass.keys()],
         f":red-badge[{config.label_name}]",
     ]
 

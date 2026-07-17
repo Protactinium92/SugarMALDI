@@ -131,10 +131,11 @@ if __name__=="__main__":
 
         neutral_loss_container = st.container(border=True)
         with neutral_loss_container:
-            neutral_loss_mass, neutral_loss_compo = ff.neutral_loss_selection(monomers_df.columns[3:], label_dict)
+            neutral_use, neutral_loss_mass, neutral_loss_compo = ff.neutral_loss_selection(monomers_df.columns[3:], label_dict)
 
+            association_dict = {}
             parsed_association_mass = {}
-            parsed_association_formula = {}
+            parsed_association_compo = {}
             if adduct_mass and neutral_loss_mass:
                 association_dict = ff.neutral_loss_adduct_association_table(
                     neutral_loss_mass,
@@ -145,15 +146,13 @@ if __name__=="__main__":
                 if association_errors:
                     for err in association_errors:
                         st.error(err)
-                    parsed_association_mass = {}
-                    parsed_association_formula = {}
                 else:
                     parsed_association_mass = ut.parse_association_mass(
                         association_dict,
                         adduct_mass,
                         neutral_loss_mass
                     )
-                    parsed_association_formula = ut.parse_association_formula(
+                    parsed_association_compo = ut.parse_association_formula(
                         association_dict,
                         adduct_compo,
                         neutral_loss_compo
@@ -163,17 +162,17 @@ if __name__=="__main__":
                 ssm.SessionManager.warn_if_any_changed(
                     "Neutral loss parameters or its association with adducts",
                     [
+                        (neutral_use, snapshot.neutral_loss_use),
                         (parsed_association_mass, snapshot.associated_neutral_loss_mass),
-                        (parsed_association_formula, snapshot.associated_neutral_loss_compo),
+                        (parsed_association_compo, snapshot.associated_neutral_loss_compo),
                     ]
                 )
-
 
         badges_adduct = " ".join(
             [f":green-badge[{name}: {mass:.6f}]" for name, mass in adduct_mass.items()]
         )
         badges_neutral_loss = " ".join(
-            [f":gray-badge[{name}: {mass:.6f} {parsed_association_formula.get(name, {})}]" for name, mass in parsed_association_mass.items()]
+            [f":gray-badge[{name}: {mass:.6f} {parsed_association_compo.get(name, {})}]" for name, mass in parsed_association_mass.items()]
         )
         badges_label = (
             ":red-badge[No Label]"
@@ -287,8 +286,9 @@ if __name__=="__main__":
             monomers_list=monomers_list,
             adduct_mass=adduct_mass,
             adduct_compo=adduct_compo,
-            #associated_neutral_loss_mass=parsed_association_mass,
-            #associated_neutral_loss_compo=parsed_association_formula,
+            neutral_loss_use=neutral_use,
+            associated_neutral_loss_mass=parsed_association_mass,
+            associated_neutral_loss_compo=parsed_association_compo,
             label_use=label_use,
             label_name=label_name,
             label_formula=label_formula,
@@ -299,6 +299,9 @@ if __name__=="__main__":
         is_valid, errors = ut.validate_inputs(
             monomers_list,
             adduct_compo,
+            neutral_use,
+            neutral_loss_compo,
+            association_dict,
             label_use,
             label_dict
         )
@@ -325,12 +328,16 @@ if __name__=="__main__":
                     log_placeholder = st.empty()
                     root_logger, handler = ff.init_streamlit_logger(log_placeholder)
 
+                    # combine adduct and neutral loss compositions for analysis
+                    combine_mass = adduct_mass | parsed_association_mass
+                    combine_compo = adduct_compo | parsed_association_compo 
+
                     zip_buffer, peak_dict, nb_combination = sp_ana.execute_process(
                         spectra,
                         monomers_list,
                         monomers_df,
-                        adduct_mass,
-                        adduct_compo,
+                        combine_mass,
+                        combine_compo,
                         label_use,
                         label_dict,
                         rm_threshold,

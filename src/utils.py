@@ -205,6 +205,9 @@ def check_formula(dict_formula_compo: dict) -> List[str]:
 def validate_inputs(
     monomers_list: List[str],
     adduct_compo: Dict[str, int],
+    neutral_loss_use: bool,
+    neutral_loss_compo: Dict[str, int],
+    association: Dict[str, List[str]],
     use_label: bool,
     label_compo: Dict[str, int],
 ) -> Tuple[bool, List[str]]:
@@ -220,6 +223,12 @@ def validate_inputs(
         List of monomer identifiers.
     adduct_compo : Dict[str, int]
         Adduct composition dictionary.
+    neutral_loss_use : bool
+        Whether neutral loss is enabled.
+    neutral_loss_compo : Dict[str, int]
+        Neutral loss composition dictionary.
+    association : Dict[str, List[str]]
+        Association between neutral losses and adducts.
     use_label : bool
         Whether isotopic or chemical labeling is enabled.
     label_compo : Dict[str, int]
@@ -243,8 +252,11 @@ def validate_inputs(
     if use_label and label_compo is None:
         errors.append("Label is enabled but invalid")
 
-    # for neutral losse: "neutral loss is enable but invalid"
-    # for neutral losse: "neutral loss is provided but not associated with any adduct"
+    if neutral_loss_use and not neutral_loss_compo:
+        errors.append("Neutral loss is enabled but invalid")
+
+    if neutral_loss_compo and not all(association.values()):
+        errors.append("One or more neutral losses provided are not associated with any adduct.")
 
     return len(errors) == 0, errors
 
