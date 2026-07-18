@@ -507,6 +507,23 @@ def calculate_brut_formula(
     -------
     str
         Brute formula (e.g. "C30H52O21Na1")
+    
+    Notes
+    -----
+    The molecular formula is computed by summing the elemental composition
+    of all selected monomers, then applying chemical corrections.
+
+    Condensation reaction:
+        Monomer assembly into an oligosaccharide is considered to occur via
+        glycosidic bond formation. Each bond formation induces the loss of one
+        water molecule (H2O). Thus, for an oligosaccharide composed of N
+        monomers, (N - 1) H2O molecules are removed from the total elemental
+        composition:
+            H -= 2 * (N - 1)
+            O -= (N - 1)
+
+    Adducts and labels are subsequently added according to their elemental
+    composition.
     """
     
     elements = monomer_df.columns[3:]  # Skip "Notation"

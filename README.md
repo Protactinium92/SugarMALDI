@@ -490,22 +490,32 @@ Hex;Hexose;6;12;6;0
 
 ### 2. Customizing Polymerization Chemistry
 
-While the monomer library can be easily configured, the condensation reaction logic is currently implemented directly in the source code.
+While the monomer library can be easily configured, the polymerization reaction logic is currently implemented directly in the source code.
 
-The algorithm calculates the mass variation associated with polymerization based on the degree of polymerization. If your target polymer involves a different chemical reaction (e.g., loss of another molecule or different stoichiometry), the corresponding functions in `oligoMass.py` must be adapted:
+By default, SugarMALDI assumes that polymer formation occurs through a condensation reaction, where each linkage between two monomers results in the loss of one water molecule (H₂O). Therefore, for a polymer composed of *n* units involved in condensation, a mass correction corresponding to the loss of (*n* − 1) H₂O molecules is applied.
 
-- `calc_oligo_mass`
-- `add_adduct_columns` (for labelling)
+If your target polymer involves a different chemical reaction (e.g., loss of another molecule, different stoichiometry, or no condensation step), the corresponding functions must be adapted:
 
-These functions define how polymerization affects the calculated molecular mass and how adduct-related modifications are handled.
+- `oligoMass.py`
+  - `calc_oligo_mass`: calculates the polymer mass based on monomer composition and applies the mass correction associated with the condensation reaction.
+  - `add_adduct_columns`: applies mass modifications introduced by adducts, chemical modifications, and labeling groups. When a label is introduced through a condensation reaction, it is included as an additional condensation unit and contributes to the corresponding H₂O loss correction.
+
+- `spectrum_analysis.py`
+  - `calculate_brut_formula`: defines the elemental composition corrections applied during molecular formula generation.
+
+These functions determine how polymerization, labeling, chemical modifications, and adducts are reflected in the calculated molecular mass and elemental composition.
 
 ### 3. Known Limitations: Protein Analysis
 
 Although SugarMALDI could theoretically be extended to protein analysis, the current implementation has an important limitation:
 
 **Combinatorial complexity**  
-The algorithm is optimized for small-to-medium-sized oligosaccharides (500 to 4000 Da). For proteins, the number of possible amino acid combinations increases exponentially with polymer length, leading to a very large search space.
-Consequently, the current version is not computationally efficient for the analysis of large polypeptides.
+
+The algorithm relies on the generation of a reference library containing possible polymer compositions. For a polymer composed of up to L monomer units from a set of N possible monomers, the number of possible sequences/combinations can grow exponentially with polymer length, with an approximate complexity of $O(N^L)$
+
+For example, considering the 20 standard amino acids and a peptide length of 24 residues, the theoretical search space could reach: $20^{24}\approx 1.7 \times 10^{31}$ possible combinations.
+
+This combinatorial explosion dramatically increases both the size of the generated reference library and the number of molecular masses that must be evaluated during the search step. Consequently, the current version of SugarMALDI is designed for small-to-medium-sized oligosaccharides and is not computationally suitable for the analysis of large polypeptides without additional optimization strategies
 
 ## 🔧 Dependencies
 
