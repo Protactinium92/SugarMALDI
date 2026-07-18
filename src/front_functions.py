@@ -417,7 +417,7 @@ def adduct_selection(element_monomere: List[str], label_formula: Dict[str, int] 
 
                 sub_col_box.markdown(
                     markdown_checkbox_title_rendering(
-                        "Use a brut formula different from name"
+                        "Use a chemical formula different from name"
                     ),
                     unsafe_allow_html=True,
                 )
@@ -594,7 +594,7 @@ def neutral_loss_selection(
 
                 sub_col_box.markdown(
                     markdown_checkbox_title_rendering(
-                        "Use a brut formula different from name"
+                        "Use a chemical formula different from name"
                     ),
                     unsafe_allow_html=True,
                 )
@@ -810,7 +810,7 @@ def label_selection():
         )
 
         input_formula = col_formula.text_input(
-            label="Brut or Semi-developped Formula",
+            label="Chemical or Semi-developped Formula",
             key="label_formula_input",
             placeholder="e.g. CH4O or CH3-OH"
         )
