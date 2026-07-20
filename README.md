@@ -1,4 +1,4 @@
-![Version](https://img.shields.io/badge/version-0.1.6-red.svg)
+![Version](https://img.shields.io/badge/version-0.1.7-red.svg)
 ![Python 3.13+](https://img.shields.io/badge/python-3.9+-blue.svg)
 ![License: CeCILL 2.1](https://img.shields.io/badge/license-CeCILL_2.1-green.svg)
 ![Polars](https://img.shields.io/badge/polars-1.33.0+-orange.svg)

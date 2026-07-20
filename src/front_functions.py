@@ -945,14 +945,14 @@ def entity_selection(
             )
 
             # Sync entity dictionary with session state
-            mass = st.session_state[mass_key]
-            is_lost = st.session_state[is_lost_key]
+            # mass = st.session_state[mass_key]
+            # is_lost = st.session_state[is_lost_key]
 
             entity.update({
                 "name": st.session_state[name_key],
-                "mass": -mass if is_lost else mass,
+                "mass": st.session_state[mass_key],
                 "formula": st.session_state[formula_key],
-                "is_lost": is_lost,
+                "is_lost": st.session_state[is_lost_key],
             })
 
         # Add button

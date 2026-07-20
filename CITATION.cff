@@ -3,7 +3,7 @@ message: "If you use SugarMALDI in your research, please cite the software as fo
 
 title: "SugarMALDI: An Application for oligosaccharides' identification in MALDI-MS data."
 
-version: 0.1.5
+version: 0.1.7
 date-released: 2026-07-05
 
 doi: "10.5281/zenodo.TBD"

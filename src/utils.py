@@ -163,6 +163,7 @@ def build_entity_dicts(
 
         if is_lost:
             name = f"(-){name}"
+            mass = -abs(mass)  # Mass is negative for lost entities
 
         entity_mass[name] = mass
         entity_compo[name] = parse_formula(formula, is_lost)
