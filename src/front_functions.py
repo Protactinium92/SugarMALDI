@@ -204,36 +204,92 @@ def monomer_selection() ->Tuple[List[str], pl.DataFrame]:
     return monomers_list, selected_df
 
 
-def _init_adducts_state() -> None:
-    """Initialize session state for adducts with default values from cf.ADDUCT_MASS"""
-    if "adducts" not in st.session_state:
-        st.session_state.adducts = []
-        for adduct_name, mass in cf.ADDUCT_MASS.items():
-            st.session_state.adducts.append({
-                "id": str(uuid.uuid4()), # Unique ID,  
-                "name": adduct_name,
+# def _init_adducts_state() -> None:
+#     """Initialize session state for adducts with default values from cf.ADDUCT_MASS"""
+#     if "adducts" not in st.session_state:
+#         st.session_state.adducts = []
+#         for adduct_name, mass in cf.ADDUCT_MASS.items():
+#             st.session_state.adducts.append({
+#                 "id": str(uuid.uuid4()), # Unique ID,  
+#                 "name": adduct_name,
+#                 "mass": mass,
+#                 "formula": adduct_name,  # Default formula same as name
+#                 "is_lost": False,  # Default value for is_lost
+#             })
+
+
+# def _init_neutral_losses_state() -> None:
+#     """Initialize session state for neutral losses with default values."""
+#     if "neutral_losses" not in st.session_state:
+#         st.session_state.neutral_losses = []
+#         # Add a default neutral loss (e.g., H2O)
+#         st.session_state.neutral_losses.append({
+#             "id": str(uuid.uuid4()),
+#             "name": "H2O",
+#             "mass": -18.01056,  # Negative mass for neutral loss
+#             "formula": "H2O",
+#         })
+
+
+def _init_entity_state(entity_type: str, default_entities_values: Dict[str, float]) -> None:
+    """
+    Initialize session state for a given entity type (adduct or neutral loss)
+    
+    Parameters
+    ----------
+    entity_type : str
+        Type of entity to initialize ('adduct' or 'neutral_loss').
+    default_entities_values : Dict[str, float]
+        Default dictionary for the entity type.
+        Dictionary items: {name: mass} 
+    """
+    if entity_type not in st.session_state:
+        st.session_state[entity_type] = []
+        for name, mass in default_entities_values.items():
+            st.session_state[entity_type].append({
+                "id": str(uuid.uuid4()),
+                "name": name,
                 "mass": mass,
-                "formula": adduct_name,  # Default formula same as name
+                "formula": name,  # Default formula same as name
                 "is_lost": False,  # Default value for is_lost
             })
 
 
-def _init_neutral_losses_state() -> None:
-    """Initialize session state for neutral losses with default values."""
-    if "neutral_losses" not in st.session_state:
-        st.session_state.neutral_losses = []
-        # Add a default neutral loss (e.g., H2O)
-        st.session_state.neutral_losses.append({
-            "id": str(uuid.uuid4()),
-            "name": "H2O",
-            "mass": -18.01056,  # Negative mass for neutral loss
-            "formula": "H2O",
-        })
+# def _add_adduct() -> None:
+#     """Add a new empty adduct."""
+#     st.session_state.adducts.append(
+#         {
+#             "id": str(uuid.uuid4()),
+#             "name": "",
+#             "mass": 0.0,
+#             "formula": "",
+#             "is_lost": False,
+#         }
+#     )
 
 
-def _add_adduct() -> None:
-    """Add a new empty adduct."""
-    st.session_state.adducts.append(
+# def _add_neutral_loss() -> None:
+#     """Add a new empty neutral loss."""
+#     st.session_state.neutral_losses.append(
+#         {
+#             "id": str(uuid.uuid4()),
+#             "name": "",
+#             "mass": 0.0,
+#             "formula": "",
+#         }
+#     )
+
+
+def _add_entity(entity_type: str) -> None:
+    """
+    Add a new empty entity.
+
+    Parameters
+    ----------
+    entity_type : str
+        Session state key containing the entity list.
+    """
+    st.session_state[entity_type].append(
         {
             "id": str(uuid.uuid4()),
             "name": "",
@@ -243,33 +299,38 @@ def _add_adduct() -> None:
         }
     )
 
+# def _delete_adduct(adduct_id: str) -> None:
+#     """Delete an adduct by its unique ID."""
+#     if len(st.session_state.adducts) > 1:
+#         st.session_state.adducts = [
+#             a for a in st.session_state.adducts if a["id"] != adduct_id
+#         ]
 
-def _add_neutral_loss() -> None:
-    """Add a new empty neutral loss."""
-    st.session_state.neutral_losses.append(
-        {
-            "id": str(uuid.uuid4()),
-            "name": "",
-            "mass": 0.0,
-            "formula": "",
-        }
-    )
+# def _delete_neutral_loss(loss_id: str) -> None: 
+#     """Delete a neutral loss by its unique ID."""
+#     if len(st.session_state.neutral_losses) > 1:
+#         st.session_state.neutral_losses = [
+#             l for l in st.session_state.neutral_losses if l["id"] != loss_id
+#         ]
 
 
-def _delete_adduct(adduct_id: str) -> None:
-    """Delete an adduct by its unique ID."""
-    if len(st.session_state.adducts) > 1:
-        st.session_state.adducts = [
-            a for a in st.session_state.adducts if a["id"] != adduct_id
+def _delete_entity(entity_type: str, entity_id: str) -> None:
+    """
+    Delete an entity by its unique ID.
+
+    Parameters
+    ----------
+    entity_type : str
+        Session state key ("adducts" or "neutral_losses").
+    entity_id : str
+        Unique ID of the entity to delete.
+    """
+    if len(st.session_state[entity_type]) > 1:
+        st.session_state[entity_type] = [
+            entity
+            for entity in st.session_state[entity_type]
+            if entity["id"] != entity_id
         ]
-
-def _delete_neutral_loss(loss_id: str) -> None: 
-    """Delete a neutral loss by its unique ID."""
-    if len(st.session_state.neutral_losses) > 1:
-        st.session_state.neutral_losses = [
-            l for l in st.session_state.neutral_losses if l["id"] != loss_id
-        ]
-
 
 def print_error_formula(wrong_elements: List[str]):
     elements_str = ", ".join(wrong_elements)
@@ -295,384 +356,384 @@ def _toggle_lost(adduct_id: str) -> None:
     st.session_state[mass_key] *= -1
 
 
-def adduct_selection(element_monomere: List[str], label_formula: Dict[str, int] | None
-                     ) -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
-    """
-    Adduct configuration and validation.
+# def adduct_selection(element_monomere: List[str], label_formula: Dict[str, int] | None
+#                      ) -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
+#     """
+#     Adduct configuration and validation.
 
-    This function renders an interactive interface allowing users to:
-    - Define, edit, and delete adducts
-    - Configure adduct mass values (m/z)
-    - Define chemical formulas or fallback to adduct names
-    - Specify whether an adduct is "lost" during ionization
-    - Optionally override formulas with custom definitions
+#     This function renders an interactive interface allowing users to:
+#     - Define, edit, and delete adducts
+#     - Configure adduct mass values (m/z)
+#     - Define chemical formulas or fallback to adduct names
+#     - Specify whether an adduct is "lost" during ionization
+#     - Optionally override formulas with custom definitions
 
-    The function manages both:
-    - Streamlit session state (UI layer)
-    - Internal adduct structure (data layer)
+#     The function manages both:
+#     - Streamlit session state (UI layer)
+#     - Internal adduct structure (data layer)
 
-    It also performs validation and builds clean output dictionaries
-    used for downstream spectrum analysis.
+#     It also performs validation and builds clean output dictionaries
+#     used for downstream spectrum analysis.
 
-    Parameters
-    ----------
-    element_monomere : List[str]
-        List of valid elements for monomers, used for formula validation.   
-    label_formula : Dict[str, int] | None
-        Optional dictionary of label elemental composition for validation.
+#     Parameters
+#     ----------
+#     element_monomere : List[str]
+#         List of valid elements for monomers, used for formula validation.   
+#     label_formula : Dict[str, int] | None
+#         Optional dictionary of label elemental composition for validation.
 
-    Returns
-    -------
-    adduct_mass : dict[str, float]
-        Mapping of adduct names to their corresponding m/z values.
+#     Returns
+#     -------
+#     adduct_mass : dict[str, float]
+#         Mapping of adduct names to their corresponding m/z values.
 
-    adduct_compo : dict[str, dict[str, int]]
-        Mapping of adduct names to their elemental composition
-        (parsed from chemical formulas).
+#     adduct_compo : dict[str, dict[str, int]]
+#         Mapping of adduct names to their elemental composition
+#         (parsed from chemical formulas).
 
-    adduct_is_lost : dict[str, bool]
-        Mapping indicating whether each adduct is considered lost
-        during ionization (True) or retained (False).
+#     adduct_is_lost : dict[str, bool]
+#         Mapping indicating whether each adduct is considered lost
+#         during ionization (True) or retained (False).
 
-    Notes
-    -----
-    - Session state is used to persist UI interactions across reruns.
-    - Each adduct is identified internally by a UUID stored in session state.
-    - The function enforces consistency between user input and validated outputs.
-    - Validation is performed on formulas and elemental composition.
-    - Invalid adducts or incomplete entries are filtered before output.
-    """
+#     Notes
+#     -----
+#     - Session state is used to persist UI interactions across reruns.
+#     - Each adduct is identified internally by a UUID stored in session state.
+#     - The function enforces consistency between user input and validated outputs.
+#     - Validation is performed on formulas and elemental composition.
+#     - Invalid adducts or incomplete entries are filtered before output.
+#     """
 
-    on_adduct = st.toggle("Use custom adduct (By default H+ Na+ & K+) and chemical modifications", value=False)
+#     on_adduct = st.toggle("Use custom adduct (By default H+ Na+ & K+) and chemical modifications", value=False)
 
-    if on_adduct:
-        st.markdown("ℹ️ *Lost: Check the box to indicate if the adduct is lost during ionization*")
-        st.markdown("ℹ️ *Formula: Enter the net elemental composition of the adduct (e.g. H2O, CO, Na, H). Complex expressions such as -H2O+H are not supported; \
-                    instead, enter the simplified net composition (HO) with Lost checkbox checked.*")
+#     if on_adduct:
+#         st.markdown("ℹ️ *Lost: Check the box to indicate if the adduct is lost during ionization*")
+#         st.markdown("ℹ️ *Formula: Enter the net elemental composition of the adduct (e.g. H2O, CO, Na, H). Complex expressions such as -H2O+H are not supported; \
+#                     instead, enter the simplified net composition (HO) with Lost checkbox checked.*")
         
-        _init_adducts_state()
+#         _init_adducts_state()
        
-        for i, adduct in enumerate(st.session_state.adducts):
-            # st.markdown(f"Adduct {i+1}")
+#         for i, adduct in enumerate(st.session_state.adducts):
+#             # st.markdown(f"Adduct {i+1}")
 
-            # Init session state for each adduct if not already present
-            # Use unique keys based on adduct ID to avoid collisions
-            # Use session state to persist user input across reruns
+#             # Init session state for each adduct if not already present
+#             # Use unique keys based on adduct ID to avoid collisions
+#             # Use session state to persist user input across reruns
 
-            adduct_id = adduct["id"]
+#             adduct_id = adduct["id"]
 
-            name_key = f"name_{adduct_id}"
-            mass_key = f"mass_{adduct_id}"
-            formula_key = f"formula_{adduct_id}"
-            is_lost_key = f"is_lost_{adduct_id}"
-            use_formula_key = f"use_formula_{adduct_id}"
+#             name_key = f"name_{adduct_id}"
+#             mass_key = f"mass_{adduct_id}"
+#             formula_key = f"formula_{adduct_id}"
+#             is_lost_key = f"is_lost_{adduct_id}"
+#             use_formula_key = f"use_formula_{adduct_id}"
 
-            defaults = {
-                name_key: adduct["name"],
-                mass_key: adduct["mass"],
-                formula_key: adduct["formula"],
-                is_lost_key: adduct["is_lost"],
-                use_formula_key: adduct["formula"] != adduct["name"],
-            }
+#             defaults = {
+#                 name_key: adduct["name"],
+#                 mass_key: adduct["mass"],
+#                 formula_key: adduct["formula"],
+#                 is_lost_key: adduct["is_lost"],
+#                 use_formula_key: adduct["formula"] != adduct["name"],
+#             }
 
-            for key, default_value in defaults.items():
-                if key not in st.session_state:
-                    st.session_state[key] = default_value
+#             for key, default_value in defaults.items():
+#                 if key not in st.session_state:
+#                     st.session_state[key] = default_value
 
-            col_name, col_is_lost, col_mass, col_formula, col_delete = st.columns([2, 0.5, 2, 4, 0.5],
-                                                    vertical_alignment="bottom")
+#             col_name, col_is_lost, col_mass, col_formula, col_delete = st.columns([2, 0.5, 2, 4, 0.5],
+#                                                     vertical_alignment="bottom")
             
-            col_name.text_input(
-                "Name",
-                key=name_key,
-            )
+#             col_name.text_input(
+#                 "Name",
+#                 key=name_key,
+#             )
 
-            col_is_lost.markdown(
-                markdown_checkbox_title_rendering("Loss"),
-                unsafe_allow_html=True,
-            )
+#             col_is_lost.markdown(
+#                 markdown_checkbox_title_rendering("Loss"),
+#                 unsafe_allow_html=True,
+#             )
 
-            col_is_lost.checkbox(
-                "Loss",
-                key=is_lost_key,
-                label_visibility="collapsed",
-                on_change=_toggle_lost,
-                args=(adduct_id,),
-            )
-            is_lost = st.session_state[is_lost_key]
-            col_mass.number_input(
-                "m/z",
-                key=mass_key,
-                format="%.6f",
-                step=0.000001,
-                max_value=0.0 if is_lost else None,
-                min_value=0.0 if not is_lost else None, 
-            )
+#             col_is_lost.checkbox(
+#                 "Loss",
+#                 key=is_lost_key,
+#                 label_visibility="collapsed",
+#                 on_change=_toggle_lost,
+#                 args=(adduct_id,),
+#             )
+#             is_lost = st.session_state[is_lost_key]
+#             col_mass.number_input(
+#                 "m/z",
+#                 key=mass_key,
+#                 format="%.6f",
+#                 step=0.000001,
+#                 max_value=0.0 if is_lost else None,
+#                 min_value=0.0 if not is_lost else None, 
+#             )
 
-            with col_formula:
-                sub_col_box, sub_col_formula = st.columns(
-                    [0.05, 1],
-                    vertical_alignment="bottom",
-                )
+#             with col_formula:
+#                 sub_col_box, sub_col_formula = st.columns(
+#                     [0.05, 1],
+#                     vertical_alignment="bottom",
+#                 )
 
-                sub_col_box.markdown(
-                    markdown_checkbox_title_rendering(
-                        "Use a chemical formula different from name"
-                    ),
-                    unsafe_allow_html=True,
-                )
+#                 sub_col_box.markdown(
+#                     markdown_checkbox_title_rendering(
+#                         "Use a chemical formula different from name"
+#                     ),
+#                     unsafe_allow_html=True,
+#                 )
 
-                sub_col_box.checkbox(
-                    "Use Formula",
-                    key=use_formula_key,
-                    label_visibility="collapsed",
-                )
+#                 sub_col_box.checkbox(
+#                     "Use Formula",
+#                     key=use_formula_key,
+#                     label_visibility="collapsed",
+#                 )
 
-                # -----------------------------
-                # FORMULA VALUE LOGIC
-                # -----------------------------
+#                 # -----------------------------
+#                 # FORMULA VALUE LOGIC
+#                 # -----------------------------
 
-                use_formula = st.session_state[use_formula_key]
-                # If disabled → formula follows name automatically
-                if not use_formula:
-                    st.session_state[formula_key] = st.session_state[name_key]
+#                 use_formula = st.session_state[use_formula_key]
+#                 # If disabled → formula follows name automatically
+#                 if not use_formula:
+#                     st.session_state[formula_key] = st.session_state[name_key]
 
-                sub_col_formula.text_input(
-                    "formula",
-                    key=formula_key,
-                    disabled=not use_formula,
-                    label_visibility="collapsed",
-                )
+#                 sub_col_formula.text_input(
+#                     "formula",
+#                     key=formula_key,
+#                     disabled=not use_formula,
+#                     label_visibility="collapsed",
+#                 )
 
-            col_delete.button(
-                label="❌" if len(st.session_state.adducts) > 1 else "—",
-                key=f"delete_{adduct_id}",
-                width=40,
-                on_click=_delete_adduct,
-                args=(adduct_id,),
-                disabled=(len(st.session_state.adducts) == 1),
-            )
+#             col_delete.button(
+#                 label="❌" if len(st.session_state.adducts) > 1 else "—",
+#                 key=f"delete_{adduct_id}",
+#                 width=40,
+#                 on_click=_delete_adduct,
+#                 args=(adduct_id,),
+#                 disabled=(len(st.session_state.adducts) == 1),
+#             )
 
-            # ------------------------------------------------------------------
-            # Synchronize adduct dictionary
-            # ------------------------------------------------------------------
+#             # ------------------------------------------------------------------
+#             # Synchronize adduct dictionary
+#             # ------------------------------------------------------------------
 
-            adduct["name"] = st.session_state[name_key]
-            adduct["mass"] = st.session_state[mass_key]
-            adduct["formula"] = st.session_state[formula_key]
-            adduct["is_lost"] = st.session_state[is_lost_key]
+#             adduct["name"] = st.session_state[name_key]
+#             adduct["mass"] = st.session_state[mass_key]
+#             adduct["formula"] = st.session_state[formula_key]
+#             adduct["is_lost"] = st.session_state[is_lost_key]
            
-        st.button(
-            "➕ Add Adduct",
-            on_click=_add_adduct,
-        )
-        field = ["name", "mass", "formula"]
-        valid_adducts, error_indices, has_any_input = ut.validate_rows(st.session_state.adducts,
-                                                                    required_fields=field)
-        adduct_mass, adduct_compo, adduct_is_lost = ut.build_entity_dicts(
-            valid_adducts,
-            entity_type="adduct")
+#         st.button(
+#             "➕ Add Adduct",
+#             on_click=_add_adduct,
+#         )
+#         field = ["name", "mass", "formula"]
+#         valid_adducts, error_indices, has_any_input = ut.validate_rows(st.session_state.adducts,
+#                                                                     required_fields=field)
+#         adduct_mass, adduct_compo, adduct_is_lost = ut.build_entity_dicts(
+#             valid_adducts,
+#             entity_type="adduct")
 
-        # ------------------------------------------------------------------
-        # Warnings and errors for invalid adducts messages
-        # ------------------------------------------------------------------
+#         # ------------------------------------------------------------------
+#         # Warnings and errors for invalid adducts messages
+#         # ------------------------------------------------------------------
 
-        if error_indices:
-            error_adduct = [f"Adduct {i+1}" for i in error_indices]
-            st.error(f"❌ Some adducts are incomplete {' / '.join(map(str, error_adduct))}")
+#         if error_indices:
+#             error_adduct = [f"Adduct {i+1}" for i in error_indices]
+#             st.error(f"❌ Some adducts are incomplete {' / '.join(map(str, error_adduct))}")
 
-        elif not has_any_input:
-            st.error("⚠️ Please fill at least one adduct")
+#         elif not has_any_input:
+#             st.error("⚠️ Please fill at least one adduct")
 
-        for adduct in valid_adducts:
-            error = ut.validate_entity(
-                entity=adduct,
-                monomer_elements=element_monomere,
-                label_composition=label_formula,
-                entity_type="adduct"
-            )
+#         for adduct in valid_adducts:
+#             error = ut.validate_entity(
+#                 entity=adduct,
+#                 monomer_elements=element_monomere,
+#                 label_composition=label_formula,
+#                 entity_type="adduct"
+#             )
 
-            if error:
-                st.error(error)
-                adduct_compo = None
-                break
+#             if error:
+#                 st.error(error)
+#                 adduct_compo = None
+#                 break
 
-    else:
-        adduct_mass = cf.ADDUCT_MASS
-        adduct_compo = cf.ADDUCTS
-        adduct_is_lost = {name: False for name in cf.ADDUCT_MASS.keys()}
+#     else:
+#         adduct_mass = cf.ADDUCT_MASS
+#         adduct_compo = cf.ADDUCTS
+#         adduct_is_lost = {name: False for name in cf.ADDUCT_MASS.keys()}
 
-    st.session_state.adduct_mass = adduct_mass
-    st.session_state.adduct_compo = adduct_compo
-    st.session_state.adduct_loss = adduct_is_lost
+#     st.session_state.adduct_mass = adduct_mass
+#     st.session_state.adduct_compo = adduct_compo
+#     st.session_state.adduct_loss = adduct_is_lost
 
 
-def neutral_loss_selection(
-    element_monomere: List[str],
-    label_formula: Dict[str, int] | None
-) -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
-    """
-    Neutral loss configuration and validation.
+# def neutral_loss_selection(
+#     element_monomere: List[str],
+#     label_formula: Dict[str, int] | None
+# ) -> Tuple[Dict[str, float], Dict[str, Dict[str, int]]]:
+#     """
+#     Neutral loss configuration and validation.
 
-    This function renders an interactive interface allowing users to:
-    - Define, edit, and delete neutral losses (e.g., H2O, CO2, NH3)
-    - Configure their mass values (negative m/z)
-    - Define chemical formulas (required)
+#     This function renders an interactive interface allowing users to:
+#     - Define, edit, and delete neutral losses (e.g., H2O, CO2, NH3)
+#     - Configure their mass values (negative m/z)
+#     - Define chemical formulas (required)
 
-    Parameters
-    ----------
-    element_monomere : List[str]
-        List of valid elements for monomers, used for formula validation.
-    label_formula : Dict[str, int] | None
-        Optional dictionary of label elemental composition for validation.
+#     Parameters
+#     ----------
+#     element_monomere : List[str]
+#         List of valid elements for monomers, used for formula validation.
+#     label_formula : Dict[str, int] | None
+#         Optional dictionary of label elemental composition for validation.
 
-    Returns
-    -------
-    neutral_loss_mass : dict[str, float]
-        Mapping of neutral loss names to their corresponding negative m/z values.
-    neutral_loss_compo : dict[str, dict[str, int]]
-        Mapping of neutral loss names to their elemental composition.
-    """
+#     Returns
+#     -------
+#     neutral_loss_mass : dict[str, float]
+#         Mapping of neutral loss names to their corresponding negative m/z values.
+#     neutral_loss_compo : dict[str, dict[str, int]]
+#         Mapping of neutral loss names to their elemental composition.
+#     """
 
-    on_neutral_loss = st.toggle(
-        "Use custom neutral losses (e.g., H2O, CO2, NH3)",
-        value=False
-    )
+#     on_neutral_loss = st.toggle(
+#         "Use custom neutral losses (e.g., H2O, CO2, NH3)",
+#         value=False
+#     )
 
-    if on_neutral_loss:
-        st.markdown(
-            "ℹ️ *Neutral losses are molecules lost during ionization (e.g., H₂O, CO₂). "
-            "Their m/z values must be **negative** (e.g., -18.01056 for H₂O)."
-        )
+#     if on_neutral_loss:
+#         st.markdown(
+#             "ℹ️ *Neutral losses are molecules lost during ionization (e.g., H₂O, CO₂). "
+#             "Their m/z values must be **negative** (e.g., -18.01056 for H₂O)."
+#         )
 
-        _init_neutral_losses_state()
+#         _init_neutral_losses_state()
 
-        for i, loss in enumerate(st.session_state.neutral_losses):
-            # st.markdown(f"Neutral Loss {i+1}")
+#         for i, loss in enumerate(st.session_state.neutral_losses):
+#             # st.markdown(f"Neutral Loss {i+1}")
 
-            loss_id = loss["id"]
-            name_key = f"neutral_loss_name_{loss_id}"
-            mass_key = f"neutral_loss_mass_{loss_id}"
-            formula_key = f"neutral_loss_formula_{loss_id}"
-            use_formula_key = f"use_neutral_loss_formula_{loss_id}"
+#             loss_id = loss["id"]
+#             name_key = f"neutral_loss_name_{loss_id}"
+#             mass_key = f"neutral_loss_mass_{loss_id}"
+#             formula_key = f"neutral_loss_formula_{loss_id}"
+#             use_formula_key = f"use_neutral_loss_formula_{loss_id}"
 
-            # Initialize session state if not present
-            defaults = {
-                name_key: loss["name"],
-                mass_key: loss["mass"],
-                formula_key: loss["formula"],
-                use_formula_key: loss["formula"] != loss["name"],
-            }
+#             # Initialize session state if not present
+#             defaults = {
+#                 name_key: loss["name"],
+#                 mass_key: loss["mass"],
+#                 formula_key: loss["formula"],
+#                 use_formula_key: loss["formula"] != loss["name"],
+#             }
 
-            for key, default_value in defaults.items():
-                if key not in st.session_state:
-                    st.session_state[key] = default_value
+#             for key, default_value in defaults.items():
+#                 if key not in st.session_state:
+#                     st.session_state[key] = default_value
 
-            col_name, col_mass, col_formula, col_delete = st.columns(
-                [2, 2, 4, 0.5],
-                vertical_alignment="bottom"
-            )
+#             col_name, col_mass, col_formula, col_delete = st.columns(
+#                 [2, 2, 4, 0.5],
+#                 vertical_alignment="bottom"
+#             )
 
-            col_name.text_input(
-                "Name",
-                key=name_key,
-            )
+#             col_name.text_input(
+#                 "Name",
+#                 key=name_key,
+#             )
 
-            col_mass.number_input(
-                "m/z (must be negative)",
-                key=mass_key,
-                format="%.6f",
-                step=0.000001,
-                max_value=0.0,  # Force negative values
-            )
+#             col_mass.number_input(
+#                 "m/z (must be negative)",
+#                 key=mass_key,
+#                 format="%.6f",
+#                 step=0.000001,
+#                 max_value=0.0,  # Force negative values
+#             )
 
-            with col_formula:
-                sub_col_box, sub_col_formula = st.columns(
-                    [0.05, 1],
-                    vertical_alignment="bottom",
-                )
+#             with col_formula:
+#                 sub_col_box, sub_col_formula = st.columns(
+#                     [0.05, 1],
+#                     vertical_alignment="bottom",
+#                 )
 
-                sub_col_box.markdown(
-                    markdown_checkbox_title_rendering(
-                        "Use a chemical formula different from name"
-                    ),
-                    unsafe_allow_html=True,
-                )
+#                 sub_col_box.markdown(
+#                     markdown_checkbox_title_rendering(
+#                         "Use a chemical formula different from name"
+#                     ),
+#                     unsafe_allow_html=True,
+#                 )
 
-                sub_col_box.checkbox(
-                    "Use Formula",
-                    key=use_formula_key,
-                    label_visibility="collapsed",
-                )
+#                 sub_col_box.checkbox(
+#                     "Use Formula",
+#                     key=use_formula_key,
+#                     label_visibility="collapsed",
+#                 )
 
-                use_formula = st.session_state[use_formula_key]
-                if not use_formula:
-                    st.session_state[formula_key] = st.session_state[name_key]
+#                 use_formula = st.session_state[use_formula_key]
+#                 if not use_formula:
+#                     st.session_state[formula_key] = st.session_state[name_key]
 
-                sub_col_formula.text_input(
-                    "Formula",
-                    key=formula_key,
-                    disabled=not use_formula,
-                    label_visibility="collapsed",
-                )
+#                 sub_col_formula.text_input(
+#                     "Formula",
+#                     key=formula_key,
+#                     disabled=not use_formula,
+#                     label_visibility="collapsed",
+#                 )
 
-            col_delete.button(
-                label="❌" if len(st.session_state.neutral_losses) > 1 else "—",
-                key=f"delete_neutral_loss_{loss_id}",
-                width=40,
-                on_click=_delete_neutral_loss,
-                args=(loss_id,),
-                disabled=(len(st.session_state.neutral_losses) == 1),
-            )
+#             col_delete.button(
+#                 label="❌" if len(st.session_state.neutral_losses) > 1 else "—",
+#                 key=f"delete_neutral_loss_{loss_id}",
+#                 width=40,
+#                 on_click=_delete_neutral_loss,
+#                 args=(loss_id,),
+#                 disabled=(len(st.session_state.neutral_losses) == 1),
+#             )
 
-            # Synchronize loss dictionary
-            loss["name"] = st.session_state[name_key]
-            loss["mass"] = st.session_state[mass_key]
-            loss["formula"] = st.session_state[formula_key]
+#             # Synchronize loss dictionary
+#             loss["name"] = st.session_state[name_key]
+#             loss["mass"] = st.session_state[mass_key]
+#             loss["formula"] = st.session_state[formula_key]
 
-        st.button(
-            "➕ Add Neutral Loss",
-            on_click=_add_neutral_loss,
-        )
+#         st.button(
+#             "➕ Add Neutral Loss",
+#             on_click=_add_neutral_loss,
+#         )
 
-        # Validation
-        field = ["name", "mass", "formula"]
-        valid_losses, error_indices, has_any_input = ut.validate_rows(
-            st.session_state.neutral_losses,
-            required_fields=field
-        )
+#         # Validation
+#         field = ["name", "mass", "formula"]
+#         valid_losses, error_indices, has_any_input = ut.validate_rows(
+#             st.session_state.neutral_losses,
+#             required_fields=field
+#         )
 
-        neutral_loss_mass, neutral_loss_compo, _ = ut.build_entity_dicts(
-            valid_losses,
-            entity_type="neutral_loss"
-        )
+#         neutral_loss_mass, neutral_loss_compo, _ = ut.build_entity_dicts(
+#             valid_losses,
+#             entity_type="neutral_loss"
+#         )
 
-        # Warnings
-        if error_indices:
-            error_losses = [f"Neutral Loss {i+1}" for i in error_indices]
-            st.error(f"❌ Some neutral losses are incomplete {' / '.join(error_losses)}")
-        elif not has_any_input:
-            st.error("⚠️ Please fill at least one neutral loss")
+#         # Warnings
+#         if error_indices:
+#             error_losses = [f"Neutral Loss {i+1}" for i in error_indices]
+#             st.error(f"❌ Some neutral losses are incomplete {' / '.join(error_losses)}")
+#         elif not has_any_input:
+#             st.error("⚠️ Please fill at least one neutral loss")
 
-        for neutral_loss in valid_losses:
-            error = ut.validate_entity(
-                entity=neutral_loss,
-                monomer_elements=element_monomere,
-                label_composition=label_formula,
-                entity_type="neutral_loss"
-            )
+#         for neutral_loss in valid_losses:
+#             error = ut.validate_entity(
+#                 entity=neutral_loss,
+#                 monomer_elements=element_monomere,
+#                 label_composition=label_formula,
+#                 entity_type="neutral_loss"
+#             )
 
-            if error:
-                st.error(error)
-                neutral_loss_compo = None
-                break
+#             if error:
+#                 st.error(error)
+#                 neutral_loss_compo = None
+#                 break
 
-    else:
-        # No neutral losses defined, return empty dictionaries
-        neutral_loss_mass = {}
-        neutral_loss_compo = {}
+#     else:
+#         # No neutral losses defined, return empty dictionaries
+#         neutral_loss_mass = {}
+#         neutral_loss_compo = {}
 
-    return on_neutral_loss, neutral_loss_mass, neutral_loss_compo
+#     return on_neutral_loss, neutral_loss_mass, neutral_loss_compo
 
 
 def neutral_loss_adduct_association_table(
@@ -742,6 +803,223 @@ def neutral_loss_adduct_association_table(
                 association_dict[loss_name].append(adduct_name)
 
     return association_dict
+
+
+
+
+def entity_selection(
+    entity_type: str,
+    default_entities_values: Dict[str, float],
+    element_monomers: List[str],
+    label_formula: Dict[str, int] |  None,
+    default_toggle_value: bool = False,
+    use_default_entities: tuple[dict[str, float], dict[str, dict[str, int]]] | None = None
+) ->  Tuple[bool, Dict[str, float], Dict[str, Dict[str, int]], Dict[str, bool]]:
+    """
+    Generic function to handle selection and validation of entities (adducts or neutral losses).
+
+    Parameters
+    ----------
+    entity_type : str
+        Type of entity to manage (e.g., "adduct" or "neutral_loss").
+    default_entities_values : Dict[str, float]
+        Default dictionary for the entity type.
+    element_monomers : List[str]
+        List of valid elements for formula validation.
+    label_formula : Dict[str, int] | None
+        Optional label composition for validation.
+    default_toggle_value : bool
+        Default value for the toggle.
+    use_default_entities : tuple[dict[str, float], dict[str, dict[str, int]]] | None
+        Default entities to initialize if toggle is off.
+        First element: mass_dict, second element: composition_dict
+
+    Returns
+    -------
+    Tuple[bool, Dict[str, float], Dict[str, Dict[str, int]], Dict[str, bool]]
+        (on_entity, mass_dict, composition_dict, is_lost_dict)
+    """
+    entity_name = f"{entity_type.replace('_', ' ')}"
+    
+    # --- Toggle and help text ---
+    on_entity = st.toggle(
+        f"Use custom {entity_name}",
+        value=default_toggle_value,
+    )
+    
+    if on_entity:
+        
+        st.markdown(f"ℹ️ *Lost: Check the box to indicate if the {entity_name} is lost during ionization*")
+
+        _init_entity_state(entity_type, default_entities_values)
+
+        entities = st.session_state[entity_type]
+
+        for entity in entities:
+
+            # Init session state for each entity if not already present
+            # Use unique keys based on entity ID to avoid collisions
+            # Use session state to persist user input across reruns
+
+            entity_id = entity["id"]
+            name_key = f"{entity_type}_name_{entity_id}"
+            mass_key = f"{entity_type}_mass_{entity_id}"
+            formula_key = f"{entity_type}_formula_{entity_id}"
+            is_lost_key = f"{entity_type}_is_lost_{entity_id}"
+            use_formula_key = f"{entity_type}_use_formula_{entity_id}"
+
+            # Initialize defaults
+            defaults = {
+                name_key: entity["name"],
+                mass_key: entity["mass"],
+                formula_key: entity["formula"],
+                is_lost_key: entity["is_lost"],
+                use_formula_key: entity["formula"] != entity["name"],
+            }
+
+            for key, default_value in defaults.items():
+                if key not in st.session_state:
+                    st.session_state[key] = default_value
+
+            # --- UI Columns ---
+            col_name, col_is_lost, col_mass, col_formula, col_delete = st.columns([2, 0.5, 2, 4, 0.5],
+                                                    vertical_alignment="bottom")
+
+            col_name.text_input("Name", key=name_key)
+
+            col_is_lost.markdown(
+                markdown_checkbox_title_rendering("Loss"),
+                unsafe_allow_html=True,
+            )
+
+            col_is_lost.checkbox(
+                "Loss",
+                key=is_lost_key,
+                label_visibility="collapsed",
+                args=(entity_id,),
+            )
+            col_mass.number_input(
+                "m/z",
+                key=mass_key,
+                format="%.6f",
+                step=0.000001,
+                min_value=0.0, 
+            )
+
+            with col_formula:
+                sub_col_box, sub_col_formula = st.columns(
+                    [0.05, 1],
+                    vertical_alignment="bottom"
+                )
+                
+                sub_col_box.markdown(
+                    markdown_checkbox_title_rendering("Use a chemical formula different from name"),
+                    unsafe_allow_html=True
+                )
+
+                sub_col_box.checkbox(
+                    "Use Formula",
+                    key=use_formula_key,
+                    label_visibility="collapsed"
+                )
+                
+                use_formula = st.session_state[use_formula_key]
+                # If disabled → formula follows name automatically
+                if not use_formula:
+                    st.session_state[formula_key] = st.session_state[name_key]
+
+                sub_col_formula.text_input(
+                    "Formula", key=formula_key,
+                    disabled=not use_formula,
+                    label_visibility="collapsed"
+                )
+
+            # Delete button
+            col_delete.button(
+                label="❌" if len(entities) > 1 else "—",
+                key=f"delete_{entity_type}_{entity_id}",
+                width=40,
+                on_click=_delete_entity,
+                args=(entity_type, entity_id),
+                disabled=len(entities) == 1,
+            )
+
+            # Sync entity dictionary with session state
+            mass = st.session_state[mass_key]
+            is_lost = st.session_state[is_lost_key]
+
+            entity.update({
+                "name": st.session_state[name_key],
+                "mass": -mass if is_lost else mass,
+                "formula": st.session_state[formula_key],
+                "is_lost": is_lost,
+            })
+
+        # Add button
+        st.button(f"➕ Add {entity_name.title()}",
+                  on_click=_add_entity,
+                  args=(entity_type,))
+
+        # Validation
+        required_fields = ["name", "mass", "formula"]
+        valid_entities, error_indices, has_any_input = ut.validate_rows(entities, required_fields=required_fields)
+        mass_dict, compo_dict, is_lost_dict = ut.build_entity_dicts(valid_entities, entity_type=entity_type)
+
+        # Error messages
+        if error_indices:
+            error_entities = [f"{entity_name} {i+1}" for i in error_indices]
+            st.error(f"❌ Some {entity_name}s are incomplete: {' / '.join(error_entities)}")
+        elif not has_any_input:
+            st.error(f"⚠️ Please fill at least one {entity_name}")
+
+        for entity in valid_entities:
+            error = ut.validate_entity(
+                entity=entity,
+                monomer_elements=element_monomers,
+                label_composition=label_formula,
+                entity_type=entity_type,
+            )
+            if error:
+                st.error(error)
+                compo_dict = None
+                break
+
+    else:
+        # Default values
+        if use_default_entities is not None:
+            mass_dict = use_default_entities[0]
+            compo_dict = use_default_entities[1]
+            #is_lost_dict = {name: False for name in mass_dict.keys()}
+        else:
+            mass_dict = {}
+            compo_dict = {}
+            #is_lost_dict = {}
+
+    return on_entity, mass_dict, compo_dict, #is_lost_dict
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 def label_selection():

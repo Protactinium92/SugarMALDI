@@ -13,6 +13,7 @@ TEMP_DIR = Path(tempfile.mkdtemp())  # Temporate files
 EMPTY_VALUES = [None, "", 0, 0.0]
 SCALE = 1_000_000  # 1e6 to convert float mass in int
 ADDUCT_MASS = {'H+': 1.007276, 'Na+': 22.989221, 'K+': 38.963158}
+NEUTRAL_MASS = {'H2O': 18.010564}
 ADDUCTS = {
     "H+": {"H": 1},
     "Na+": {"Na": 1},

@@ -506,7 +506,7 @@ def calculate_brut_formula(
     Returns
     -------
     str
-        Brute formula (e.g. "C30H52O21Na1")
+        Chemical formula (e.g. "C30H52O21Na1")
     
     Notes
     -----

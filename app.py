@@ -67,6 +67,7 @@ from src import helper
 from src import utils as ut
 from src import session_manager as ssm
 from src import plot_spectrum as ps
+from src import config as cf
 
 
 if __name__=="__main__":
@@ -115,11 +116,20 @@ if __name__=="__main__":
                 )
 
         adduct_container = st.container(border=True)
+        elements_in_monomers = monomers_df.columns[3:]  # First three columns are not element names
         with adduct_container:
-            ff.adduct_selection(monomers_df.columns[3:], label_dict)
-            adduct_mass = st.session_state.get("adduct_mass", {})
-            adduct_compo = st.session_state.get("adduct_compo", {})
-     
+            # ff.adduct_selection(monomers_df.columns[3:], label_dict)
+            # adduct_mass = st.session_state.get("adduct_mass", {})
+            # adduct_compo = st.session_state.get("adduct_compo", {})
+            _, adduct_mass, adduct_compo = ff.entity_selection(
+                entity_type="adducts",
+                default_entities_values=cf.ADDUCT_MASS,
+                element_monomers=elements_in_monomers,
+                label_formula=label_dict,
+                default_toggle_value=False,
+                use_default_entities=[cf.ADDUCT_MASS, cf.ADDUCTS]  
+            )
+
             if has_snapshot:
                 ssm.SessionManager.warn_if_any_changed(
                     "Adduct parameters",
@@ -131,7 +141,14 @@ if __name__=="__main__":
 
         neutral_loss_container = st.container(border=True)
         with neutral_loss_container:
-            neutral_use, neutral_loss_mass, neutral_loss_compo = ff.neutral_loss_selection(monomers_df.columns[3:], label_dict)
+            neutral_use, neutral_loss_mass, neutral_loss_compo = ff.entity_selection(
+                entity_type="neutral_losses",
+                default_entities_values=cf.NEUTRAL_MASS,
+                element_monomers=elements_in_monomers,
+                label_formula=label_dict,
+                default_toggle_value=False,
+                use_default_entities=None  
+            )
 
             association_dict = {}
             parsed_association_mass = {}
@@ -161,7 +178,7 @@ if __name__=="__main__":
                 ssm.SessionManager.warn_if_any_changed(
                     "Neutral loss parameters or its association with adducts",
                     [
-                        (neutral_use, snapshot.neutral_loss_use),
+                        #(neutral_use, snapshot.neutral_loss_use),
                         (parsed_association_mass, snapshot.associated_neutral_loss_mass),
                         (parsed_association_compo, snapshot.associated_neutral_loss_compo),
                     ]
