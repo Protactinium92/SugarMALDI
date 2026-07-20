@@ -142,7 +142,7 @@ if __name__=="__main__":
         neutral_loss_container = st.container(border=True)
         with neutral_loss_container:
             neutral_use, neutral_loss_mass, neutral_loss_compo = ff.entity_selection(
-                entity_type="neutral_losses",
+                entity_type="chemical_modifications",
                 default_entities_values=cf.NEUTRAL_MASS,
                 element_monomers=elements_in_monomers,
                 label_formula=label_dict,

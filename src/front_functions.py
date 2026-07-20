@@ -760,18 +760,18 @@ def neutral_loss_adduct_association_table(
         st.warning("⚠️ No neutral losses or adducts available for association.")
         return {}
 
-    st.markdown("##### Neutral Loss × Adduct Association Table")
+    st.markdown("##### Chemical Modification × Adduct Association Table")
     st.info(
-        "ℹ️ Check the boxes to allow combinations between neutral losses (rows) and adducts (columns)."
+        "ℹ️ Check the boxes to allow combinations between chemical modifications (rows) and adducts (columns)."
     )
 
-    # Initialize the association dictionary with empty lists for each neutral loss
+    # Initialize the association dictionary with empty lists for each chemical modification
     association_dict = {
         loss_name: [] for loss_name in neutral_loss_mass.keys()
     }
 
     # Create a DataFrame for the table (optional, for display)
-    header_columns = ["Neutral Loss"] + list(adducts.keys())
+    header_columns = ["Chemical Modification"] + list(adducts.keys())
     header = st.columns(len(header_columns))
     for i, col_name in enumerate(header_columns):
         header[i].write(f"**{col_name}**")
@@ -968,7 +968,7 @@ def entity_selection(
         # Error messages
         if error_indices:
             error_entities = [f"{entity_name} {i+1}" for i in error_indices]
-            st.error(f"❌ Some {entity_name}s are incomplete: {' / '.join(error_entities)}")
+            st.error(f"❌ Some {entity_name} are incomplete: {' / '.join(error_entities)}")
         elif not has_any_input:
             st.error(f"⚠️ Please fill at least one {entity_name}")
 

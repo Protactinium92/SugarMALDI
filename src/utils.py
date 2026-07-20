@@ -253,10 +253,10 @@ def validate_inputs(
         errors.append("Label is enabled but invalid")
 
     if neutral_loss_use and not neutral_loss_compo:
-        errors.append("Neutral loss is enabled but invalid")
+        errors.append("Chemical modification is enabled but invalid")
 
     if neutral_loss_compo and not all(association.values()):
-        errors.append("One or more neutral losses provided are not associated with any adduct.")
+        errors.append("One or more chemical modifications provided are not associated with any adduct.")
 
     return len(errors) == 0, errors
 
