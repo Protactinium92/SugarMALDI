@@ -1,4 +1,6 @@
 import pytest
+import polars as pl
+
 
 @pytest.fixture
 def mock_element_mass():
@@ -68,3 +70,28 @@ def sample_neutral_loss_compo():
         "NH3": {"N": 1, "H": 3},
     }
 
+
+@pytest.fixture
+def monomer_df():
+    """Minimal monomer database containing Hex."""
+    return pl.DataFrame(
+        {
+            "Selected": [True],
+            "Notation": ["Hex"],
+            "Description": ["Hexose"],
+            "C": [6],
+            "H": [12],
+            "O": [6],
+            "N": [0],
+        }
+    )
+
+
+@pytest.fixture
+def label_3aq_compo():
+    """Elemental composition of 3-AQ label."""
+    return {
+        "C": 9,
+        "H": 8,
+        "N": 2,
+    }

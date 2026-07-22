@@ -479,7 +479,7 @@ def calcul_offset(rm_threshold: float, real_mass: float) -> Tuple[float, float]:
     return th_min, th_max
 
 
-def calculate_brut_formula(
+def calculate_chemical_formula(
     oligo_df: Dict[str, int],
     monomer_df: pl.DataFrame,
     adduct: Optional[str] = None,
@@ -488,7 +488,7 @@ def calculate_brut_formula(
     label_compo: dict[str, int] = cf.LABEL_3AQ,
 ) -> str:
     """
-    Compute brute formula from monomer composition using vectorized Polars.
+    Compute chemical formula from monomer composition using vectorized Polars.
 
     Parameters
     ----------
@@ -522,11 +522,13 @@ def calculate_brut_formula(
             H -= 2 * (N - 1)
             O -= (N - 1)
 
-    Adducts and labels are subsequently added according to their elemental
-    composition.
+    Adducts and label are subsequently added according to their elemental
+    composition. The label is a condensation reaction, so it is treated as an
+    additional monomer in the total count for water loss.
     """
     
     elements = monomer_df.columns[3:]  # Skip "Notation"
+    print(f"elements = {elements}")
     totals = {elem: 0 for elem in elements}
     total_monomers = 0
 
@@ -539,13 +541,18 @@ def calculate_brut_formula(
         atom_values = row[3:]
         for elem, val in zip(elements, atom_values):
             totals[elem] += val * count
+    print("total_monomers before label =", total_monomers)
+    
 
     # Add the label
     if use_label_3aq:
         for elem, count in label_compo.items():
             totals[elem] = totals.get(elem, 0) + count
-            total_monomers += 1
+        total_monomers += 1
     
+    print("total_monomers after label =", total_monomers)
+    print("before condensation =", totals)
+
     # Condensation reaction
     if total_monomers > 1:
         n_loss = total_monomers - 1
@@ -568,13 +575,14 @@ def calculate_brut_formula(
     other_elements = sorted([e for e in totals.keys() if e not in priority_order])
 
     ordered_elements = priority_order + other_elements
+    print(f"after formula building = {totals}")
 
     formula_parts = [
         f"{elem}{int(totals[elem])}"
         for elem in ordered_elements
         if elem in totals and totals[elem] > 0
     ]
-
+    print(f"formula = {"".join(formula_parts)}")
     return "".join(formula_parts)
 
 
@@ -900,7 +908,7 @@ def match_oligos(
         for candidate_row in best_matches.collect().iter_rows(named=True):
             
             # 1. Compute formula
-            formula = calculate_brut_formula(
+            formula = calculate_chemical_formula(
                 oligo_df=candidate_row,
                 monomer_df=monomer_df,
                 adduct=candidate_row["Adduct"],
