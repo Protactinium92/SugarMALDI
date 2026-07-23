@@ -805,8 +805,6 @@ def neutral_loss_adduct_association_table(
     return association_dict
 
 
-
-
 def entity_selection(
     entity_type: str,
     default_entities_values: Dict[str, float],
@@ -848,8 +846,10 @@ def entity_selection(
     )
     
     if on_entity:
-        
-        st.markdown(f"ℹ️ *Lost: Check the box to indicate if the {entity_name} is lost during ionization*")
+
+        st.info(
+            f"ℹ️ *Loss: Check the box to indicate if the {entity_name[:-1]} is lost during ionization*"
+        )
 
         _init_entity_state(entity_type, default_entities_values)
 
