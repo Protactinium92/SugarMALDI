@@ -1,7 +1,7 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset=pictures/sugarmaldi_logo_dark_theme.png />
   <source media="(prefers-color-scheme: light)" srcset=pictures/sugarmaldi_logo_light_theme.png />
-  <img src="pictures/sugarmaldi_logo_light_theme.png" alt="SugarMaldi logo" />
+  <img src="pictures/sugarmaldi_logo_light_theme.png" alt="SugarMaldi logo" width="500"/>
 
 </picture>
 
