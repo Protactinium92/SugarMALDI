@@ -7,7 +7,7 @@
 </p>
 
 ![Version](https://img.shields.io/badge/version-0.1.7-red.svg)
-![Python 3.13+](https://img.shields.io/badge/python-3.9+-blue.svg)
+![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)
 ![License: CeCILL 2.1](https://img.shields.io/badge/license-CeCILL_2.1-green.svg)
 ![Polars](https://img.shields.io/badge/polars-1.33.0+-orange.svg)
 ![Streamlit 1.49.1](https://img.shields.io/badge/Streamlit-1.49.1-ff4b4b.svg?logo=streamlit&logoColor=white)
