@@ -583,7 +583,7 @@ def entity_selection(
     return on_entity, mass_dict, compo_dict, #is_lost_dict
 
 
-def label_selection():
+def label_selection()->Tuple[bool, str | None, str | None, dict | None]:
     """
     Streamlit UI component to select and validate a labeling strategy.
 

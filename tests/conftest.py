@@ -29,12 +29,6 @@ def sample_neutral_losses():
         {"name": "H2O", "mass": 18.010564, "formula": "H2O", "is_lost": True},
     ]
 
-
-@pytest.fixture
-def sample_label_composition():
-    """Sample label composition for testing."""
-    return {"C": 9, "H": 8, "N": 2}
-
 @pytest.fixture
 def sample_association():
     """Sample association dictionary for testing."""
@@ -70,7 +64,6 @@ def sample_neutral_loss_compo():
         "NH3": {"N": 1, "H": 3},
     }
 
-
 @pytest.fixture
 def monomer_df():
     """Minimal monomer database containing Hex."""
@@ -86,7 +79,6 @@ def monomer_df():
         }
     )
 
-
 @pytest.fixture
 def label_3aq_compo():
     """Elemental composition of 3-AQ label."""
@@ -95,3 +87,10 @@ def label_3aq_compo():
         "H": 8,
         "N": 2,
     }
+
+@pytest.fixture
+def sample_monomer_elements():
+    """Elemental composition of monomeres."""
+    return ['C', 'H', 'O']
+
+

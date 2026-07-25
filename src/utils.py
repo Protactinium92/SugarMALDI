@@ -48,7 +48,8 @@ def parse_formula(formula: str, lost: bool = False) -> Dict[str, int]:
     """
     # global sign variable to determine if the adduct is lost
     sign = -1 if lost else 1
-
+    # Allow space notation
+    formula = formula.replace(" ", "")
     pattern = r"([A-Z][a-z]*)(\d*)"
     matches = re.findall(pattern, formula)
 
@@ -157,7 +158,6 @@ def build_entity_dicts(
         if entity_type == "neutral_loss":
             is_lost = True
 
-        
         if not (name and formula):
             continue
 
@@ -194,7 +194,6 @@ def check_formula(dict_formula_compo: dict) -> List[str]:
         List of element symbols that are not found in the
         elemental mass library. Returns an empty list if all
         elements are valid.
-
     """
     element_mass_library = load.element_mass()
     return [
@@ -205,9 +204,9 @@ def check_formula(dict_formula_compo: dict) -> List[str]:
 
 def validate_inputs(
     monomers_list: List[str],
-    adduct_compo: Dict[str, int],
+    adduct_compo: Dict[str, Dict[str, int]],
     neutral_loss_use: bool,
-    neutral_loss_compo: Dict[str, int],
+    neutral_loss_compo: Dict[str, Dict[str, int]],
     association: Dict[str, List[str]],
     use_label: bool,
     label_compo: Dict[str, int],
@@ -222,11 +221,11 @@ def validate_inputs(
     ----------
     monomers_list : List[str]
         List of monomer identifiers.
-    adduct_compo : Dict[str, int]
+    adduct_compo : Dict[str, Dict[str, int]]
         Adduct composition dictionary.
     neutral_loss_use : bool
         Whether neutral loss is enabled.
-    neutral_loss_compo : Dict[str, int]
+    neutral_loss_compo : Dict[str, Dict[str, int]]
         Neutral loss composition dictionary.
     association : Dict[str, List[str]]
         Association between neutral losses and adducts.
@@ -302,21 +301,21 @@ def validate_lost_adduct(
     if label_composition is not None:
         allowed_elements.update(label_composition.keys())
 
-    return sorted(
+    return [
         element
         for element in composition
         if element not in allowed_elements
-    )
+    ]
 
 
 def validate_entity(
     entity: Dict[str, object],
     monomer_elements: List[str],
     label_composition: Optional[Dict[str, int]],
-    entity_type: str = "adduct"  # "adduct" or "neutral_loss"
+    entity_type: str = "adducts" 
 ) -> Optional[str]:
     """
-    Validate a single entity (adduct or neutral loss).
+    Validate a single entity.
 
     The validation checks:
     - The chemical formula can be parsed.
@@ -334,7 +333,7 @@ def validate_entity(
         Elemental composition of the selected label. If no label is used,
         this should be None.
     entity_type : str
-        Type of entity: "adduct" or "neutral_loss".
+        Type of entity: e.g. "adducts".
 
     Returns
     -------
@@ -342,11 +341,7 @@ def validate_entity(
         Error message if validation failed, otherwise ``None``.
     """
 
-    # Force is_lost to True for neutral losses
     is_lost = entity.get("is_lost", False)
-    if entity_type == "neutral_loss":
-        is_lost = True
-
     formula = entity["formula"]
     composition = parse_formula(formula, is_lost)
 

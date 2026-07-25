@@ -12,17 +12,6 @@ from src.utils import (
     parse_association_mass,
     parse_association_formula,
 )
-from unittest.mock import patch
-from src import config as cf
-
-# =============================================================================
-# Fixtures
-# =============================================================================
-
-@pytest.fixture
-def sample_monomer_elements():
-    """Sample monomer elements for testing."""
-    return ["C", "H", "O", "N"]
 
 
 # =============================================================================
@@ -181,7 +170,7 @@ def test_check_formula_valid_elements():
     composition = {"C": 6, "H": 12, "O": 6}
     assert check_formula(composition) == []
 
-def test_check_formula_invalid_elements(monkeypatch):
+def test_check_formula_invalid_elements():
     """Test checking a formula with invalid elements."""
     composition = {"C": 6, "H": 12, "Xx": 1}  # Xx is invalid
     assert check_formula(composition) == ["Xx"]
@@ -190,15 +179,15 @@ def test_check_formula_invalid_elements(monkeypatch):
 # Tests for validate_inputs
 # =============================================================================
 
-def test_validate_inputs_valid():
+def test_validate_inputs_valid_no_neutral(sample_adduct_compo, label_3aq_compo):
     """Test validation with all inputs valid."""
     monomers_list = ["Hex", "Pent"]
-    adduct_compo = {"H+": {"H": 1}}
+    adduct_compo = sample_adduct_compo
     neutral_loss_use = False
     neutral_loss_compo = {}
     association = {}
-    use_label = False
-    label_compo = None
+    use_label = True
+    label_compo = label_3aq_compo
     is_valid, errors = validate_inputs(
         monomers_list, adduct_compo, neutral_loss_use, neutral_loss_compo,
         association, use_label, label_compo
@@ -206,10 +195,45 @@ def test_validate_inputs_valid():
     assert is_valid is True
     assert errors == []
 
-def test_validate_inputs_no_monomers():
+def test_validate_inputs_label_disabled(sample_adduct_compo):
+    is_valid, errors = validate_inputs(
+        ["Hex"], sample_adduct_compo, False, {}, {}, False, None,
+    )
+    assert is_valid
+    assert errors == []
+
+def test_validate_inputs_valid_with_neutral(sample_adduct_compo,
+                                            sample_neutral_loss_compo,
+                                            label_3aq_compo):
+    """Test validation with all inputs valid."""
+    association = {"H2O": ["H+", "NAa+"], "NH3": ["K+"]}
+    use_label = True
+    label_compo = label_3aq_compo
+    is_valid, errors = validate_inputs(
+        ["Hex", "Pent"], sample_adduct_compo, True, sample_neutral_loss_compo,
+        association, use_label, label_compo
+    )
+    assert is_valid is True
+    assert errors == []
+
+def test_validate_inputs_valid_with_neutral_miss_one(sample_adduct_compo,
+                                            sample_neutral_loss_compo,
+                                            label_3aq_compo):
+    """Test validation with all inputs valid."""
+    association = {"H2O": ["H+", "NAa+"], "NH3": []}
+    use_label = True
+    label_compo = label_3aq_compo
+    is_valid, errors = validate_inputs(
+        ["Hex", "Pent"], sample_adduct_compo, True, sample_neutral_loss_compo,
+        association, use_label, label_compo
+    )
+    assert is_valid is False
+    assert "One or more chemical modifications provided are not associated with any adduct." in errors
+
+def test_validate_inputs_no_monomers(sample_adduct_compo):
     """Test validation with no monomers."""
     is_valid, errors = validate_inputs(
-        [], {"H+": {"H": 1}}, False, {}, {}, False, None
+        [], sample_adduct_compo, False, {}, {}, False, None
     )
     assert is_valid is False
     assert "No monomers provided" in errors
@@ -222,31 +246,44 @@ def test_validate_inputs_no_adduct_compo():
     assert is_valid is False
     assert "Adduct composition is missing, empty or invalid" in errors
 
-def test_validate_inputs_label_enabled_but_invalid():
+def test_validate_inputs_label_enabled_but_invalid(sample_adduct_compo):
     """Test validation with label enabled but invalid."""
     is_valid, errors = validate_inputs(
-        ["Glc"], {"H+": {"H": 1}}, False, {}, {}, True, None
+        ["Glc"], sample_adduct_compo, False, {}, {}, True, None
     )
     assert is_valid is False
     assert "Label is enabled but invalid" in errors
 
-def test_validate_inputs_neutral_loss_enabled_but_invalid():
+def test_validate_inputs_neutral_loss_enabled_but_invalid(sample_adduct_compo):
     """Test validation with neutral loss enabled but invalid."""
     is_valid, errors = validate_inputs(
-        ["Glc"], {"H+": {"H": 1}}, True, {}, {}, False, None
+        ["Glc"], sample_adduct_compo, True, {}, {}, False, None
     )
     assert is_valid is False
     assert "Chemical modification is enabled but invalid" in errors
 
-def test_validate_inputs_neutral_loss_not_associated():
+def test_validate_inputs_neutral_loss_not_associated(sample_adduct_compo):
     """Test validation with neutral loss not associated with any adduct."""
     association = {"H2O": []}  # Not associated with any adduct
     is_valid, errors = validate_inputs(
-        ["Glc"], {"H+": {"H": 1}}, True, {"H2O": {"H": 2, "O": 1}},
+        ["Glc"], sample_adduct_compo, True, {"H2O": {"H": 2, "O": 1}},
         association, False, None
     )
     assert is_valid is False
     assert "One or more chemical modifications provided are not associated with any adduct." in errors
+
+def test_validate_inputs_multiple_errors():
+    """Test validation when several inputs are invalid."""
+    is_valid, errors = validate_inputs(
+        [], {}, True, {}, {}, True, None,
+    )
+    assert is_valid is False
+    assert len(errors) == 4
+    assert "No monomers provided" in errors
+    assert "Adduct composition is missing, empty or invalid" in errors
+    assert "Label is enabled but invalid" in errors
+    assert "Chemical modification is enabled but invalid" in errors
+
 
 # =============================================================================
 # Tests for validate_lost_adduct
@@ -260,58 +297,70 @@ def test_validate_lost_adduct_not_lost():
     label_composition = None
     assert validate_lost_adduct(composition, is_lost, monomer_elements, label_composition) == []
 
-def test_validate_lost_adduct_lost_valid():
+def test_validate_lost_adduct_lost_valid(label_3aq_compo):
     """Test validation for a lost adduct with valid elements."""
     composition = {"H": 1, "O": 1}
     is_lost = True
     monomer_elements = ["H", "O", "C"]
-    label_composition = None
+    label_composition = label_3aq_compo
     assert validate_lost_adduct(composition, is_lost, monomer_elements, label_composition) == []
 
-def test_validate_lost_adduct_lost_invalid():
+def test_validate_lost_adduct_lost_invalid(sample_monomer_elements, label_3aq_compo):
     """Test validation for a lost adduct with invalid elements."""
     composition = {"H": 1, "O": 1, "Xx": 1}  # Xx is invalid
     is_lost = True
-    monomer_elements = ["H", "O", "C"]
-    label_composition = None
+    monomer_elements = sample_monomer_elements
+    label_composition = label_3aq_compo
     assert validate_lost_adduct(composition, is_lost, monomer_elements, label_composition) == ["Xx"]
 
-def test_validate_lost_adduct_lost_valid_with_label():
+def test_validate_lost_adduct_lost_valid_with_label(sample_monomer_elements, label_3aq_compo):
     """Test validation for a lost adduct with elements in the label."""
-    composition = {"H": 1, "C": 1}
+    composition = {"H": 1, "N": 1}
     is_lost = True
-    monomer_elements = ["H", "O"]
-    label_composition = {"C": 1}
+    monomer_elements = sample_monomer_elements
+    label_composition = label_3aq_compo
     assert validate_lost_adduct(composition, is_lost, monomer_elements, label_composition) == []
+
+def test_validate_lost_adduct_lost_without_label(sample_monomer_elements):
+    """Elements only present in a label should be invalid when no label is selected."""
+    composition = {"H": 1, "N": 1}
+    is_lost = True
+    monomer_elements = sample_monomer_elements
+    assert validate_lost_adduct(composition, is_lost, monomer_elements, None) == ["N"]
 
 # =============================================================================
 # Tests for validate_entity
 # =============================================================================
 
-def test_validate_entity_valid_adduct(sample_monomer_elements, sample_label_composition):
+def test_validate_entity_valid_adduct(sample_monomer_elements, label_3aq_compo):
     """Test validation for a valid adduct."""
     entity = {"name": "H+", "mass": 1.007276, "formula": "H", "is_lost": False}
-    assert validate_entity(entity, sample_monomer_elements, sample_label_composition, "adduct") is None
+    assert validate_entity(entity, sample_monomer_elements, label_3aq_compo, "adduct") is None
 
-def test_validate_entity_invalid_formula():
+def test_validate_entity_element_not_in_nist(sample_monomer_elements):
     """Test validation for an entity with an invalid formula."""
-    entity = {"name": "Xx+", "mass": 1.0, "formula": "Xx", "is_lost": False}
-    # Patch check_formula to return ["Xx"]
-    assert validate_entity(entity, ["H", "O"], None, "adduct") == "❌ Xx is not in the NIST monoisotopic library."
+    entity = {"name": "bad", "mass": 1.0, "formula": "Xx", "is_lost": False}
+    assert validate_entity(entity, sample_monomer_elements, None, "adduct") == "❌ Xx is not in the NIST monoisotopic library."
 
 def test_validate_entity_lost_invalid_elements(sample_monomer_elements):
     """Test validation for a lost entity with invalid elements."""
-    entity = {"name": "Xx-", "mass": 1.0, "formula": "Xx", "is_lost": True}
-    # Patch check_formula to return [] (assume Xx is in the library)
-    # But validate_lost_adduct should catch it
+    entity = {"name": "bad", "mass": 1.0, "formula": "N", "is_lost": True}
     assert validate_entity(entity, sample_monomer_elements, None, "adduct") == (
-        "❌ Lost Adduct 'Xx' contains element(s) that are not present in the monomers or the selected label: Xx."
+        "❌ Lost Adduct 'N' contains element(s) that are not present in the monomers or the selected label: N."
     )
 
-def test_validate_entity_neutral_loss():
-    """Test validation for a neutral loss (is_lost is forced to True)."""
-    entity = {"name": "H2O", "mass": 18.010564, "formula": "H2O", "is_lost": False}  # is_lost is ignored for neutral_loss
-    assert validate_entity(entity, ["H", "O"], None, "neutral_loss") is None
+def test_validate_entity_invalid_formula(sample_monomer_elements):
+    """Test validation failure for an entity with an unparseable chemical formula."""
+    entity = {"name": "bad", "mass": 1.0, "formula": "h2o", "is_lost": False}
+    assert validate_entity(entity, sample_monomer_elements, None, "adduct") == (
+        "❌ Adduct formula 'h2o' is invalid."
+    )
+
+def test_validate_entity_lost_element_allowed_by_label(sample_monomer_elements, label_3aq_compo):
+    """Test validation of a lost entity containing an element provided by the selected label."""
+    entity = {"name": "N-loss", "mass": 1.0, "formula": "N", "is_lost": True}
+    assert (validate_entity(entity, sample_monomer_elements, label_3aq_compo, "adduct") is None)
+
 
 # =============================================================================
 # Tests for validate_association
@@ -342,13 +391,16 @@ def test_parse_association_mass(sample_association, sample_adduct_mass, sample_n
     }
     assert result == expected
 
-def test_parse_association_mass_missing_keys():
-    """Test parsing association with missing keys in mass dictionaries."""
-    association = {"H2O": ["H+", "UnknownAdduct"]}
-    adduct_mass = {"H+": 1.007276}
-    neutral_loss_mass = {"H2O": 18.010564}
-    result = parse_association_mass(association, adduct_mass, neutral_loss_mass)
-    assert result == {"H+H2O": 1.007276 + 18.010564, "UnknownAdductH2O": 0 + 18.010564}
+def test_parse_association_mass_with_neutral_loss(sample_adduct_mass, sample_neutral_loss_mass):
+    """Test parsing association with negative neutral loss."""
+    association = {"(-H2O)": ["H+"]}
+    sample_neutral_loss_mass["(-H2O)"] = -18.010564
+    result = parse_association_mass(association, sample_adduct_mass, sample_neutral_loss_mass)
+    expected = {
+        "H+(-H2O)": sample_adduct_mass["H+"] + sample_neutral_loss_mass["(-H2O)"]
+    }
+
+    assert result == expected
 
 # =============================================================================
 # Tests for parse_association_formula
@@ -369,13 +421,15 @@ def test_parse_association_formula(sample_association, sample_adduct_compo, samp
     }
     assert result == expected
 
-def test_parse_association_formula_missing_keys():
-    """Test parsing association with missing keys in composition dictionaries."""
-    association = {"H2O": ["H+", "UnknownAdduct"]}
-    adduct_compo = {"H+": {"H": 1}}
-    neutral_loss_compo = {"H2O": {"H": 2, "O": 1}}
-    result = parse_association_formula(association, adduct_compo, neutral_loss_compo)
-    assert result == {
-        "H+H2O": {"H": 1 + 2, "O": 1},
-        "UnknownAdductH2O": {"H": 2, "O": 1},  # UnknownAdduct has no composition
+def test_parse_association_formula_neutral_loss(sample_adduct_compo):
+    """Test parsing association with neutral loss notation."""
+    association = {"(-H2O)": ["H+"]}
+    neutral_loss_compo = {"(-H2O)": {"H": -2, "O": -1}}
+    result = parse_association_formula(association, sample_adduct_compo, neutral_loss_compo)
+    expected = {
+        "H+(-H2O)": {
+            "H": sample_adduct_compo["H+"]["H"] - 2,
+            "O": -1
+        }
     }
+    assert result == expected
