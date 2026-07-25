@@ -105,7 +105,7 @@ def choose_delimiter() -> str:
     return mapping.get(option, option)
 
 
-def upload_files(delimiter: str =",") -> pl.DataFrame:
+def upload_files(delimiter: str =",") -> pl.DataFrame | str:
     """
     Handles the upload of MS spectra CSV files via Streamlit's file uploader,
     parses them using `sp_ana.parse_spectra`, and displays a preview of the merged data.
@@ -114,6 +114,8 @@ def upload_files(delimiter: str =",") -> pl.DataFrame:
         Dict[str, pl.DataFrame]:
             A dictionary where keys are spectrum names (derived from filenames) and values are Polars DataFrames
             containing the spectrum data (m/z and intensity columns).
+        or str:
+            An error in case of delimiter is not the same as the file
 
     Raises:
         ValueError: Propagates any error from `sp_ana.parse_spectra` (e.g., invalid file format).

@@ -61,6 +61,7 @@ import IsoSpecPy as iso
 from src import load_file as load
 from src import oligoMass as om
 from src import config as cf
+from src import load_file as load
 
 from io import BytesIO
 from pathlib import Path
@@ -149,7 +150,8 @@ def parse_spectra(
             spectrum_name = os.path.basename(file).replace('.csv', '').replace(' ', '_')
         else:  # Streamlit uploaded file
             spectrum_name = file.name.replace('.csv', '').replace(' ', '_')
-        
+
+        load.check_separator(file, sep=delimiter)
         spectra[spectrum_name] = read_spectrum(file, sep = delimiter)
     del file
     return spectra
@@ -495,7 +497,7 @@ def calculate_chemical_formula(
     oligo_df : pl.DataFrame
         One-row DataFrame containing monomer counts in columns matching monomer_df "Notation"
     monomer_df : pl.DataFrame
-        Columns: ["Notation", "C", "H", "O", ...]
+        Columns: ["Selection", "Notation", "Description", "C", "H", "O", ...]
     adduct : str, optional
         Adduct type ("H", "Na", "K", "NH4", ...)
     use_label_3aq : bool
@@ -527,8 +529,7 @@ def calculate_chemical_formula(
     additional monomer in the total count for water loss.
     """
     
-    elements = monomer_df.columns[3:]  # Skip "Notation"
-    print(f"elements = {elements}")
+    elements = monomer_df.columns[3:]  # Skip Metadata (only element)
     totals = {elem: 0 for elem in elements}
     total_monomers = 0
 
@@ -541,7 +542,6 @@ def calculate_chemical_formula(
         atom_values = row[3:]
         for elem, val in zip(elements, atom_values):
             totals[elem] += val * count
-    print("total_monomers before label =", total_monomers)
     
 
     # Add the label

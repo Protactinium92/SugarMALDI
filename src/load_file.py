@@ -101,7 +101,32 @@ def read_csv(file: Path, sep: str = ",") -> pl.LazyFrame:
         raise FileNotFoundError(f"File not found: {file}")
     return pl.scan_csv(file, separator=sep)
 
-    
+
+def check_separator(
+    file: str,
+    sep: str
+) -> None:
+    """
+    Check that the provided separator matches the CSV file.
+
+    Raises
+    ------
+    ValueError
+        If the separator is not found in the header line.
+    """
+    header = file.readline()
+    if isinstance(header, bytes):
+        header = header.decode("utf-8")
+
+    # Put the cursor to the original position (mutable object)
+    file.seek(0)
+
+    if sep not in header:
+        raise ValueError(
+            f"Separator '{sep}' does not match the file header: {header.strip()}"
+        )
+
+
 if __name__=="__main__":
     element = element_mass()
     print(len(element))
