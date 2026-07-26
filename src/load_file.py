@@ -40,6 +40,7 @@ import polars as pl
 
 from pathlib import Path
 from functools import lru_cache
+from typing import BinaryIO
 
 
 @lru_cache(maxsize=1)
@@ -103,23 +104,37 @@ def read_csv(file: Path, sep: str = ",") -> pl.LazyFrame:
 
 
 def check_separator(
-    file: str,
+    file: str | BinaryIO,
     sep: str
 ) -> None:
     """
     Check that the provided separator matches the CSV file.
 
+    Parameters
+    ----------
+    file : str | BinaryIO
+        Path to the CSV file as a string, or an open binary file-like object.
+        When a file-like object is provided, its current position is preserved
+        after checking the separator.
+
+    sep : str
+        Separator character expected in the CSV file (e.g. ',', ';', '\t').
+
     Raises
     ------
     ValueError
-        If the separator is not found in the header line.
+        If the provided separator does not match the separator found in the
+        header line of the file.
     """
-    header = file.readline()
-    if isinstance(header, bytes):
-        header = header.decode("utf-8")
-
-    # Put the cursor to the original position (mutable object)
-    file.seek(0)
+    if isinstance(file, str):
+        with open(file, "r", encoding="utf-8") as f:
+            header = f.readline()
+    else:
+        header = file.readline()
+        if isinstance(header, bytes):
+            header = header.decode("utf-8")
+        # Put the cursor to the original position (mutable object)
+        file.seek(0)
 
     if sep not in header:
         raise ValueError(

@@ -1,5 +1,8 @@
 import pytest
 import polars as pl
+import io
+import numpy as np
+
 
 
 @pytest.fixture
@@ -57,6 +60,16 @@ def sample_adduct_compo():
     }
 
 @pytest.fixture
+def label_3aq_compo():
+    """Elemental composition of 3-AQ label."""
+    return {
+        "C": 9,
+        "H": 8,
+        "N": 2,
+    }
+
+
+@pytest.fixture
 def sample_neutral_loss_compo():
     """Sample neutral loss compositions for testing."""
     return {
@@ -65,7 +78,7 @@ def sample_neutral_loss_compo():
     }
 
 @pytest.fixture
-def monomer_df():
+def monomer_df_hex_selected():
     """Minimal monomer database containing Hex."""
     return pl.DataFrame(
         {
@@ -80,17 +93,77 @@ def monomer_df():
     )
 
 @pytest.fixture
-def label_3aq_compo():
-    """Elemental composition of 3-AQ label."""
-    return {
-        "C": 9,
-        "H": 8,
-        "N": 2,
-    }
+def monomer_df():
+    """Sample monomer DataFrame."""
+    return pl.DataFrame({
+        "Selected": [False, True, False],
+        "Notation": ["dHex", "Hex", "HexA"],
+        "Description": ["Dhexose", "Hexose", "HexA"],
+        "C": [6, 6, 6],
+        "H": [10, 12, 10],
+        "O": [5, 6, 6],
+        "N": [0, 0, 1]
+    })
+
 
 @pytest.fixture
 def sample_monomer_elements():
-    """Elemental composition of monomeres."""
+    """Elemental composition of monomeres without N for testing."""
     return ['C', 'H', 'O']
 
+@pytest.fixture
+def sample_spectrum_csv(tmp_path):
+    """Create a temporary CSV file with sample spectrum data."""
+    data = """m/z,Intensity
+100.0,1000
+101.0,2000
+102.0,1500
+103.0,500
+"""
+    file_path = tmp_path / "test_spectrum.csv"
+    file_path.write_text(data)
+    return str(file_path)
 
+@pytest.fixture
+def sample_spectrum_data():
+    """Sample spectrum data as numpy arrays."""
+    return {
+        "m/z": np.array([100.0, 101.0, 102.0, 103.0, 104.0, 105.0]),
+        "Intensity": np.array([1000.0, 2000.0, 1500.0, 500.0, 3000.0, 2500.0])
+    }
+
+@pytest.fixture
+def sample_lazyframe_sepctrum(sample_spectrum_data):
+    """Sample Polars LazyFrame for testing."""
+    return pl.LazyFrame(sample_spectrum_data)
+
+
+@pytest.fixture
+def sample_full_library_monomer():
+    """Sample library LazyFrame."""
+    return pl.LazyFrame({
+        "column_id": [1, 2, 3],
+        "dHex": [1, 0, 2],
+        "Hex": [0, 1, 1],
+        "HexA": [0, 0, 0],
+        "Neutral_unlabeled_mass": [100.0, 150.0, 200.0]
+    })
+
+
+class MockUploadedFile(io.BytesIO):
+    def __init__(self, content: str, name: str):
+        super().__init__(content.encode("utf-8"))
+        self.name = name
+
+
+@pytest.fixture
+def sample_uploaded_file():
+    data = """m/z,Intensity
+100.0,1000
+101.0,2000
+"""
+
+    return MockUploadedFile(
+        content=data,
+        name="test_spectrum.csv"
+    )
