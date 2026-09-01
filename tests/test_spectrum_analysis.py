@@ -306,18 +306,18 @@ def test_make_window_invalid_step(sample_dataframe_spectrum):
 
 def test_find_all_peaks_basic(sample_spectrum_data):
     """Test basic peak finding."""
-    mz, intensity = sample_spectrum_data
+    intensity = sample_spectrum_data["Intensity"]
     interval = 1.0  # m/z interval
 
     peaks = find_all_peaks(intensity, interval, prominence=500, distance=1.0)
     assert isinstance(peaks, list)
     assert all(isinstance(p, int) for p in peaks)
     # With these parameters, should find at least the peak at index 4 (3000)
-    assert len(peaks) > 0
+    assert peaks == [1, 4]
 
 def test_find_all_peaks_prominence_threshold(sample_spectrum_data):
-    """Test with different prominence thresholds."""
-    mz, intensity = sample_spectrum_data
+    """Test that a higher prominence threshold detects fewer peaks."""
+    intensity = sample_spectrum_data["Intensity"]
     interval = 1.0
 
     # High prominence should find fewer peaks
@@ -328,8 +328,8 @@ def test_find_all_peaks_prominence_threshold(sample_spectrum_data):
     assert len(peaks_low) >= len(peaks_high)
 
 def test_find_all_peaks_distance_constraint(sample_spectrum_data):
-    """Test distance constraint between peaks."""
-    mz, intensity = sample_spectrum_data
+    """Test that distance is converted from m/z to array indices."""
+    intensity = sample_spectrum_data["Intensity"]
     interval = 1.0
 
     # With distance=0.5 (0.5 m/z units), peaks must be at least 0.5 apart
@@ -342,18 +342,20 @@ def test_find_all_peaks_distance_constraint(sample_spectrum_data):
 
 def test_find_all_peaks_height_threshold(sample_spectrum_data):
     """Test height threshold for peaks."""
-    mz, intensity = sample_spectrum_data
+    intensity = sample_spectrum_data["Intensity"]
     interval = 1.0
 
     # Only peaks above 2500 intensity
-    peaks = find_all_peaks(intensity, interval, height=2500)
-    # Should only find the peak at 3000
-    assert len(peaks) == 1
+    peaks = find_all_peaks(intensity, interval, prominence=500, height=2500)
+    # Only the local peak at index 4 has an intensity >= 2500
+    # Note: The peak at index 5 has intensity 2500,
+    # but it is not considered a peak as it's not a local maximum (border).
+    assert peaks == [4]
     assert intensity[peaks[0]] >= 2500
 
 def test_find_all_peaks_invalid_interval(sample_spectrum_data):
     """Test with invalid (non-positive) interval."""
-    mz, intensity = sample_spectrum_data
+    intensity = sample_spectrum_data["Intensity"]
 
     with pytest.raises(ValueError, match="Interval must be positive"):
         find_all_peaks(intensity, 0.0)
@@ -371,6 +373,37 @@ def test_find_all_peaks_constant_input():
     intensity = np.array([1000.0, 1000.0, 1000.0, 1000.0])
     peaks = find_all_peaks(intensity, 1.0)
     assert peaks == []
+
+def test_find_all_peaks_distance_conversion():
+    """Test conversion of m/z distance to array indices."""
+    intensity = np.array(
+        [0.0, 100.0, 10.0, 90.0, 5.0, 200.0, 0.0],
+    )
+
+    # distance = 0.5 m/z and interval = 1 m/z
+    # => distance_indices = 0.5 -> round = 0 -> max(1, 0) = 1
+    # All three local maxima are detected.
+    peaks_close = find_all_peaks(
+        intensity,
+        interval=1.0,
+        prominence=10,
+        distance=0.5,
+    )
+
+    # distance = 3 m/z and interval = 1 m/z
+    # => distance_indices = 3
+    # The middle peak is too close to both other peaks.
+    peaks_far = find_all_peaks(
+        intensity,
+        interval=1.0,
+        prominence=10,
+        distance=3.0,
+    )
+
+    assert peaks_close == [1, 3, 5]
+    assert peaks_far == [1, 5]
+
+# TODO: STOP HERE continue above
 
 # ======================
 # TESTS FOR _process_window
@@ -414,10 +447,10 @@ def test_process_window_no_peaks():
 # TESTS FOR extract_peaks_all_windows
 # ======================
 
-def test_extract_peaks_all_windows_basic(sample_lazyframe):
+def test_extract_peaks_all_windows_basic(sample_lazyframe_spectrum):
     """Test basic peak extraction across windows."""
     result = extract_peaks_all_windows(
-        df=sample_lazyframe,
+        df=sample_lazyframe_spectrum,
         mz_col_name="m/z",
         intensity_col_name="Intensity",
         step=10.0,
@@ -434,11 +467,11 @@ def test_extract_peaks_all_windows_basic(sample_lazyframe):
     # Should have fewer rows than input (only peaks)
     assert len(df) <= 4
 
-def test_extract_peaks_all_windows_no_peaks(sample_lazyframe):
+def test_extract_peaks_all_windows_no_peaks(sample_lazyframe_spectrum):
     """Test with parameters that find no peaks."""
     # Very high prominence threshold
     result = extract_peaks_all_windows(
-        df=sample_lazyframe,
+        df=sample_lazyframe_spectrum,
         mz_col_name="m/z",
         intensity_col_name="Intensity",
         step=10.0,
@@ -451,10 +484,10 @@ def test_extract_peaks_all_windows_no_peaks(sample_lazyframe):
     df = result.collect()
     assert len(df) == 0
 
-def test_extract_peaks_all_windows_single_window(sample_lazyframe):
+def test_extract_peaks_all_windows_single_window(sample_lazyframe_spectrum):
     """Test with single window covering all data."""
     result = extract_peaks_all_windows(
-        df=sample_lazyframe,
+        df=sample_lazyframe_spectrum,
         mz_col_name="m/z",
         intensity_col_name="Intensity",
         step=1000.0,  # Very large window

@@ -254,7 +254,7 @@ def find_all_peaks(intensity: NDArray[np.float64],
         RuntimeError: If peak detection fails (typically due to invalid input parameters).
 
     Note:
-        - The distance parameter is converted from m/z units to array indices using
+        - The distance parameter is converted from m/z units to array indices using the provided interval.
         - Lower prominence values will detect more (smaller) peaks.
     """
     if interval <= 0:
