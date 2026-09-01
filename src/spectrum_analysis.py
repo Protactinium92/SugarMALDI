@@ -215,6 +215,8 @@ def make_window(df: Union[pl.DataFrame, pl.LazyFrame],
         - The window_id is calculated as floor(column_value / step)
         - The function preserves the original DataFrame type (LazyFrame remains lazy)
     """
+    if step <= 0:
+        raise ValueError("step must be greater than 0")
     return df.with_columns(
         (pl.col(column_name) // step).cast(pl.Int32).alias("window_id")
     )

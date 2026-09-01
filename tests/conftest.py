@@ -133,9 +133,14 @@ def sample_spectrum_data():
     }
 
 @pytest.fixture
-def sample_lazyframe_sepctrum(sample_spectrum_data):
+def sample_lazyframe_spectrum(sample_spectrum_data):
     """Sample Polars LazyFrame for testing."""
     return pl.LazyFrame(sample_spectrum_data)
+
+@pytest.fixture
+def sample_dataframe_spectrum(sample_spectrum_data):
+    """Sample Polars DataFrame for testing."""
+    return pl.DataFrame(sample_spectrum_data)
 
 
 @pytest.fixture

@@ -178,26 +178,26 @@ def test_parse_spectra_uploaded_file(sample_uploaded_file):
 # TESTS FOR normalize_mz_column
 # ======================
 
-def test_normalize_mz_column_basic(sample_lazyframe_sepctrum):
+def test_normalize_mz_column_basic(sample_lazyframe_spectrum):
     """Test basic m/z normalization."""
-    result = normalize_mz_column(sample_lazyframe_sepctrum)
+    result = normalize_mz_column(sample_lazyframe_spectrum)
     df = result.collect()
 
     assert "mz_int" in df.columns
     assert df["mz_int"].dtype == pl.Int64
     assert df["mz_int"][0] == int(100.0 * cf.SCALE)
 
-def test_normalize_mz_column_custom_columns(sample_lazyframe_sepctrum):
+def test_normalize_mz_column_custom_columns(sample_lazyframe_spectrum):
     """Test with custom column names."""
-    result = normalize_mz_column(sample_lazyframe_sepctrum, mz_col="m/z", new_col="normalized_mz")
+    result = normalize_mz_column(sample_lazyframe_spectrum, mz_col="m/z", new_col="normalized_mz")
     df = result.collect()
 
     assert "normalized_mz" in df.columns
     assert "mz_int" not in df.columns
 
-def test_normalize_mz_column_preserves_data(sample_lazyframe_sepctrum):
+def test_normalize_mz_column_preserves_data(sample_lazyframe_spectrum):
     """Test that original columns are preserved."""
-    result = normalize_mz_column(sample_lazyframe_sepctrum)
+    result = normalize_mz_column(sample_lazyframe_spectrum)
     df = result.collect()
 
     assert "m/z" in df.columns
@@ -232,38 +232,73 @@ def test_normalize_mz_column_casts_string_values():
 # TESTS FOR make_window
 # ======================
 
-def test_make_window_dataframe(sample_dataframe):
+def test_make_window_dataframe(sample_dataframe_spectrum):
     """Test window creation with DataFrame."""
-    result = make_window(sample_dataframe, "m/z", 10.0)
+    result = make_window(sample_dataframe_spectrum, "m/z", 10.0)
     assert "window_id" in result.columns
     assert result["window_id"].dtype == pl.Int32
 
     # Check window assignments
-    assert result["window_id"][0] == 10  # 100.0 // 10 = 10
-    assert result["window_id"][1] == 10  # 101.0 // 10 = 10
-    assert result["window_id"][2] == 10  # 102.0 // 10 = 10
+    assert result["window_id"].to_list() == [10, 10, 10, 10, 10, 10]
 
-def test_make_window_lazyframe(sample_lazyframe):
+def test_make_window_lazyframe(sample_lazyframe_spectrum):
     """Test window creation with LazyFrame."""
-    result = make_window(sample_lazyframe, "m/z", 10.0)
+    result = make_window(sample_lazyframe_spectrum, "m/z", 10.0)
     assert isinstance(result, pl.LazyFrame)
     df = result.collect()
     assert "window_id" in df.columns
 
-def test_make_window_invalid_column(sample_dataframe):
+def test_make_window_invalid_column(sample_dataframe_spectrum):
     """Test with invalid column name."""
-    with pytest.raises(pl.exceptions.ComputeError):
-        make_window(sample_dataframe, "invalid_col", 10.0).collect()
+    with pytest.raises(pl.exceptions.ColumnNotFoundError):
+        make_window(sample_dataframe_spectrum, "invalid_col", 10.0)
 
-def test_make_window_various_steps(sample_dataframe):
-    """Test with different step sizes."""
-    for step in [1.0, 5.0, 10.0, 20.0]:
-        result = make_window(sample_dataframe, "m/z", step)
-        df = result.collect()
-        assert "window_id" in df.columns
-        # Verify all window_ids are non-negative
-        assert all(df["window_id"] >= 0)
+@pytest.mark.parametrize(
+    "step, expected",
+    [
+        (1.0, [100, 101, 102, 103, 104, 105]),
+        (5.0, [20, 20, 20, 20, 20, 21]),
+        (10.0, [10, 10, 10, 10, 10, 10]),
+        (20.0, [5, 5, 5, 5, 5, 5]),
+    ],
+)
+def test_make_window_various_steps(sample_dataframe_spectrum, step, expected):
+    """Test window creation with different step sizes."""
+    result = make_window(sample_dataframe_spectrum, "m/z", step)
 
+    assert result["window_id"].to_list() == expected
+
+def test_make_window_boundaries():
+    """Test window assignment at window boundaries."""
+    df = pl.DataFrame({
+        "m/z": [99.9, 100.0, 109.9, 110.0, 119.9, 120.0],
+        "Intensity": [1, 1, 1, 1, 1, 1],
+    })
+
+    result = make_window(df, "m/z", 10.0)
+
+    assert result["window_id"].to_list() == [9, 10, 10, 11, 11, 12]
+
+def test_make_window_decimal_step():
+    """Test window creation with a decimal step."""
+    df = pl.DataFrame({
+        "m/z": [1.0, 1.4, 1.5, 1.9, 2.0],
+    })
+
+    result = make_window(df, "m/z", 0.5)
+
+    assert result["window_id"].to_list() == [2, 2, 3, 3, 4]
+
+def test_make_window_preserves_data(sample_dataframe_spectrum):
+    """Test that original columns and values are preserved."""
+    result = make_window(sample_dataframe_spectrum, "m/z", 10.0)
+
+    assert result.select(sample_dataframe_spectrum.columns).equals(sample_dataframe_spectrum)
+
+def test_make_window_invalid_step(sample_dataframe_spectrum):
+    """Test that non-positive step raises ValueError."""
+    with pytest.raises(ValueError, match="step must be greater than 0"):
+        make_window(sample_dataframe_spectrum, "m/z", 0)
 
 # ======================
 # TESTS FOR find_all_peaks
