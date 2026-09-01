@@ -204,6 +204,30 @@ def test_normalize_mz_column_preserves_data(sample_lazyframe_sepctrum):
     assert "Intensity" in df.columns
     assert len(df) == 6
 
+def test_normalize_mz_column_rounding():
+    """Test that m/z values are correctly rounded before casting."""
+    lf = pl.LazyFrame({
+        "m/z": [100.0000004, 100.0000006]
+    })
+    result = normalize_mz_column(lf)
+    df = result.collect()
+    assert df["mz_int"].to_list() == [
+        round(100.0000004 * cf.SCALE),
+        round(100.0000006 * cf.SCALE),
+    ]
+
+def test_normalize_mz_column_casts_string_values():
+    """Test that string m/z values are converted to float."""
+    lf = pl.LazyFrame({
+        "m/z": ["100.0", "101.5"]
+    })
+    df = normalize_mz_column(lf).collect()
+
+    assert df["mz_int"].to_list() == [
+        round(100.0 * cf.SCALE),
+        round(101.5 * cf.SCALE),
+    ]
+
 # ======================
 # TESTS FOR make_window
 # ======================
@@ -240,30 +264,6 @@ def test_make_window_various_steps(sample_dataframe):
         # Verify all window_ids are non-negative
         assert all(df["window_id"] >= 0)
 
-def test_normalize_mz_column_rounding():
-    """Test that m/z values are correctly rounded before casting."""
-    lf = pl.LazyFrame({
-        "m/z": [100.0000004, 100.0000006]
-    })
-    result = normalize_mz_column(lf)
-    df = result.collect()
-    assert df["mz_int"].to_list() == [
-        round(100.0000004 * cf.SCALE),
-        round(100.0000006 * cf.SCALE),
-    ]
-
-def test_normalize_mz_column_casts_string_values():
-    """Test that string m/z values are converted to float."""
-    lf = pl.LazyFrame({
-        "m/z": ["100.0", "101.5"]
-    })
-
-    df = normalize_mz_column(lf).collect()
-
-    assert df["mz_int"].to_list() == [
-        round(100.0 * cf.SCALE),
-        round(101.5 * cf.SCALE),
-    ]
 
 # ======================
 # TESTS FOR find_all_peaks
