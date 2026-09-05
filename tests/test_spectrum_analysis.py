@@ -411,7 +411,8 @@ def test_find_all_peaks_distance_conversion():
 
 def test_process_window_basic(sample_spectrum_data):
     """Test basic window processing."""
-    mz, intensity = sample_spectrum_data
+    mz = sample_spectrum_data["m/z"]
+    intensity = sample_spectrum_data["Intensity"]
     window_indices = np.array([0, 1, 2, 3])  # First 4 points
     local_interval = 1.0
 
@@ -421,10 +422,10 @@ def test_process_window_basic(sample_spectrum_data):
     assert isinstance(peaks, list)
     assert all(isinstance(p, int) for p in peaks)
 
-def test_process_window_insufficient_data():
+def test_process_window_insufficient_data(sample_spectrum_data):
     """Test with window containing insufficient data points."""
-    mz = np.array([100.0])
-    intensity = np.array([1000.0])
+    mz = sample_spectrum_data["m/z"]
+    intensity = sample_spectrum_data["Intensity"]
     window_indices = np.array([0])
 
     args = (mz, intensity, window_indices, 1.0, 500.0, 0.0, 1)
@@ -432,16 +433,62 @@ def test_process_window_insufficient_data():
 
     assert peaks == []
 
-def test_process_window_no_peaks():
+def test_process_window_no_peaks(sample_spectrum_data):
     """Test window with no detectable peaks."""
-    mz = np.array([100.0, 101.0, 102.0])
-    intensity = np.array([100.0, 100.0, 100.0])  # Flat line
+    mz = sample_spectrum_data["m/z"]
+    intensity = sample_spectrum_data["Intensity"]
     window_indices = np.array([0, 1, 2])
 
     args = (mz, intensity, window_indices, 1.0, 1000.0, 0.0, 1)
     peaks = _process_window(args)
 
     assert peaks == []
+
+def test_process_window_detects_known_peaks(sample_spectrum_data):
+    """Test detection of known peaks."""
+    mz = sample_spectrum_data["m/z"]
+    intensity = sample_spectrum_data["Intensity"]
+
+    window_indices = np.array([0, 1, 2, 3, 4, 5])
+
+    args = (
+        mz,
+        intensity,
+        window_indices,
+        1.0,
+        500.0,  # prominence
+        0.0,    # height_min
+        1,      # dist_min
+    )
+
+    peaks = _process_window(args)
+
+    assert peaks == [1, 4]
+
+
+def test_process_window_returns_global_indices(sample_spectrum_data):
+    """Test conversion from local peak indices to global indices."""
+    mz = sample_spectrum_data["m/z"]
+    intensity = sample_spectrum_data["Intensity"]
+
+    # Window contains global indices 2, 3, 4, 5
+    window_indices = np.array([2, 3, 4, 5])
+
+    args = (
+        mz,
+        intensity,
+        window_indices,
+        1.0,
+        500.0,
+        0.0,
+        1,
+    )
+
+    peaks = _process_window(args)
+
+    # The peak is locally at index 2,
+    # but globally at index 4.
+    assert peaks == [4]
 
 # ======================
 # TESTS FOR extract_peaks_all_windows
