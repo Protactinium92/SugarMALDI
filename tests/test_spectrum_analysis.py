@@ -994,9 +994,9 @@ def test_score_hybrid_no_match():
     # Should be low but not necessarily zero due to coverage term
     assert result < 0.5
 
-# ======================
+# ==================================
 # TESTS FOR calculate_isotopic_score
-# ======================
+# ==================================
 
 def test_calculate_isotopic_score_basic():
     """Test basic isotopic score calculation."""
@@ -1019,9 +1019,9 @@ def test_calculate_isotopic_score_basic():
         scoring_method="cosine"
     )
 
+    assert np.isfinite(score)
     assert 0.0 <= score <= 1.0
-    # Perfect match should give high score
-    assert score > 0.9
+    assert score == pytest.approx(1.0)
 
 def test_calculate_isotopic_score_different_methods():
     """Test with different scoring methods."""
@@ -1043,7 +1043,8 @@ def test_calculate_isotopic_score_different_methods():
             N=2,
             scoring_method=method
         )
-        assert 0.0 <= score <= 1.0
+        assert np.isfinite(score), f"Non-finite score for {method}"
+        assert 0.0 <= score <= 1.0, f"Invalid score for {method}"
 
 def test_calculate_isotopic_score_invalid_method():
     """Test with invalid scoring method."""
