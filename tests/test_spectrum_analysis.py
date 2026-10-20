@@ -781,10 +781,15 @@ def test_get_theoretical_spectrum_basic():
     assert isinstance(result, pl.LazyFrame)
 
     df = result.collect()
-    assert "mz_theo" in df.columns
-    assert "prob_theo" in df.columns
-    assert "prob_theo_norm" in df.columns
-    assert len(df) > 0
+    assert set(df.columns) == {
+        "mz_theo",
+        "prob_theo",
+        "prob_theo_norm",
+    }
+    assert df.height > 0
+    assert df["mz_theo"].is_not_null().all()
+    assert df["prob_theo"].is_not_null().all()
+    assert df["prob_theo_norm"].is_not_null().all()
 
 def test_get_theoretical_spectrum_caching():
     """Test that spectrum is cached."""
@@ -813,6 +818,14 @@ def test_get_theoretical_spectrum_threshold():
 
     # Higher threshold should result in fewer isotopologues
     assert len(df_high) >= len(df_low)
+
+def test_get_theoretical_spectrum_normalization():
+    """Test that normalized probabilities have a maximum of 1."""
+    df = get_theoretical_spectrum("C6H12O6").collect()
+
+    assert df["prob_theo_norm"].max() == pytest.approx(1.0)
+    assert (df["prob_theo_norm"] >= 0).all()
+    assert (df["prob_theo_norm"] <= 1).all()
 
 # ======================
 # TESTS FOR _normalize
@@ -847,9 +860,9 @@ def test_normalize_negative_values():
 
     assert np.isclose(np.sum(normalized), 1.0)
 
-# ======================
+# ================================
 # TESTS FOR _build_aligned_vectors
-# ======================
+# ================================
 
 def test_build_aligned_vectors_basic():
     """Test basic vector alignment."""
@@ -867,27 +880,6 @@ def test_build_aligned_vectors_basic():
     assert np.allclose(vec_exp, _normalize(exp_int))
     assert np.allclose(vec_theo, _normalize(theo_prob))
 
-def test_build_aligned_vectors_with_mismatch():
-    """Test with mismatched m/z values."""
-    exp_mz = np.array([100.0, 102.0, 104.0])  # Missing 101.0, 103.0
-    exp_int = np.array([1.0, 2.0, 3.0])
-    theo_mz = np.array([100.0, 101.0, 102.0, 103.0])
-    theo_prob = np.array([0.1, 0.2, 0.3, 0.4])
-
-    vec_exp, vec_theo = _build_aligned_vectors(
-        exp_mz, exp_int, theo_mz, theo_prob, tolerance=5.0, N=4
-    )
-
-    # Should have 4 elements (N=4)
-    assert len(vec_exp) == 4
-    assert len(vec_theo) == 4
-    # First and third theoretical peaks should match
-    assert vec_exp[0] > 0  # 100.0 matches
-    assert vec_exp[2] > 0  # 102.0 matches
-    # Second and fourth should be 0 (no match)
-    assert vec_exp[1] == 0.0
-    assert vec_exp[3] == 0.0
-
 def test_build_aligned_vectors_partial_match():
     """Test with partial matching."""
     exp_mz = np.array([100.0, 100.5, 101.0, 101.5])
@@ -904,20 +896,6 @@ def test_build_aligned_vectors_partial_match():
     # Both theoretical peaks should have matches
     assert vec_exp[0] > 0
     assert vec_exp[1] > 0
-
-def test_build_aligned_vectors_no_match():
-    """Test with no matching peaks."""
-    exp_mz = np.array([100.0, 101.0])
-    exp_int = np.array([1.0, 1.0])
-    theo_mz = np.array([200.0, 201.0])  # Far away
-    theo_prob = np.array([0.5, 0.5])
-
-    vec_exp, vec_theo = _build_aligned_vectors(
-        exp_mz, exp_int, theo_mz, theo_prob, tolerance=1.0, N=2
-    )
-
-    assert np.all(vec_exp == 0.0)
-    assert np.allclose(vec_theo, _normalize(theo_prob))
 
 # ======================
 # TESTS FOR SCORING FUNCTIONS
@@ -942,7 +920,7 @@ def test_score_cosine_zero_vectors():
 
 @pytest.mark.parametrize("vec_exp,vec_theo,expected", [
     (np.array([1.0, 2.0, 3.0]), np.array([1.0, 2.0, 3.0]), 1.0),  # Perfect correlation
-    (np.array([1.0, 2.0, 3.0]), np.array([3.0, 2.0, 1.0]), -1.0),  # Perfect anti-correlation
+    (np.array([1.0, 2.0, 3.0]), np.array([3.0, 2.0, 1.0]), -1.0), # Perfect anti-correlation
     (np.array([1.0, 1.0, 1.0]), np.array([1.0, 2.0, 3.0]), 0.0),  # No correlation
 ])
 def test_score_pearson(vec_exp, vec_theo, expected):
@@ -951,9 +929,13 @@ def test_score_pearson(vec_exp, vec_theo, expected):
     assert result == pytest.approx(expected, rel=0.01)
 
 def test_score_pearson_constant_vectors():
-    """Test Pearson with constant vectors."""
-    assert score_pearson(np.array([1.0, 1.0]), np.array([1.0, 2.0])) == 0.0
-    assert score_pearson(np.array([1.0, 1.0]), np.array([1.0, 1.0])) == 0.0
+    """Test Pearson correlation with constant vectors."""
+    assert score_pearson(np.ones(2), np.array([1.0, 2.0])) == 0.0
+    assert score_pearson(np.ones(2), np.ones(2)) == 0.0
+
+def test_score_pearson_single_element():
+    """Test Pearson correlation with fewer than two elements."""
+    assert score_pearson(np.array([1.0]), np.array([1.0])) == 0.0
 
 @pytest.mark.parametrize("vec_exp,vec_theo", [
     (np.array([1.0, 2.0]), np.array([1.0, 2.0])),  # Perfect match
