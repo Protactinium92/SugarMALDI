@@ -174,9 +174,9 @@ def test_parse_spectra_uploaded_file(sample_uploaded_file):
     assert df.shape == (2, 2)
     assert df.columns == ["m/z", "Intensity"]
 
-# ======================
+# =============================
 # TESTS FOR normalize_mz_column
-# ======================
+# =============================
 
 def test_normalize_mz_column_basic(sample_lazyframe_spectrum):
     """Test basic m/z normalization."""
@@ -403,11 +403,9 @@ def test_find_all_peaks_distance_conversion():
     assert peaks_close == [1, 3, 5]
     assert peaks_far == [1, 5]
 
-# TODO: STOP HERE continue above
-
-# ======================
+# =========================
 # TESTS FOR _process_window
-# ======================
+# =========================
 
 def test_process_window_basic(sample_spectrum_data):
     """Test basic window processing."""
@@ -490,9 +488,9 @@ def test_process_window_returns_global_indices(sample_spectrum_data):
     # but globally at index 4.
     assert peaks == [4]
 
-# ======================
+# ===================================
 # TESTS FOR extract_peaks_all_windows
-# ======================
+# ===================================
 
 def test_extract_peaks_all_windows_basic(sample_lazyframe_spectrum):
     """Test basic peak extraction across windows."""
@@ -546,6 +544,8 @@ def test_extract_peaks_all_windows_single_window(sample_lazyframe_spectrum):
 
     df = result.collect()
     assert len(df) > 0  # Should find at least one peak
+
+# TODO: STOP HERE continue above
 
 # ======================
 # TESTS FOR calcul_offset
