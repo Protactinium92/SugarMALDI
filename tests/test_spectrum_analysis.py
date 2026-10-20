@@ -547,9 +547,9 @@ def test_extract_peaks_all_windows_single_window(sample_lazyframe_spectrum):
 
 # TODO: STOP HERE continue above
 
-# ======================
+# =======================
 # TESTS FOR calcul_offset
-# ======================
+# =======================
 
 def test_calcul_offset_basic():
     """Test basic offset calculation."""
@@ -558,8 +558,8 @@ def test_calcul_offset_basic():
     # For 1000 Da, 5 ppm = 0.005 Da
     # th_min = 1000 / (1 + 5e-6) ≈ 999.995
     # th_max = 1000 / (1 - 5e-6) ≈ 1000.005
-    assert abs(th_min - 999.995) < 0.001
-    assert abs(th_max - 1000.005) < 0.001
+    assert th_min == pytest.approx(999.995, abs=0.001)
+    assert th_max == pytest.approx(1000.005, abs=0.001)
 
 def test_calcul_offset_zero_threshold():
     """Test with zero threshold."""
@@ -570,20 +570,71 @@ def test_calcul_offset_zero_threshold():
 def test_calcul_offset_small_mass():
     """Test with small mass value."""
     th_min, th_max = calcul_offset(10.0, 100.0)
-    # 10 ppm of 100 = 0.001
-    assert abs(th_min - 99.999) < 0.001
-    assert abs(th_max - 100.001) < 0.001
+    assert th_min == pytest.approx(99.999, abs=0.001)
+    assert th_max == pytest.approx(100.001, abs=0.001)
 
 def test_calcul_offset_large_threshold():
     """Test with large threshold value."""
     th_min, th_max = calcul_offset(100.0, 1000.0)  # 100 ppm
-    # 100 ppm = 0.1 Da
-    assert abs(th_min - 999.9) < 0.01
-    assert abs(th_max - 1000.1) < 0.01
+    assert th_min == pytest.approx(999.9, abs=0.01)
+    assert th_max == pytest.approx(1000.1, abs=0.01)
 
-# ======================
+def test_calcul_offset_threshold_boundary():
+    """Test with a threshold close to 1,000,000 ppm."""
+    th_min, th_max = calcul_offset(999_999.0, 1000.0)
+    assert th_min == pytest.approx(500.00025, rel=1e-5)
+    assert th_max == pytest.approx(1_000_000_000.0)
+
+@pytest.mark.parametrize(  # Allow multiple runs with different
+    "threshold",           # invalid threshold values
+    [-1.0, 1e6, 1e6 + 1],
+)
+def test_calcul_offset_invalid_threshold(threshold):
+    """Test that invalid thresholds raise ValueError."""
+    with pytest.raises(ValueError):
+        calcul_offset(threshold, 1000.0)
+
+# ====================================
 # TESTS FOR calculate_chemical_formula
-# ======================
+# ====================================
+
+def test_calculate_chemical_formula_single_monomer(monomer_df):
+    """Test a single monomer without label or adduct."""
+    oligo_df = {"dHex": 1, "Hex": 0, "HexA": 0}
+
+    formula = calculate_chemical_formula(
+        oligo_df=oligo_df,
+        monomer_df=monomer_df,
+        use_label_3aq=False,
+    )
+
+    assert formula == "C6H10O5"
+
+def test_calculate_chemical_formula_empty_composition(monomer_df):
+    """Test an empty composition without label or adduct."""
+    oligo_df = {"dHex": 0, "Hex": 0, "HexA": 0}
+
+    formula = calculate_chemical_formula(
+        oligo_df=oligo_df,
+        monomer_df=monomer_df,
+        use_label_3aq=False,
+    )
+
+    assert formula == ""
+
+def test_calculate_chemical_formula_element_order(monomer_df):
+    """Test formula ordering for additional elements."""
+    oligo_df = {"dHex": 1, "Hex": 0, "HexA": 0}
+
+    formula = calculate_chemical_formula(
+        oligo_df=oligo_df,
+        monomer_df=monomer_df,
+        adduct="test",
+        adduct_compo={"test": {"F": 1, "Cl": 1}},
+        use_label_3aq=False,
+    )
+
+    assert formula == "C6H10O5Cl1F1"
 
 def test_calculate_chemical_formula_basic(monomer_df):
     """Test basic chemical formula calculation."""
@@ -599,30 +650,26 @@ def test_calculate_chemical_formula_basic(monomer_df):
     # dHex: C6H10O5, Hex: C6H12O6
     # Total: C12H22O11
     # Condensation: -H2O (for 2 monomers)
-    # Final: C12H20O10
-    assert "C12" in formula
-    assert "H20" in formula
-    assert "O10" in formula
+    assert formula == "C12H20O10"
 
-def test_calculate_chemical_formula_with_adduct(monomer_df, adducts):
-    """Test with adduct."""
+def test_calculate_chemical_formula_with_adduct(monomer_df, sample_adduct_compo):
+    """Test with sodium adduct."""
     oligo_df = {"dHex": 1, "Hex": 0, "HexA": 0}
 
     formula = calculate_chemical_formula(
         oligo_df=oligo_df,
         monomer_df=monomer_df,
-        adduct="Na",
-        adduct_compo=adducts["adduct_compo"],
-        use_label_3aq=False
+        adduct="Na+",
+        adduct_compo=sample_adduct_compo,
+        use_label_3aq=False,
     )
 
     # dHex: C6H10O5
-    # Condensation: none (only 1 monomer)
-    # Adduct: +Na
-    assert "C6" in formula
-    assert "Na1" in formula
+    # No condensation (only 1 monomer)
+    # Sodium adduct: +Na
+    assert formula == "C6H10O5Na1"
 
-def test_calculate_chemical_formula_with_label(monomer_df, adducts):
+def test_calculate_chemical_formula_with_label(monomer_df, label_3aq_compo):
     """Test with label."""
     oligo_df = {"dHex": 1, "Hex": 0, "HexA": 0}
 
@@ -631,17 +678,15 @@ def test_calculate_chemical_formula_with_label(monomer_df, adducts):
         monomer_df=monomer_df,
         adduct=None,
         use_label_3aq=True,
-        label_compo=adducts["label_compo"]
+        label_compo=label_3aq_compo
     )
 
     # dHex: C6H10O5
     # Label: C9H7N1O1
     # Total: C15H17NO6
     # Condensation: -H2O (for 2 "monomers" including label)
-    # Final: C15H15NO5
-    assert "C15" in formula
-    assert "H15" in formula
-    assert "N1" in formula
+    # Final: C15H16N2O4
+    assert formula == "C15H16N2O4"
 
 def test_calculate_chemical_formula_unknown_adduct(monomer_df):
     """Test with unknown adduct."""
@@ -655,7 +700,7 @@ def test_calculate_chemical_formula_unknown_adduct(monomer_df):
             use_label_3aq=False
         )
 
-def test_calculate_chemical_formula_negative_count(monomer_df, adducts):
+def test_calculate_chemical_formula_negative_count(monomer_df):
     """Test that negative element counts raise error."""
     # This is a bit tricky to trigger - would need a specific combination
     # where adduct addition results in negative count
@@ -666,13 +711,69 @@ def test_calculate_chemical_formula_negative_count(monomer_df, adducts):
             oligo_df=oligo_df,
             monomer_df=monomer_df,
             adduct="H",  # Adding H to nothing might cause issues
-            adduct_compo={"H": -1},  # Negative count in adduct
+            adduct_compo={"H": {"H": -1}},  # Negative count in adduct
             use_label_3aq=False
         )
 
-# ======================
+
+def test_3hex_proton_formula_without_label(monomer_df_hex_selected):
+    """Test formula calculation for 3 Hex + H+."""
+    oligo_df = {"Hex": 3}
+
+    result = calculate_chemical_formula(
+        oligo_df=oligo_df,
+        monomer_df=monomer_df_hex_selected,
+        adduct="H+",
+        adduct_compo={"H+": {"H": 1}},
+        use_label_3aq=False,
+    )
+
+    # 3 Hex - 2 H2O + H+
+    assert result == "C18H33O16"
+
+
+def test_3hex_label_3aq_proton_formula(
+    monomer_df_hex_selected,
+    label_3aq_compo,
+):
+    """Test formula calculation for 3 Hex + 3AQ label + H+."""
+    oligo_df = {"Hex": 3}
+
+    result = calculate_chemical_formula(
+        oligo_df=oligo_df,
+        monomer_df=monomer_df_hex_selected,
+        adduct="H+",
+        adduct_compo={"H+": {"H": 1}},
+        use_label_3aq=True,
+        label_compo=label_3aq_compo,
+    )
+
+    # 3 Hex + 3AQ - 3 H2O + H+
+    assert result == "C27H39N2O15"
+
+
+def test_3hex_label_3aq_water_loss_proton_adduct(
+    monomer_df_hex_selected,
+    label_3aq_compo,
+):
+    """Test formula calculation with a water-loss proton adduct."""
+    oligo_df = {"Hex": 3}
+
+    result = calculate_chemical_formula(
+        oligo_df=oligo_df,
+        monomer_df=monomer_df_hex_selected,
+        adduct="H+(-H2O)",
+        adduct_compo={"H+(-H2O)": {"H": -1, "O": -1}},
+        use_label_3aq=True,
+        label_compo=label_3aq_compo,
+    )
+
+    # 3 Hex + 3AQ - 3 H2O + H+(-H2O)
+    assert result == "C27H37N2O14"
+
+# ==================================
 # TESTS FOR get_theoretical_spectrum
-# ======================
+# ==================================
 
 def test_get_theoretical_spectrum_basic():
     """Test basic theoretical spectrum generation."""

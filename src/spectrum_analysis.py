@@ -475,11 +475,17 @@ def calcul_offset(rm_threshold: float, real_mass: float) -> Tuple[float, float]:
         A tuple containing:
             - th_min (float): Minimum acceptable theoretical mass.
             - th_max (float): Maximum acceptable theoretical mass.
+    Raises:
+        ValueError: If the threshold is negative or greater than or equal
+            to 1,000,000 ppm.
     """
+    if not 0 <= rm_threshold < 1e6:
+        raise ValueError("rm_threshold must be in [0, 1e6].")
+    
     factor: float = rm_threshold / 1e6
     th_min: float = real_mass / (1 + factor)
     th_max: float = real_mass / (1 - factor)
-    del factor
+    
     return th_min, th_max
 
 
@@ -487,7 +493,7 @@ def calculate_chemical_formula(
     oligo_df: Dict[str, int],
     monomer_df: pl.DataFrame,
     adduct: Optional[str] = None,
-    adduct_compo: dict[str, int] = cf.ADDUCTS,
+    adduct_compo: dict[str, dict[str, int]] = cf.ADDUCTS,
     use_label_3aq: bool = True,
     label_compo: dict[str, int] = cf.LABEL_3AQ,
 ) -> str:
@@ -496,7 +502,7 @@ def calculate_chemical_formula(
 
     Parameters
     ----------
-    oligo_df : pl.DataFrame
+    oligo_df : Dict[str, int]
         One-row DataFrame containing monomer counts in columns matching monomer_df "Notation"
     monomer_df : pl.DataFrame
         Columns: ["Selection", "Notation", "Description", "C", "H", "O", ...]
