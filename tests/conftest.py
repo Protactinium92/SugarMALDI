@@ -154,6 +154,19 @@ def sample_full_library_monomer():
         "Neutral_unlabeled_mass": [100.0, 150.0, 200.0]
     })
 
+@pytest.fixture
+def sample_full_library_label_monomer():
+    """Sample library LazyFrame for oligo matching."""
+    return pl.LazyFrame({
+        "column_id": [1, 2, 3],
+        "dHex": [1, 0, 2],
+        "Hex": [0, 1, 1],
+        "HexA": [0, 0, 0],
+        "Neutral_unlabeled_mass": [100.0, 150.0, 200.0],
+        "labeled_mass_H": [100.0, 150.0, 200.0],
+        "labeled_mass_Na": [122.0, 172.0, 222.0],
+    })
+
 
 class MockUploadedFile(io.BytesIO):
     def __init__(self, content: str, name: str):

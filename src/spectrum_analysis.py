@@ -1184,6 +1184,11 @@ def combine_lf(
         lf_2 = normalize_mz_column(lf_2, new_col=join_on)
         lf_1_simple = lf_1.select(cols_to_keep_1).sort(join_on)
         lf_2_simple = lf_2.select(cols_to_keep_2).sort(join_on)
+        print("lf_1:")
+        print(lf_1.select("mass").collect())
+
+        print("lf_2 après normalisation:")
+        print(lf_2.select("mass", "m/z").collect())
         return lf_1_simple.join(lf_2_simple, on=join_on, how=how)
 
     except Exception as e:

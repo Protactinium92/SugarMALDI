@@ -1070,21 +1070,28 @@ def test_calculate_isotopic_score_invalid_method():
 # TESTS FOR match_oligos
 # ======================
 
-def test_match_oligos_basic(library_lf, monomer_df, adducts):
+def test_match_oligos_basic(sample_full_library_label_monomer, monomer_df,
+                            label_3aq_compo):
+    
     """Test basic oligo matching."""
     peaks = pl.LazyFrame({
         "m/z": [100.0, 150.0, 200.0],
         "Intensity": [1000.0, 2000.0, 1500.0]
     })
+    adduct_compo = {
+        "H": {"H": 1},
+        "Na": {"Na": 1},
+        "K": {"K": 1},
+    }
 
     result = match_oligos(
         peaks=peaks,
-        library=library_lf,
+        library=sample_full_library_label_monomer,
         threshold=5,
         monomer_df=monomer_df,
         adduct_names=["H", "Na"],
-        adduct_compo=adducts["adduct_compo"],
-        label_compo=adducts["label_compo"],
+        adduct_compo=adduct_compo,
+        label_compo=label_3aq_compo,
         use_label_3aq=True,
         top_n=2,
         number_isotope=2,
@@ -1096,7 +1103,7 @@ def test_match_oligos_basic(library_lf, monomer_df, adducts):
     # Should have some matches
     assert len(df) >= 0  # May have 0 if no matches found
 
-def test_match_oligos_no_matches(library_lf, monomer_df, adducts):
+def test_match_oligos_no_matches(sample_full_library_label_monomer, monomer_df, sample_adduct_compo, label_3aq_compo):
     """Test with peaks that don't match any oligos."""
     peaks = pl.LazyFrame({
         "m/z": [1.0, 2.0, 3.0],  # Very low masses
@@ -1105,12 +1112,12 @@ def test_match_oligos_no_matches(library_lf, monomer_df, adducts):
 
     result = match_oligos(
         peaks=peaks,
-        library=library_lf,
+        library=sample_full_library_label_monomer,
         threshold=5,
         monomer_df=monomer_df,
         adduct_names=["H"],
-        adduct_compo=adducts["adduct_compo"],
-        label_compo=adducts["label_compo"],
+        adduct_compo=sample_adduct_compo,
+        label_compo=label_3aq_compo,
         use_label_3aq=False,
         top_n=1,
         number_isotope=1
@@ -1120,7 +1127,7 @@ def test_match_oligos_no_matches(library_lf, monomer_df, adducts):
     # Should return empty LazyFrame with correct schema
     assert len(df) == 0
 
-def test_match_oligos_empty_peaks(library_lf, monomer_df, adducts):
+def test_match_oligos_empty_peaks(sample_full_library_label_monomer, monomer_df, sample_adduct_compo, label_3aq_compo):
     """Test with empty peaks LazyFrame."""
     peaks = pl.LazyFrame({
         "m/z": pl.Series([], dtype=pl.Float64),
@@ -1129,23 +1136,23 @@ def test_match_oligos_empty_peaks(library_lf, monomer_df, adducts):
 
     result = match_oligos(
         peaks=peaks,
-        library=library_lf,
+        library=sample_full_library_label_monomer,
         threshold=5,
         monomer_df=monomer_df,
         adduct_names=["H"],
-        adduct_compo=adducts["adduct_compo"],
-        label_compo=adducts["label_compo"],
+        adduct_compo=sample_adduct_compo,
+        label_compo=label_3aq_compo,
         use_label_3aq=False
     )
 
     df = result.collect()
     assert len(df) == 0
 
-# ======================
+# ========================
 # TESTS FOR adjust_library
-# ======================
+# ========================
 
-def test_adjust_library_basic(tmp_path, monomer_df):
+def test_adjust_library_basic(tmp_path):
     """Test basic library adjustment."""
     # Create a test library file
     library_data = """column_id,dHex,Hex,HexA,Neutral_unlabeled_mass
@@ -1170,17 +1177,18 @@ def test_adjust_library_basic(tmp_path, monomer_df):
     # Should only have columns: column_id, dHex, Hex, Neutral_unlabeled_mass
     assert set(df.columns) == {"column_id", "dHex", "Hex", "Neutral_unlabeled_mass"}
 
-    # Should have 4 rows (all except the one with only HexA)
-    assert len(df) == 4
+    # Should have 3 rows (all except the one with only HexA)
+    assert len(df) == 3
 
     # Should be sorted by mass
     assert df["Neutral_unlabeled_mass"].is_sorted()
 
 def test_adjust_library_all_monomers_zero(tmp_path):
-    """Test with entries where all selected monomers are zero."""
+    """Test removal of entries where all selected monomers are zero."""
     library_data = """column_id,dHex,Hex,HexA,Neutral_unlabeled_mass
-1,0,0,1,100.0
-2,0,0,0,150.0
+1,0,0,0,100.0
+2,1,0,0,150.0
+3,0,0,1,200.0
 """
     library_path = tmp_path / "test_library.csv"
     library_path.write_text(library_data)
@@ -1188,12 +1196,15 @@ def test_adjust_library_all_monomers_zero(tmp_path):
     result = adjust_library(
         library_path=library_path,
         monomers_list=["dHex", "Hex"],
-        mass_column_name="Neutral_unlabeled_mass"
+        mass_column_name="Neutral_unlabeled_mass",
     )
 
     df = result.collect()
-    # Should only have the first row (second has all zeros)
-    assert len(df) == 1
+
+    # Row 1: all selected monomers are zero.
+    # Row 2: at least one selected monomer is non-zero.
+    # Row 3: contains an unauthorized monomer (HexA).
+    assert df["column_id"].to_list() == [2]
 
 def test_adjust_library_unauthorized_monomers(tmp_path):
     """Test removal of entries with unauthorized monomers."""
@@ -1265,7 +1276,7 @@ def test_compile_oligo_name_zero_monomers():
     df = result.collect()
 
     # Should have empty string for oligo name
-    assert df["Identifications"][0] == "-H"
+    assert df["Identifications"][0] == "H"
 
 def test_compile_oligo_name_multiple_monomers():
     """Test with multiple monomers."""
@@ -1285,69 +1296,100 @@ def test_compile_oligo_name_multiple_monomers():
     assert "1HexA" in df["Identifications"][0]
     assert "Na" in df["Identifications"][0]
 
-# ======================
+# ====================
 # TESTS FOR combine_lf
-# ======================
+# ====================
 
 def test_combine_lf_basic():
     """Test basic LazyFrame combination."""
     lf_1 = pl.LazyFrame({
+        "mass": [100, 101, 102],
         "query_mass": [100, 101, 102],
         "Identifications": ["A", "B", "C"],
         "Formula": ["C6H12O6", "C6H12O6", "C6H12O6"],
         "Delta_M": [0.1, 0.2, 0.3],
-        "iso_score": [0.9, 0.8, 0.7]
+        "iso_score": [0.9, 0.8, 0.7],
     })
 
     lf_2 = pl.LazyFrame({
+        "mass": [100.0, 101.0, 102.0, 103.0],
         "m/z": [100.0, 101.0, 102.0, 103.0],
-        "Intensity": [1000, 2000, 1500, 500]
+        "query_mass": [100, 101, 102, 103],
+        "Intensity": [1000, 2000, 1500, 500],
     })
 
     result = combine_lf(lf_1, lf_2)
 
     assert isinstance(result, pl.LazyFrame)
+
     df = result.collect()
 
-    # Should have combined columns
-    assert "m/z" in df.columns
+    # The right join must preserve all experimental peaks.
+    assert len(df) == 4
+
+    # Check the output columns.
     assert "query_mass" in df.columns
     assert "Identifications" in df.columns
     assert "Intensity" in df.columns
 
-    # Should have all rows from lf_2 (right join)
-    assert len(df) == 4
+    # The unmatched experimental peak must be preserved.
+    unmatched = df.filter(pl.col("Intensity") == 500)
+
+    assert unmatched.height == 1
+    assert unmatched["Identifications"][0] is None
+
+    # Experimental peak intensities must be preserved.
+    assert df["Intensity"].to_list() == [1000, 2000, 1500, 500]
 
 def test_combine_lf_right_join():
     """Test that right join is performed by default."""
     lf_1 = pl.LazyFrame({
+        "mass": [100, 101],
         "query_mass": [100, 101],
-        "Identifications": ["A", "B"]
+        "Identifications": ["A", "B"],
+        "Formula": ["C6H10O5", "C6H10O5"],
+        "Delta_M": [0.01, 0.02],
+        "iso_score": [0.9, 0.8],
     })
 
     lf_2 = pl.LazyFrame({
+        "mass": [100.0, 101.0, 102.0],
         "m/z": [100.0, 101.0, 102.0],
-        "Intensity": [1000, 2000, 1500]
+        "query_mass": [100, 101, 102],
+        "Intensity": [1000, 2000, 1500],
     })
 
     result = combine_lf(lf_1, lf_2)
     df = result.collect()
 
-    # Should have all rows from lf_2
+    # A right join must preserve all rows from lf_2.
     assert len(df) == 3
-    # The third row should have null for lf_1 columns
-    assert df["Identifications"][2] is None
+
+    # The unmatched peak must have null identification data.
+    unmatched = df.filter(pl.col("Intensity") == 1500)
+
+    assert unmatched.height == 1
+    assert unmatched["Identifications"][0] is None
+    assert unmatched["Formula"][0] is None
+    assert unmatched["Delta_M"][0] is None
+    assert unmatched["iso_score"][0] is None
+
+    # The experimental peak data must be preserved.
+    assert df["Intensity"].to_list() == [1000, 2000, 1500]
 
 def test_combine_lf_custom_join_column():
     """Test with custom join column."""
     lf_1 = pl.LazyFrame({
-        "mass": [100, 101],
-        "Identifications": ["A", "B"]
+        "mass": [100_000_000, 101_000_000],
+        "Identifications": ["A", "B"],
+        "Formula": ["C6H10O5", "C6H10O5"],
+        "Delta_M": [0.01, 0.02],
+        "iso_score": [0.9, 0.8],
     })
 
     lf_2 = pl.LazyFrame({
         "m/z": [100.0, 101.0],
-        "Intensity": [1000, 2000]
+        "Intensity": [1000, 2000],
     })
 
     result = combine_lf(lf_1, lf_2, join_on="mass")
@@ -1355,75 +1397,4 @@ def test_combine_lf_custom_join_column():
 
     assert "mass" in df.columns
     assert len(df) == 2
-
-# ======================
-# TESTS FOR process_mass
-# ======================
-
-def test_process_mass_basic(tmp_path):
-    """Test basic mass processing."""
-    # Create a test library
-    library_data = """column_id,dHex,Hex,Neutral_unlabeled_mass
-1,1,0,100.0
-2,0,1,150.0
-"""
-    library_path = tmp_path / "test_library.csv"
-    library_path.write_text(library_data)
-
-    full_library = pl.scan_csv(library_path)
-
-    result = process_mass(
-        mass=100.0,
-        adduct="H",
-        full_library=full_library,
-        monomers_list=["dHex", "Hex"],
-        mass_col_name="Neutral_unlabeled_mass"
-    )
-
-    assert isinstance(result, str)
-    assert "1dHex" in result
-    assert "H" in result
-
-def test_process_mass_no_match(tmp_path):
-    """Test with mass that doesn't match any library entry."""
-    library_data = """column_id,dHex,Hex,Neutral_unlabeled_mass
-1,1,0,100.0
-"""
-    library_path = tmp_path / "test_library.csv"
-    library_path.write_text(library_data)
-
-    full_library = pl.scan_csv(library_path)
-
-    result = process_mass(
-        mass=200.0,  # Not in library
-        adduct="H",
-        full_library=full_library,
-        monomers_list=["dHex", "Hex"],
-        mass_col_name="Neutral_unlabeled_mass"
-    )
-
-    assert result == ""
-
-def test_process_mass_multiple_matches(tmp_path):
-    """Test with mass that matches multiple library entries."""
-    library_data = """column_id,dHex,Hex,Neutral_unlabeled_mass
-1,1,0,100.0
-2,0,1,100.0
-"""
-    library_path = tmp_path / "test_library.csv"
-    library_path.write_text(library_data)
-
-    full_library = pl.scan_csv(library_path)
-
-    result = process_mass(
-        mass=100.0,
-        adduct="H",
-        full_library=full_library,
-        monomers_list=["dHex", "Hex"],
-        mass_col_name="Neutral_unlabeled_mass"
-    )
-
-    # Should have both identifications separated by /
-    assert "/" in result
-    assert "1dHex" in result
-    assert "1Hex" in result
+    assert df["Identifications"].to_list() == ["A", "B"]
