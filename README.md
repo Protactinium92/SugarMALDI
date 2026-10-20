@@ -6,7 +6,7 @@
   </picture>
 </p>
 
-![Version](https://img.shields.io/badge/version-0.1.7-red.svg)
+![Version](https://img.shields.io/badge/version-1.0.0-red.svg)
 ![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)
 ![License: CeCILL 2.1](https://img.shields.io/badge/license-CeCILL_2.1-green.svg)
 ![Polars](https://img.shields.io/badge/polars-1.33.0+-orange.svg)
@@ -554,12 +554,13 @@ If you use SugarMALDI in your research, please cite it as follows:
 ```bibtex
 @software{SugarMALDI,
   author = {HO, Pierre-Alexandre and Rolando, Christian and Yammine, Marie},
-  title = {SugarMALDI: An Application for oligosaccharides’ identification in MALDI-MS data.},
+  title = {SugarMALDI: An Application for oligosaccharides' identification in MALDI-MS data},
+  version = {1.0.0},
   year = {2026},
-  doi = {10.5281/zenodo.TBD},
   url = {https://github.com/Protactinium92/SugarMALDI},
   license = {CeCILL-2.1},
-  keywords = {mass spectrometry, MALDI, glycomics, carbohydrates, bioinformatics}
+  keywords = {mass spectrometry, MALDI, glycomics, carbohydrates, bioinformatics, chemoinformatics},
+  note = {Associated preprint: \url{https://doi.org/10.26434/chemrxiv.15008457/v1}}
 }
 ```
 

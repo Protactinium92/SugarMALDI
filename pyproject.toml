@@ -1,6 +1,6 @@
 [project]
 name = "sugarmaldi"
-version = "0.1.7"
+version = "1.0.0"
 description =  "SugarMALDI is an open-source computational framework for the analysis of MALDI mass spectrometry data, dedicated to carbohydrate and glycan characterization. It integrates spectral preprocessing, adduct-aware composition inference, and visualization tools to support high-throughput studies in glycomics."
 readme = "README.md"
 requires-python = ">=3.13"

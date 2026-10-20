@@ -53,7 +53,7 @@ Dependencies:
 """
 
 __author__  = "Pierre-Alexandre HO"
-__version__ = "0.1.7"
+__version__ = "1.0.0"
 
 
 import streamlit as st

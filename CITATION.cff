@@ -3,8 +3,8 @@ message: "If you use SugarMALDI in your research, please cite the software as fo
 
 title: "SugarMALDI: An Application for oligosaccharides' identification in MALDI-MS data."
 
-version: 0.1.7
-date-released: 2026-07-05
+version: 1.0.0
+date-released: 2026-10-21
 
 doi: "10.5281/zenodo.TBD"
 
@@ -20,7 +20,6 @@ authors:
     affiliation:
       - "Université de Lille, CNRS, UAR 3290, MSAP, Miniaturisation pour la Synthèse, l'Analyse et la Protéomique, F-59000 Lille, France"
       - "Shrieking sixties, F-59650 Villeneuve d'Ascq, France"
-    email: "? TBD"
     note: "Correspondence: 1 Allée Lavoisier, 59650 Villeneuve d'Ascq, France"
 
   - family-names: Yammine
@@ -43,7 +42,35 @@ keywords:
   - chemoinformatics
 
 abstract: >
-  TBD
+  Rationale: High-throughput MALDI-MS analyses produce extensive datasets daily.
+  Each spectrum obtained from a complex mixture of oligosaccharides, generated
+  through the enzymatic digestion of polymeric carbohydrates, can contain a vast
+  amount of information requiring processing. Therefore, the availability of
+  specialized informatics tools to facilitate data interpretation is essential.
+
+  Methods: SugarMALDI is introduced as a cloud-based platform designed to support
+  MALDI-MS interpretation of oligosaccharides. It enables the identification of
+  both labeled and unlabeled oligosaccharides in complex MALDI-MS spectra,
+  facilitates molecular formula assignment, and assesses candidate matches
+  according to mass accuracy. Users can select from nine elemental monosaccharides
+  available in the database, as well as define ionization adducts and chemical
+  modifications, and modify parameters, allowing the software to be flexibly
+  tailored to specific analytical contexts.
+
+  Results: Designed for high-throughput workflows, the platform accelerates data
+  processing while ensuring reliable interpretation. It was successfully validated
+  using enzymatically digested standard plant gums, including arabinogalactan and
+  galactomannan, as well as authentic watercolor samples, confirming its robustness
+  and practical relevance. The average execution time was approximately two minutes
+  per file, increasing proportionally with the number of selected monosaccharides.
+  These results highlight the software's efficiency, adaptability, and suitability
+  for diverse analytical applications.
+
+  Conclusions: SugarMALDI provides assisted data interpretation tailored to the
+  needs of glycobiologists and glycochemists. It supports structural and compositional
+  characterization, enables polysaccharide identification, and delivers clear
+  visual reporting of results, thereby streamlining analysis and enhancing the
+  efficiency and reliability of glycomic investigations.
 
 preferred-citation:
   type: software
@@ -56,5 +83,5 @@ preferred-citation:
     - family-names: Yammine
       given-names: Marie
   year: 2026
-  doi: "10.5281/zenodo.TBD"
-  repository: "https://github.com/Protactinium92/SugarMALDI"
+  doi: "10.26434/chemrxiv.15008457/v1"
+  url: "https://doi.org/10.26434/chemrxiv.15008457/v1"
